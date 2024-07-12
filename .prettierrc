@@ -1,0 +1,8 @@
+{
+    "tabWidth": 4,
+    "singleQuote": true,
+    "arrowParens": "avoid",
+    "printWidth": 120,
+    "experimentalTernaries": true,
+    "plugins": ["@ianvs/prettier-plugin-sort-imports"]
+}
