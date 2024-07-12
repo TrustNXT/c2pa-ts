@@ -8,7 +8,7 @@
   "description": "Pure TypeScript implementation of C2PA manifest reading, validation, and creation",
   "devDependencies": {
     "@eslint/js": "^9.6.0",
-    "@ianvs/prettier-plugin-sort-imports": "^4.3.0",
+    "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
     "@types/cbor-js": "^0.1.1",
     "@types/eslint__js": "^8.42.3",
     "@types/node": "^20.14.10",
