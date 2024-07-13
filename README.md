@@ -6,9 +6,9 @@
 
 `c2pa-ts` is a pure TypeScript implementation of [Coalition for Content Provenance and Authenticity (C2PA)](https://c2pa.org/) according to [specification version 2.0](https://c2pa.org/specifications/specifications/2.0/specs/C2PA_Specification.html).
 
-It does not use any native binaries or WebAssembly and is therefore truly platform independent. In modern browsers as well as Node.js it should run out of the box. In mobile apps or other environments lacking browser APIs, some external code may be necessary (see <a href="#usage-in-constrained-environments">below</a> for details).
+It does not use any native binaries or WebAssembly and is therefore truly platform independent. In modern browsers as well as Node.js it should run out of the box. In mobile apps or other environments lacking browser APIs, some external code may be necessary (see [below](#usage-in-constrained-environments) for details).
 
-Developed and curated by <a href="https://trustnxt.com/">TrustNXT</a> in Hamburg, Germany and licensed under the Apache 2.0 License. <a href="#contributing">Contributions welcome!</a>
+Developed and curated by [TrustNXT](https://trustnxt.com) in Hamburg, Germany and licensed under the Apache 2.0 License. [Contributions welcome!](#contributing)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -19,11 +19,13 @@ This library is under active development and not fully functional yet. Proceed w
 Anything that's not listed below is not currently planned to be implemented.
 
 ### Overall functionality
+
 - :white_check_mark: Reading manifests
 - :construction: Validating manifests (mostly implemented except chain of trust validation)
 - :x: Creating manifests
 
 ### Asset file formats
+
 - :white_check_mark: JPEG
 - :white_check_mark: PNG
 - :white_check_mark: HEIC/HEIF
@@ -32,6 +34,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :x: WebP
 
 ### Supported assertions
+
 - :white_check_mark: Data Hash
 - :white_check_mark: BMFF-Based Hash (except Merkle tree hashing)
 - :x: General Boxes Hash
@@ -42,6 +45,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :x: [CAWG](https://github.com/creator-assertions/) assertions
 
 ### JUMBF boxes
+
 - :white_check_mark: CBOR boxes
 - :white_check_mark: JSON boxes
 - :white_check_mark: Codestream boxes
@@ -124,9 +128,9 @@ For more information or a reference iOS implementation, <a href="mailto:mail@tru
 
 Contributions are welcome!
 
-* [Create an issue](https://github.com/TrustNXT/c2pa-ts/issues)
-* [Fork this repository](https://github.com/TrustNXT/c2pa-ts/fork)
-* [Open a pull request](https://github.com/TrustNXT/c2pa-ts/pulls)
+- [Create an issue](https://github.com/TrustNXT/c2pa-ts/issues)
+- [Fork this repository](https://github.com/TrustNXT/c2pa-ts/fork)
+- [Open a pull request](https://github.com/TrustNXT/c2pa-ts/pulls)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -140,8 +144,8 @@ Distributed under the Apache 2.0 License. See `LICENSE.md` for more information.
 
 Created and curated by TrustNXT GmbH, a proud member of CAI and C2PA.
 
- - [Website](https://trustnxt.com/)
- - [LinkedIn](https://www.linkedin.com/company/trustnxt/)
+- [Website](https://trustnxt.com/)
+- [LinkedIn](https://www.linkedin.com/company/trustnxt/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -149,13 +153,13 @@ Created and curated by TrustNXT GmbH, a proud member of CAI and C2PA.
 
 The following resources were helpful during creation of this library:
 
-* [c2pa-rs](https://github.com/contentauth/c2pa-rs/)
-* [public-testfiles](https://github.com/c2pa-org/public-testfiles/)
-* [CAI Discord server](https://discord.gg/CAI)
-* [@peculiar/x509](https://github.com/PeculiarVentures/x509)
-* [PKI.js](https://github.com/PeculiarVentures/PKI.js)
-* [ASN1.js](https://github.com/PeculiarVentures/ASN1.js)
-* [MIPAMS JPEG Systems](https://github.com/nickft/mipams-jpeg-systems)
+- [c2pa-rs](https://github.com/contentauth/c2pa-rs/)
+- [public-testfiles](https://github.com/c2pa-org/public-testfiles/)
+- [CAI Discord server](https://discord.gg/CAI)
+- [@peculiar/x509](https://github.com/PeculiarVentures/x509)
+- [PKI.js](https://github.com/PeculiarVentures/PKI.js)
+- [ASN1.js](https://github.com/PeculiarVentures/ASN1.js)
+- [MIPAMS JPEG Systems](https://github.com/nickft/mipams-jpeg-systems)
 
 Thank you for providing them and keeping open source alive!
 
