@@ -29,6 +29,11 @@
     "crc-32": "^1.2.2",
     "pkijs": "^3.2.1"
   },
+  "mocha": {
+    "require": [
+      "ts-node/register"
+    ]
+  },
   "scripts": {
     "lint": "eslint src",
     "format": "prettier --write src"
