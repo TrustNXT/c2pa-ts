@@ -35,7 +35,8 @@
     ]
   },
   "scripts": {
-    "lint": "eslint src",
-    "format": "prettier --write src"
+    "lint": "eslint src tests",
+    "format": "prettier --write src tests",
+    "test": "mocha 'tests/**/*test.ts'"
   }
 }
