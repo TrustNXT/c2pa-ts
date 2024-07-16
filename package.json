@@ -24,7 +24,7 @@
     "@peculiar/x509": "^1.11.0",
     "cbor-js": "^0.1.0",
     "crc-32": "^1.2.2",
-    "pkijs": "^3.2.0"
+    "pkijs": "^3.2.1"
   },
   "scripts": {
     "lint": "eslint src",
