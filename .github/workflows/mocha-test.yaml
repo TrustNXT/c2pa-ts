@@ -1,0 +1,38 @@
+name: Mocha Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # `Mocha`-based tests
+  run-mocha:
+    name: Run mocha test runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          cache: npm
+          node-version: 22
+
+      - name: Install Dependencies
+        id: npm-ci
+        run: npm ci
+
+      - name: Run Mocha Script
+        id: npm-tests
+        run: npm run test
