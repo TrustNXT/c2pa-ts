@@ -56,7 +56,7 @@ export class AssertionStore implements ManifestComponent {
         }
 
         let assertion: Assertion;
-        switch (box.descriptionBox.label) {
+        switch (label) {
             case AssertionLabels.actions:
             case AssertionLabels.actionsV2:
                 assertion = new ActionAssertion();
