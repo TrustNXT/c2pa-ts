@@ -32,7 +32,8 @@
   },
   "mocha": {
     "require": [
-      "ts-node/register"
+      "ts-node/register",
+      "tests/ensure-example-files-hook.ts"
     ],
     "import": "tsx/esm"
   },
