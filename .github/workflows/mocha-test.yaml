@@ -40,6 +40,11 @@ jobs:
         id: npm-ci
         run: npm ci
 
-      - name: Run Mocha Script
-        id: npm-tests
-        run: npm run test
+      - name: Run Mocha Tests
+        id: mocha-tests
+        run: npx mocha --reporter mocha-ctrf-json-reporter --reporter-options outputDir=. xml tests/**/*.test.ts
+
+      - name: Generate CTRF annotations
+        id: ctrf-annotations
+        run: npx github-actions-ctrf ctrf-report.json
+        if: always()
