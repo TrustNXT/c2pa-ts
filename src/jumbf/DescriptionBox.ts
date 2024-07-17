@@ -59,7 +59,7 @@ export class DescriptionBox extends Box {
 
     public toString(): string {
         const parts: string[] = [];
-        if (this.uuid) parts.push(`UUID: ${BinaryHelper.toHexString(this.uuid)}`);
+        if (this.uuid) parts.push(`UUID: ${BinaryHelper.toUUIDString(this.uuid)}`);
         if (this.requestable) parts.push(`requestable`);
         if (this.hash) parts.push('with hash');
         if (this.label) parts.push(`label: ${this.label}`);
