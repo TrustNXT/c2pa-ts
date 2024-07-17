@@ -67,6 +67,19 @@ export class BinaryHelper {
         return hexString;
     }
 
+    public static toUUIDString(buf: Uint8Array): string {
+        if (buf.length != 16) {
+            return `invalid UUID length=${buf.length}`;
+        }
+
+        let hexString = '';
+        for (const b of buf) {
+            hexString += b.toString(16).padStart(2, '0');
+        }
+        hexString = hexString.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+        return hexString;
+    }
+
     public static toArrayBuffer(buf: Uint8Array): ArrayBuffer {
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
     }
