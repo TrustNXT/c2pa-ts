@@ -11,7 +11,10 @@ export class UUIDBox extends Box {
     }
 
     public parse(buf: Uint8Array) {
-        this.content = buf;
+        if (buf.length < 16) throw new Error('UUIDBox: Data too short');
+
+        this.uuid = buf.subarray(0, 16);
+        this.content = buf.subarray(16);
     }
 
     public toString(prefix?: string | undefined): string {
