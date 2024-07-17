@@ -15,7 +15,7 @@ export class UUIDBox extends Box {
     }
 
     public toString(prefix?: string | undefined): string {
-        let s = `${prefix ?? ''}UUID ${this.uuid ? BinaryHelper.toHexString(this.uuid) : '<empty>'}`;
+        let s = `${prefix ?? ''}UUID ${this.uuid ? BinaryHelper.toUUIDString(this.uuid) : '<empty>'}`;
         if (this.content) s += `, with content (length ${this.content.length})`;
         return s;
     }
