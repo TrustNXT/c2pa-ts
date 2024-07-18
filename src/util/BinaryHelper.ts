@@ -59,12 +59,26 @@ export class BinaryHelper {
         return buf;
     }
 
+    /**
+     * convert bytes to their hex representation
+     * @see fromHexString
+     */
     public static toHexString(buf: Uint8Array): string {
         let hexString = '';
         for (const b of buf) {
             hexString += b.toString(16).padStart(2, '0');
         }
         return hexString;
+    }
+
+    /**
+     * convert hex representation to bytes
+     * @see toHexString
+     */
+    public static fromHexString(hex: string): Uint8Array {
+        const bytes = hex.match(/.{1,2}/g);
+        if (!bytes) throw new Error('not a valid hex string');
+        return new Uint8Array(bytes.map(byte => parseInt(byte, 16)));
     }
 
     public static toUUIDString(buf: Uint8Array): string {
