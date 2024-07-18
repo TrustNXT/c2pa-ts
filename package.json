@@ -54,7 +54,8 @@
     "@peculiar/x509": "^1.11.0",
     "cbor-x": "^1.6.0",
     "crc-32": "^1.2.2",
-    "pkijs": "^3.2.4"
+    "pkijs": "^3.2.4",
+    "typed-binary": "^4.0.1"
   },
   "mocha": {
     "require": [
