@@ -4,7 +4,7 @@ import { Asset, JUMBF, Manifest } from '../src';
 import { ValidationResult, ValidationStatusCode } from '../src/manifest';
 
 // location of the JPEG images within the checked out test files repo
-const baseDir = 'public-testfiles/image/jpeg';
+const baseDir = 'tests/fixtures/public-testfiles/image/jpeg';
 
 class TestExpectations {
     /**
