@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: c2pa-org/public-testfiles
-          path: ./public-testfiles
+          path: ./tests/fixtures/public-testfiles
 
       - name: Setup Node.js
         id: setup-node
