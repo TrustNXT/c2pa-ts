@@ -1,6 +1,12 @@
 import assert from 'assert';
-import { JUMBF } from '../src';
-import { DescriptionBox, EmbeddedFileBox, EmbeddedFileDescriptionBox, JSONBox, SuperBox } from '../src/jumbf';
+import {
+    BoxReader,
+    DescriptionBox,
+    EmbeddedFileBox,
+    EmbeddedFileDescriptionBox,
+    JSONBox,
+    SuperBox,
+} from '../src/jumbf';
 import { UUIDBox } from '../src/jumbf/UUIDBox';
 import { BinaryHelper } from '../src/util';
 
@@ -13,7 +19,7 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = JUMBF.BoxReader.readFromBuffer(jumbf);
+        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
         assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
 
         // validate resulting box
@@ -28,7 +34,7 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = JUMBF.BoxReader.readFromBuffer(jumbf);
+        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
         assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
 
         // validate resulting box
@@ -45,7 +51,7 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = JUMBF.BoxReader.readFromBuffer(jumbf);
+        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
         assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
 
         // validate resulting box
@@ -63,7 +69,7 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = JUMBF.BoxReader.readFromBuffer(jumbf);
+        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
         assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
 
         // validate resulting box
@@ -83,7 +89,7 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = JUMBF.BoxReader.readFromBuffer(jumbf);
+        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
         assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
 
         // validate resulting box
@@ -103,7 +109,7 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = JUMBF.BoxReader.readFromBuffer(jumbf);
+        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
         assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
 
         // validate resulting box

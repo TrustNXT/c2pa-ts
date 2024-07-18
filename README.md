@@ -62,7 +62,10 @@ Example usage in a Node.js environment:
 
 ```typescript
 import * as fs from 'node:fs/promises';
-import { Asset, JUMBF, Manifest, MalformedContentError } from 'c2pa-ts';
+import { MalformedContentError } from 'c2pa-ts';
+import { Asset, BMFF, JPEG, PNG } from 'c2pa-ts/asset';
+import { SuperBox } from 'c2pa-ts/jumbf';
+import { ManifestStore, ValidationResult, ValidationStatusCode } from 'c2pa-ts/manifest';
 
 if (process.argv.length < 3) {
     console.error('Missing filename');
@@ -72,13 +75,13 @@ if (process.argv.length < 3) {
 const buf = await fs.readFile(process.argv[2]);
 
 // Read the asset file and dump some information about its structure
-let asset: Asset.Asset;
-if (Asset.JPEG.canRead(buf)) {
-    asset = new Asset.JPEG(buf);
-} else if (Asset.PNG.canRead(buf)) {
-    asset = new Asset.PNG(buf);
-} else if (Asset.BMFF.canRead(buf)) {
-    asset = new Asset.BMFF(buf);
+let asset: Asset;
+if (JPEG.canRead(buf)) {
+    asset = new JPEG(buf);
+} else if (PNG.canRead(buf)) {
+    asset = new PNG(buf);
+} else if (BMFF.canRead(buf)) {
+    asset = new BMFF(buf);
 } else {
     console.error('Unknown file format');
     process.exit(1);
@@ -89,26 +92,25 @@ console.log(asset.dumpInfo());
 const jumbf = asset.getManifestJUMBF();
 
 if (jumbf) {
-    let validationResult: Manifest.ValidationResult;
+    let validationResult: ValidationResult;
 
     try {
         // Deserialize the JUMBF box structure
-        const superBox = JUMBF.SuperBox.fromBuffer(jumbf);
+        const superBox = SuperBox.fromBuffer(jumbf);
         console.log('JUMBF structure:');
         console.log(superBox.toString());
 
         // Read the manifest store from the JUMBF container
-        const manifests = Manifest.ManifestStore.read(superBox);
+        const manifests = ManifestStore.read(superBox);
 
         // Validate the active manifest
         validationResult = await manifests.validate(asset);
-
     } catch (e) {
         // Gracefully handle any exceptions to make sure we get a well-formed validation result
         if (e instanceof MalformedContentError) {
-            validationResult = Manifest.ValidationResult.error(Manifest.ValidationStatusCode.GeneralError, e.message);
+            validationResult = ValidationResult.error(ValidationStatusCode.GeneralError, e.message);
         } else {
-            validationResult = Manifest.ValidationResult.fromError(e as Error);
+            validationResult = ValidationResult.fromError(e as Error);
         }
     }
 

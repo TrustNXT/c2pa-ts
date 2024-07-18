@@ -1,4 +1,4 @@
-name: Linter
+name: Build TypeScript
 
 on:
   pull_request:
@@ -12,13 +12,8 @@ permissions:
   contents: read
 
 jobs:
-  # `eslint` static analyzer
-  #
-  # The package.json also has a format script built on `prettier`,
-  # but that is already integrated into `eslint` and not invoked
-  # separately here.
   run-eslint:
-    name: Run eslint TypeScript Linter
+    name: Run TypeScript Build
     runs-on: ubuntu-latest
 
     steps:
@@ -37,6 +32,6 @@ jobs:
         id: npm-ci
         run: npm ci
 
-      - name: Run Lint Script
-        id: npm-lint
-        run: npm run lint
+      - name: Run TypeScript Build
+        id: npm-build
+        run: npm run build

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
-import { Asset, JUMBF, Manifest } from '../src';
-import { ValidationResult, ValidationStatusCode } from '../src/manifest';
+import { Asset, JPEG } from '../src/asset';
+import { SuperBox } from '../src/jumbf';
+import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
 
 // location of the JPEG images within the checked out test files repo
 const baseDir = 'tests/fixtures/public-testfiles/image/jpeg';
@@ -159,17 +160,17 @@ describe('Functional JPEG Reading Tests', function () {
                 assert.ok(buf);
             });
 
-            let asset: Asset.Asset | undefined = undefined;
+            let asset: Asset | undefined = undefined;
             it(`constructing the asset`, async function () {
                 if (!buf) {
                     this.skip();
                 }
 
                 // ensure it's a JPEG
-                assert.ok(Asset.JPEG.canRead(buf));
+                assert.ok(JPEG.canRead(buf));
 
                 // construct the asset
-                asset = new Asset.JPEG(buf);
+                asset = new JPEG(buf);
             });
 
             let jumbf: Uint8Array | undefined = undefined;
@@ -195,10 +196,10 @@ describe('Functional JPEG Reading Tests', function () {
                     }
 
                     // deserialize the JUMBF box structure
-                    const superBox = JUMBF.SuperBox.fromBuffer(jumbf);
+                    const superBox = SuperBox.fromBuffer(jumbf);
 
                     // Read the manifest store from the JUMBF container
-                    const manifests = Manifest.ManifestStore.read(superBox);
+                    const manifests = ManifestStore.read(superBox);
 
                     // Validate the asset with the manifest
                     validationResult = await manifests.validate(asset);
