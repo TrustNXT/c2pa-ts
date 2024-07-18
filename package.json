@@ -2,10 +2,34 @@
   "name": "c2pa-ts",
   "version": "0.1.0",
   "type": "module",
-  "main": "src/index.ts",
   "author": "TrustNXT GmbH <mail@trustnxt.com>",
   "license": "Apache-2.0",
   "description": "Pure TypeScript implementation of C2PA manifest reading, validation, and creation",
+  "main": "./dist/src/index.js",
+  "module": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./asset": {
+      "types": "./dist/src/asset/index.d.ts",
+      "import": "./dist/src/asset/index.js"
+    },
+    "./crypto": {
+      "types": "./dist/src/crypto/index.d.ts",
+      "import": "./dist/src/crypto/index.js"
+    },
+    "./jumbf": {
+      "types": "./dist/src/jumbf/index.d.ts",
+      "import": "./dist/src/jumbf/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/src/manifest/index.d.ts",
+      "import": "./dist/src/manifest/index.js"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.7.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
@@ -21,6 +45,7 @@
     "mocha": "^10.6.0",
     "mocha-ctrf-json-reporter": "^0.0.4",
     "prettier": "3.3.3",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.16.2",
     "typescript": "^5.5.3",
@@ -42,6 +67,7 @@
   "scripts": {
     "lint": "eslint src tests",
     "format": "prettier --write src tests",
-    "test": "mocha 'tests/**/*test.ts'"
+    "test": "mocha 'tests/**/*test.ts'",
+    "build": "rimraf dist && tsc -p tsconfig.json"
   }
 }
