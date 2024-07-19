@@ -34,11 +34,11 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
-        assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
+        const box = SuperBox.fromBuffer(jumbf);
 
         // validate resulting box
-        if (!(box instanceof SuperBox)) assert.fail('resulting box has wrong type');
+        assert(box instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(box.uri, 'self#jumbf=/test.superbox');
         assert.ok(box.descriptionBox);
         assert.ok(box.descriptionBox.requestable);
         assert.equal(box.descriptionBox.label, 'test.superbox');
@@ -51,16 +51,19 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
-        assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
+        const box = SuperBox.fromBuffer(jumbf);
 
         // validate resulting box
-        if (!(box instanceof SuperBox)) assert.fail('resulting box has wrong type');
+        assert(box instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(box.uri, 'self#jumbf=/test.superbox_databox');
         assert.ok(box.descriptionBox);
         assert.ok(box.descriptionBox.requestable);
         assert.equal(box.descriptionBox.label, 'test.superbox_databox');
         assert.equal(box.contentBoxes.length, 1);
-        if (!(box.contentBoxes[0] instanceof SuperBox)) assert.fail('nested box has wrong type');
+        const nestedBox1 = box.contentBoxes[0];
+        assert(nestedBox1 instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(nestedBox1.uri, 'self#jumbf=/test.superbox_databox/test.databox');
+        assert.equal(nestedBox1.contentBoxes.length, 0);
     });
 
     it('cai signature box', async () => {
@@ -69,14 +72,14 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
-        assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
+        const box = SuperBox.fromBuffer(jumbf);
 
         // validate resulting box
-        if (!(box instanceof SuperBox)) assert.fail('resulting box has wrong type');
+        assert(box instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(box.uri, 'self#jumbf=/c2pa.signature');
         assert.equal(box.contentBoxes.length, 1);
         const nestedBox = box.contentBoxes[0];
-        if (!(nestedBox instanceof UUIDBox)) assert.fail('nested box has wrong type');
+        assert(nestedBox instanceof UUIDBox, 'nested box has wrong type');
         assert.ok(nestedBox.uuid);
         assert.ok(nestedBox.content);
         assert.equal(BinaryHelper.toHexString(nestedBox.uuid), '6332637300110010800000aa00389b71');
@@ -89,18 +92,18 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
-        assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
+        const box = SuperBox.fromBuffer(jumbf);
 
         // validate resulting box
-        if (!(box instanceof SuperBox)) assert.fail('resulting box has wrong type');
+        assert(box instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(box.uri, 'self#jumbf=/c2pa.location.broad');
         assert.ok(box.descriptionBox);
         assert.equal(box.descriptionBox.label, 'c2pa.location.broad');
         assert.ok(box.descriptionBox.uuid);
         assert.equal(BinaryHelper.toHexString(box.descriptionBox.uuid), '6a736f6e00110010800000aa00389b71');
         assert.equal(box.contentBoxes.length, 1);
         const nestedBox = box.contentBoxes[0];
-        if (!(nestedBox instanceof JSONBox)) assert.fail('nested box has wrong type');
+        assert(nestedBox instanceof JSONBox, 'resulting box has wrong type');
     });
 
     it('assertion store', async () => {
@@ -109,23 +112,26 @@ describe('JUMBF Deserializer Tests', function () {
         );
 
         // deserialize raw data
-        const { box, lBox } = BoxReader.readFromBuffer(jumbf);
-        assert.equal(lBox, jumbf.length, 'buffer contains superfluous data');
+        const box = SuperBox.fromBuffer(jumbf);
 
         // validate resulting box
-        if (!(box instanceof SuperBox)) assert.fail('resulting box has wrong type');
+        assert(box instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(box.uri, 'self#jumbf=/c2pa.assertions');
         assert.equal(box.contentBoxes.length, 2);
         const nestedBox1 = box.contentBoxes[0];
-        if (!(nestedBox1 instanceof SuperBox)) assert.fail('nested box has wrong type');
+        assert(nestedBox1 instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(nestedBox1.uri, 'self#jumbf=/c2pa.assertions/c2pa.claim.thumbnail');
         assert.equal(nestedBox1.contentBoxes.length, 2);
         const nestedBox11 = nestedBox1.contentBoxes[0];
-        if (!(nestedBox11 instanceof EmbeddedFileDescriptionBox)) assert.fail('nested box has wrong type');
+        assert(nestedBox11 instanceof EmbeddedFileDescriptionBox, 'resulting box has wrong type');
+        assert.equal(nestedBox11.mediaType, 'image/jpeg');
         const nestedBox12 = nestedBox1.contentBoxes[1];
-        if (!(nestedBox12 instanceof EmbeddedFileBox)) assert.fail('nested box has wrong type');
+        assert(nestedBox12 instanceof EmbeddedFileBox, 'resulting box has wrong type');
         const nestedBox2 = box.contentBoxes[1];
-        if (!(nestedBox2 instanceof SuperBox)) assert.fail('nested box has wrong type');
+        assert(nestedBox2 instanceof SuperBox, 'resulting box has wrong type');
+        assert.equal(nestedBox2.uri, 'self#jumbf=/c2pa.assertions/c2pa.identity');
         assert.equal(nestedBox2.contentBoxes.length, 1);
         const nestedBox21 = nestedBox2.contentBoxes[0];
-        if (!(nestedBox21 instanceof JSONBox)) assert.fail('nested box has wrong type');
+        assert(nestedBox21 instanceof JSONBox, 'resulting box has wrong type');
     });
 });
