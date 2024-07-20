@@ -74,9 +74,24 @@ export class SuperBox extends Box {
     }
 
     public static fromBuffer(buf: Uint8Array): SuperBox {
-        const box = BoxReader.readFromBuffer(buf, 'self#jumbf=').box;
-        if (!(box instanceof SuperBox)) throw new Error('Outer box is not a JUMBF super box');
+        const reader = new bin.BufferReader(buf, { endianness: 'big' });
+        const box = SuperBox.schema.read(reader);
+
+        const rootURI = 'self#jumbf=';
+
+        // set URI fields on this and nested boxes
+        SuperBox.applyURI(box, rootURI);
+
         return box;
+    }
+
+    private static applyURI(box: SuperBox, uri: string) {
+        if (box.descriptionBox!.label) {
+            box.uri = `${uri}/${box.descriptionBox!.label}`;
+        }
+        box.contentBoxes.forEach(subBox => {
+            if (subBox instanceof SuperBox) SuperBox.applyURI(subBox, box.uri!);
+        });
     }
 
     public parse(buf: Uint8Array, uriPrefix?: string) {
