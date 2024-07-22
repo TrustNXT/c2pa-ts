@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises';
 import { Asset, JPEG } from '../src/asset';
 import { SuperBox } from '../src/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
+import { BinaryHelper } from '../src/util';
 
 // location of the JPEG images within the checked out test files repo
 const baseDir = 'tests/fixtures/public-testfiles/image/jpeg';
@@ -150,6 +151,8 @@ const testFiles = {
 };
 
 describe('Functional JPEG Reading Tests', function () {
+    this.timeout(0);
+
     for (const [filename, test] of Object.entries(testFiles)) {
         const data = Object.assign(new TestExpectations(), test);
         describe(`test file ${filename}`, () => {
@@ -197,6 +200,24 @@ describe('Functional JPEG Reading Tests', function () {
 
                     // deserialize the JUMBF box structure
                     const superBox = SuperBox.fromBuffer(jumbf);
+
+                    // verify raw content
+                    // Note: The raw content does not include the header (length, type),
+                    // hence the offset 8. The limit to 50 bytes is for dev experience
+                    // and because Mocha can't handle 10k+ size strings.
+                    // TODO: The input data in `jumbf` is not consumed completely, maybe
+                    // we could truncate the data before presenting it as JUMBF structure?
+                    assert.ok(superBox.rawContent);
+                    assert.equal(
+                        superBox.rawContent.length,
+                        jumbf.length - 8,
+                        'not all JUMBF data was stored as raw data',
+                    );
+                    assert.equal(
+                        BinaryHelper.toHexString(superBox.rawContent.subarray(0, 50)),
+                        BinaryHelper.toHexString(jumbf.subarray(8, 50 + 8)),
+                        'the stored raw content is different from the stored JUMBF data',
+                    );
 
                     // Read the manifest store from the JUMBF container
                     const manifests = ManifestStore.read(superBox);
