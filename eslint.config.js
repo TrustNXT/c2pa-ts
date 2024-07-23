@@ -22,6 +22,7 @@ export default tseslint.config(
             '@typescript-eslint/no-empty-function': ['error', { allow: ['private-constructors'] }],
             '@typescript-eslint/prefer-nullish-coalescing': ['error', { ignoreConditionalTests: true }],
             'no-console': 'error',
+            'complexity': ['warn', { max: 20 }],
         },
     },
 );
