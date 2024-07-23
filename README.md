@@ -107,11 +107,7 @@ if (jumbf) {
         validationResult = await manifests.validate(asset);
     } catch (e) {
         // Gracefully handle any exceptions to make sure we get a well-formed validation result
-        if (e instanceof MalformedContentError) {
-            validationResult = ValidationResult.error(ValidationStatusCode.GeneralError, e.message);
-        } else {
-            validationResult = ValidationResult.fromError(e as Error);
-        }
+        validationResult = ValidationResult.fromError(e as Error);
     }
 
     console.log('Validation result', validationResult);

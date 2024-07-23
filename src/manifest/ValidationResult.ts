@@ -1,4 +1,5 @@
 import * as JUMBF from '../jumbf';
+import { MalformedContentError } from '../util';
 import * as raw from './rawTypes';
 import { ValidationStatusCode, ValidationStatusEntry } from './types';
 import { ValidationError } from './ValidationError';
@@ -77,20 +78,23 @@ export class ValidationResult {
 
     /**
      * Maps a thrown exception to a matching validation error
-     * @param e ValidationError or generic Error
+     * @param e ValidationError, MalformedContentError, or generic Error
      * @param uri Optional URI string or JUMBF box object that the problem applies to
      */
     public handleError(e: Error, uri?: JUMBF.IBox | string) {
         if (e instanceof ValidationError) {
             this.add(e.code, e.uri ?? uri, e.message);
+        } else if (e instanceof MalformedContentError) {
+            this.add(ValidationStatusCode.GeneralError, uri, e.message);
         } else {
             this.add(ValidationStatusCode.GeneralError, uri, `Internal error (${e.name})`);
         }
         this.isValid = false;
     }
 
-    /** Utility method to create a new ValidationResult based on a thrown exception
-     * @param e ValidationError or generic Error
+    /**
+     * Utility method to create a new ValidationResult based on a thrown exception
+     * @param e ValidationError, MalformedContentError, or generic Error
      * @param uri Optional URI string or JUMBF box object that the problem applies to
      */
     public static fromError(e: Error, uri?: JUMBF.IBox | string) {
