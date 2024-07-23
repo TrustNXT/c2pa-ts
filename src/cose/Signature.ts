@@ -222,6 +222,24 @@ export class Signature {
         }
 
         // Check key usage extensions
+        const keyUsageError = this.validateCertificateKeyUsage(certificate, isUsedForManifestSigning);
+        if (keyUsageError) return keyUsageError;
+
+        // Check for allowed signature algorithm
+        const algorithmError = this.validateCertificateAlgorithm(certificate);
+        if (algorithmError) return algorithmError;
+
+        // Check timestamp
+        if (certificate.notBefore >= validityTimestamp || certificate.notAfter <= validityTimestamp)
+            return ValidationStatusCode.SigningCredentialExpired;
+
+        return ValidationStatusCode.SigningCredentialTrusted;
+    }
+
+    private static validateCertificateKeyUsage(
+        certificate: X509Certificate,
+        isUsedForManifestSigning: boolean,
+    ): ValidationStatusCode | undefined {
         const basicConstraints = certificate.getExtension(BasicConstraintsExtension);
         const keyUsages = certificate.getExtension(KeyUsagesExtension);
         const extendedKeyUsages = certificate.getExtension(ExtendedKeyUsageExtension);
@@ -273,7 +291,10 @@ export class Signature {
                 return ValidationStatusCode.SigningCredentialInvalid;
         }
 
-        // Check for allowed signature algorithm
+        return undefined;
+    }
+
+    private static validateCertificateAlgorithm(certificate: X509Certificate): ValidationStatusCode | undefined {
         const signatureAlgorithm = certificate.signatureAlgorithm;
         if (
             signatureAlgorithm.name !== 'RSASSA-PKCS1-v1_5' &&
@@ -312,10 +333,6 @@ export class Signature {
         // Any other public key algorithms are valid as certificates but will fail when used for signature
         // creation/validation as there aren't any matching allowed COSE algorithms
 
-        // Check timestamp
-        if (certificate.notBefore >= validityTimestamp || certificate.notAfter <= validityTimestamp)
-            return ValidationStatusCode.SigningCredentialExpired;
-
-        return ValidationStatusCode.SigningCredentialTrusted;
+        return undefined;
     }
 }
