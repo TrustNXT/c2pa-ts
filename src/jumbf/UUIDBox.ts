@@ -3,7 +3,7 @@ import { Box } from './Box';
 
 export class UUIDBox extends Box {
     public static readonly typeCode = 'uuid';
-    public uuid?: Uint8Array;
+    public uuid: Uint8Array = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     public content?: Uint8Array;
 
     constructor() {
@@ -18,7 +18,7 @@ export class UUIDBox extends Box {
     }
 
     public toString(prefix?: string | undefined): string {
-        let s = `${prefix ?? ''}UUID ${this.uuid ? BinaryHelper.toUUIDString(this.uuid) : '<empty>'}`;
+        let s = `${prefix ?? ''}UUID: ${BinaryHelper.toUUIDString(this.uuid)}`;
         if (this.content) s += `, with content (length ${this.content.length})`;
         return s;
     }
