@@ -5,7 +5,7 @@ import { IBox } from './IBox';
 
 export class DescriptionBox extends Box {
     public static readonly typeCode = 'jumd';
-    public uuid?: Uint8Array;
+    public uuid: Uint8Array = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     public requestable?: boolean;
     public label: string | undefined;
     public id: number | undefined;
@@ -58,8 +58,7 @@ export class DescriptionBox extends Box {
     }
 
     public toString(): string {
-        const parts: string[] = [];
-        if (this.uuid) parts.push(`UUID: ${BinaryHelper.toUUIDString(this.uuid)}`);
+        const parts: string[] = [`UUID: ${BinaryHelper.toUUIDString(this.uuid)}`];
         if (this.requestable) parts.push(`requestable`);
         if (this.hash) parts.push('with hash');
         if (this.label) parts.push(`label: ${this.label}`);
