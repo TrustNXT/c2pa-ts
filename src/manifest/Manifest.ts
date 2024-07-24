@@ -38,7 +38,7 @@ export class Manifest implements ManifestComponent {
      * @param parentStore The manifest store this manifest is located in
      */
     public static read(box: JUMBF.SuperBox, parentStore: ManifestStore): Manifest | undefined {
-        if (!box.descriptionBox?.uuid) throw new MalformedContentError('Manifest box is missing UUID');
+        if (!box.descriptionBox) throw new MalformedContentError('Manifest box is missing a description box');
 
         if (BinaryHelper.bufEqual(box.descriptionBox.uuid, raw.UUIDs.compressedManifest)) {
             throw new MalformedContentError('Compressed manifests are not supported');

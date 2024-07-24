@@ -36,10 +36,7 @@ export class ManifestStore {
         const manifestStore = new ManifestStore();
         manifestStore.sourceBox = superBox;
 
-        if (
-            !superBox.descriptionBox?.uuid ||
-            !BinaryHelper.bufEqual(superBox.descriptionBox.uuid, raw.UUIDs.manifestStore)
-        )
+        if (!superBox.descriptionBox || !BinaryHelper.bufEqual(superBox.descriptionBox.uuid, raw.UUIDs.manifestStore))
             throw new ValidationError(
                 ValidationStatusCode.ClaimRequiredMissing,
                 superBox,

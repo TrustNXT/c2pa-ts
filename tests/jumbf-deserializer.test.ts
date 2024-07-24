@@ -80,9 +80,8 @@ describe('JUMBF Deserializer Tests', function () {
         assert.equal(box.contentBoxes.length, 1);
         const nestedBox = box.contentBoxes[0];
         assert(nestedBox instanceof UUIDBox, 'nested box has wrong type');
-        assert.ok(nestedBox.uuid);
-        assert.ok(nestedBox.content);
         assert.equal(BinaryHelper.toHexString(nestedBox.uuid), '6332637300110010800000aa00389b71');
+        assert.ok(nestedBox.content);
         assert.equal(nestedBox.content.length, 47);
     });
 
@@ -99,7 +98,6 @@ describe('JUMBF Deserializer Tests', function () {
         assert.equal(box.uri, 'self#jumbf=/c2pa.location.broad');
         assert.ok(box.descriptionBox);
         assert.equal(box.descriptionBox.label, 'c2pa.location.broad');
-        assert.ok(box.descriptionBox.uuid);
         assert.equal(BinaryHelper.toHexString(box.descriptionBox.uuid), '6a736f6e00110010800000aa00389b71');
         assert.equal(box.contentBoxes.length, 1);
         const nestedBox = box.contentBoxes[0];
