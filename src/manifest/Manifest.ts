@@ -176,6 +176,49 @@ export class Manifest implements ManifestComponent {
         }
 
         // Basic manifest validity checks
+        result.merge(this.validateAssertionPresence());
+
+        // Validate redacted assertions
+        for (const assertion of this.claim.redactedAssertions) {
+            const redactedAssertion = this.getAssertion(assertion);
+            if (!redactedAssertion) {
+                result.addError(ValidationStatusCode.AssertionMissing, assertion.uri);
+                continue;
+            }
+
+            result.merge(await this.validateRedactedAssertion(assertion, redactedAssertion));
+        }
+
+        // Validate claimed assertions
+        const referencedAssertions: Assertion[] = [];
+        for (const assertion of this.claim.assertions) {
+            const referencedAssertion = this.getAssertion(assertion);
+            if (!referencedAssertion) {
+                result.addError(ValidationStatusCode.AssertionMissing, assertion.uri);
+                continue;
+            }
+            referencedAssertions.push(referencedAssertion);
+
+            result.merge(await this.validateAssertion(assertion, referencedAssertion));
+        }
+
+        // Only process asset data if everything has been validated so far
+        if (!result.isValid) return result;
+
+        // Validate assertions against asset data (e.g. hash matches)
+        for (const assertion of referencedAssertions) {
+            result.merge(await assertion.validateAgainstAsset(asset));
+        }
+
+        return result;
+    }
+
+    /**
+     * Validates that the correct assertions exist for the manifest type
+     */
+    private validateAssertionPresence(): ValidationResult {
+        const result = new ValidationResult();
+
         if (this.type === ManifestType.Standard) {
             // Standard manifests need to have exactly one hard binding
             const hardBindings = this.assertions?.getHardBindings() ?? [];
@@ -211,55 +254,6 @@ export class Manifest implements ManifestComponent {
             }
         }
 
-        // Validate redacted assertions
-        for (const assertion of this.claim.redactedAssertions) {
-            const redactedAssertion = this.getAssertion(assertion);
-            if (!redactedAssertion) {
-                result.addError(ValidationStatusCode.AssertionMissing, assertion.uri);
-                continue;
-            }
-
-            if (!(await this.validateHashedReference(assertion))) {
-                result.addError(ValidationStatusCode.AssertionHashedURIMismatch, assertion.uri);
-                continue;
-            }
-
-            // Action assertions should not be redacted
-            if (
-                redactedAssertion.label === AssertionLabels.actions ||
-                redactedAssertion.label === AssertionLabels.actionsV2
-            ) {
-                result.addError(ValidationStatusCode.AssertionActionRedacted, assertion.uri);
-                continue;
-            }
-
-            // Can't redact assertions from the same claim
-            if (this.claim.assertions.some(other => other.uri === assertion.uri)) {
-                result.addError(ValidationStatusCode.AssertionSelfRedacted, assertion.uri);
-            }
-        }
-
-        // Validate claimed assertions
-        const referencedAssertions: Assertion[] = [];
-        for (const assertion of this.claim.assertions) {
-            const referencedAssertion = this.getAssertion(assertion);
-            if (!referencedAssertion) {
-                result.addError(ValidationStatusCode.AssertionMissing, assertion.uri);
-                continue;
-            }
-            referencedAssertions.push(referencedAssertion);
-
-            result.merge(await this.validateAssertion(assertion, referencedAssertion));
-        }
-
-        // Only process asset data if everything has been validated so far
-        if (!result.isValid) return result;
-
-        // Validate assertions against asset data (e.g. hash matches)
-        for (const assertion of referencedAssertions) {
-            result.merge(await assertion.validateAgainstAsset(asset));
-        }
-
         return result;
     }
 
@@ -286,6 +280,33 @@ export class Manifest implements ManifestComponent {
         }
 
         return result;
+    }
+
+    /**
+     * Validates a redacted assertion
+     */
+    private async validateRedactedAssertion(
+        assertion: HashedURI,
+        redactedAssertion: Assertion,
+    ): Promise<ValidationResult> {
+        if (!(await this.validateHashedReference(assertion))) {
+            return ValidationResult.error(ValidationStatusCode.AssertionHashedURIMismatch, assertion.uri);
+        }
+
+        // Action assertions should not be redacted
+        if (
+            redactedAssertion.label === AssertionLabels.actions ||
+            redactedAssertion.label === AssertionLabels.actionsV2
+        ) {
+            return ValidationResult.error(ValidationStatusCode.AssertionActionRedacted, assertion.uri);
+        }
+
+        // Can't redact assertions from the same claim
+        if (this.claim?.assertions.some(other => other.uri === assertion.uri)) {
+            return ValidationResult.error(ValidationStatusCode.AssertionSelfRedacted, assertion.uri);
+        }
+
+        return ValidationResult.success();
     }
 
     /**

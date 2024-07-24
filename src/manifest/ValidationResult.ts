@@ -42,14 +42,14 @@ export class ValidationResult {
     }
 
     /**
-     * Utility method to create a new ValidationResult with a single success message
+     * Utility method to create a new ValidationResult with an optional single success message
      * @param code Status code as defined by C2PA specification
      * @param uri Optional URI string or JUMBF box object that the status applies to
      * @param explanation Optional further human-readable explanation of the status
      */
-    public static success(code: ValidationStatusCode, uri?: JUMBF.IBox | string, explanation?: string) {
+    public static success(code?: ValidationStatusCode, uri?: JUMBF.IBox | string, explanation?: string) {
         const result = new ValidationResult();
-        result.addInformational(code, uri, explanation);
+        if (code) result.addInformational(code, uri, explanation);
         return result;
     }
 

@@ -169,7 +169,16 @@ class BoxReader {
     }
 }
 
-class Box<T extends object> {
+export interface BMFFBox<T extends object> {
+    offset: number;
+    size: number;
+    type: string;
+    payload: T;
+    userType: Uint8Array | undefined;
+    childBoxes: Box<object>[];
+}
+
+class Box<T extends object> implements BMFFBox<T> {
     public payload: T;
     public userType: Uint8Array | undefined;
     public childBoxes: Box<object>[] = [];
