@@ -72,6 +72,6 @@ export class SuperBox extends Box {
     public getByUUID(uuid: Uint8Array): SuperBox[] {
         return this.contentBoxes
             .filter((box): box is SuperBox => box instanceof SuperBox)
-            .filter(box => box.descriptionBox?.uuid && BinaryHelper.bufEqual(box.descriptionBox.uuid, uuid));
+            .filter(box => box.descriptionBox && BinaryHelper.bufEqual(box.descriptionBox.uuid, uuid));
     }
 }
