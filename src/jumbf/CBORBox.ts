@@ -1,5 +1,4 @@
-import cbor from 'cbor-js';
-import { BinaryHelper } from '../util';
+import * as cbor from 'cbor-x';
 import { Box } from './Box';
 
 export class CBORBox extends Box {
@@ -14,7 +13,12 @@ export class CBORBox extends Box {
     public parse(buf: Uint8Array) {
         this.rawContent = buf;
         try {
-            this.content = cbor.decode(BinaryHelper.toArrayBuffer(buf));
+            this.content = cbor.decode(buf);
+
+            // Ignore unknown CBOR tags
+            if (this.content instanceof cbor.Tag) {
+                this.content = this.content.value;
+            }
         } catch {
             // TODO This needs to be properly reported as a validation error
             throw new Error('CBORBox: Invalid CBOR data');
