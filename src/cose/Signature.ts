@@ -11,7 +11,7 @@ import {
     SubjectKeyIdentifierExtension,
     X509Certificate,
 } from '@peculiar/x509';
-import cbor from 'cbor-js';
+import * as cbor from 'cbor-x';
 import { PKIStatus, SignedData, TimeStampResp, TSTInfo } from 'pkijs';
 import { Crypto, ECDSANamedCurve, HashAlgorithm, SigningAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
@@ -35,7 +35,7 @@ export class Signature {
 
         let protectedBucket: ProtectedBucket | undefined;
         try {
-            protectedBucket = cbor.decode(BinaryHelper.toArrayBuffer(rawContent[0])) as ProtectedBucket;
+            protectedBucket = cbor.decode(rawContent[0]) as ProtectedBucket;
         } catch {
             /* empty */
         }
