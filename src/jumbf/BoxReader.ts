@@ -8,6 +8,7 @@ import { EmbeddedFileBox } from './EmbeddedFileBox';
 import { EmbeddedFileDescriptionBox } from './EmbeddedFileDescriptionBox';
 import { IBox } from './IBox';
 import { JSONBox } from './JSONBox';
+import { fallback } from './schemata';
 import { SuperBox } from './SuperBox';
 import { UUIDBox } from './UUIDBox';
 
@@ -54,7 +55,7 @@ export class BoxReader {
             case UUIDBox.typeCode:
                 return new UUIDBox();
             default:
-                return new Box(boxType);
+                return new Box(boxType, fallback);
         }
     }
 }
