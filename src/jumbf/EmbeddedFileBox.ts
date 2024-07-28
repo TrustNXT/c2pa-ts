@@ -41,10 +41,6 @@ export class EmbeddedFileBox extends Box {
         super(EmbeddedFileBox.typeCode, EmbeddedFileBox.schema);
     }
 
-    public parse(buf: Uint8Array) {
-        this.content = buf;
-    }
-
     public toString(prefix?: string | undefined): string {
         return `${prefix ?? ''}Embedded file content (length ${this.content?.length ?? 0})`;
     }

@@ -37,10 +37,6 @@ export class CodestreamBox extends Box {
         super(CodestreamBox.typeCode, CodestreamBox.schema);
     }
 
-    public parse(buf: Uint8Array) {
-        this.content = buf;
-    }
-
     public toString(prefix?: string | undefined): string {
         return `${prefix ?? ''}Codestream content (length ${this.content?.length ?? 0})`;
     }

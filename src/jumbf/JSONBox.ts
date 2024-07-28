@@ -1,5 +1,4 @@
 import * as bin from 'typed-binary';
-import { BinaryHelper } from '../util';
 import { Box } from './Box';
 import { BoxSchema } from './BoxSchema';
 import * as schemata from './schemata';
@@ -48,15 +47,6 @@ export class JSONBox extends Box {
 
     constructor() {
         super(JSONBox.typeCode, JSONBox.schema);
-    }
-
-    public parse(buf: Uint8Array) {
-        try {
-            this.content = JSON.parse(BinaryHelper.readString(buf, 0, buf.length));
-        } catch {
-            // TODO This needs to be properly reported as a validation error
-            throw new Error('JSONBox: Invalid JSON data');
-        }
     }
 
     public toString(prefix?: string): string {

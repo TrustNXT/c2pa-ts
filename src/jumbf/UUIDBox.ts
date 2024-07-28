@@ -43,13 +43,6 @@ export class UUIDBox extends Box {
         super(UUIDBox.typeCode, UUIDBox.schema);
     }
 
-    public parse(buf: Uint8Array) {
-        if (buf.length < 16) throw new Error('UUIDBox: Data too short');
-
-        this.uuid = buf.subarray(0, 16);
-        this.content = buf.subarray(16);
-    }
-
     public toString(prefix?: string | undefined): string {
         let s = `${prefix ?? ''}UUID: ${BinaryHelper.toUUIDString(this.uuid)}`;
         if (this.content) s += `, with content (length ${this.content.length})`;

@@ -10,9 +10,6 @@ export class Box implements IBox {
         this.schema = schema;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
-    public parse(buf: Uint8Array) {}
-
     public toString(prefix?: string | undefined) {
         return `${prefix ?? ''}${this.type}`;
     }

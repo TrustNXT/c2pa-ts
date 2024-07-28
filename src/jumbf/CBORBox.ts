@@ -79,21 +79,6 @@ export class CBORBox extends Box {
         super(CBORBox.typeCode, CBORBox.schema);
     }
 
-    public parse(buf: Uint8Array) {
-        this.rawContent = buf;
-        try {
-            this.content = cbor.decode(buf);
-
-            // Ignore unknown CBOR tags
-            if (this.content instanceof cbor.Tag) {
-                this.content = this.content.value;
-            }
-        } catch {
-            // TODO This needs to be properly reported as a validation error
-            throw new Error('CBORBox: Invalid CBOR data');
-        }
-    }
-
     public toString(prefix?: string): string {
         return (prefix ?? '') + 'CBOR content';
     }

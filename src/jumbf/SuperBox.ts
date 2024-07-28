@@ -1,7 +1,6 @@
 import * as bin from 'typed-binary';
 import { BinaryHelper } from '../util';
 import { Box } from './Box';
-import { BoxReader } from './BoxReader';
 import { BoxSchema } from './BoxSchema';
 import { DescriptionBox } from './DescriptionBox';
 import { GenericBoxSchema } from './GenericBoxSchema';
@@ -92,23 +91,6 @@ export class SuperBox extends Box {
         box.contentBoxes.forEach(subBox => {
             if (subBox instanceof SuperBox) SuperBox.applyURI(subBox, box.uri!);
         });
-    }
-
-    public parse(buf: Uint8Array, uriPrefix?: string) {
-        this.rawContent = buf;
-
-        while (buf.length > 0) {
-            const { box, lBox } = BoxReader.readFromBuffer(buf, this.uri);
-            if (box instanceof DescriptionBox) {
-                this.descriptionBox = box;
-                if (uriPrefix && this.descriptionBox.label) this.uri = uriPrefix + '/' + this.descriptionBox.label;
-            } else {
-                this.contentBoxes.push(box);
-            }
-            buf = buf.subarray(lBox);
-        }
-
-        if (!this.descriptionBox) throw new Error('Super box is missing description box');
     }
 
     public toString(prefix?: string) {
