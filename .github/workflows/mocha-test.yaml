@@ -42,7 +42,7 @@ jobs:
 
       - name: Run Mocha Tests
         id: mocha-tests
-        run: npx mocha --reporter mocha-ctrf-json-reporter --reporter-options outputDir=. tests/**/*.test.ts
+        run: npx mocha --reporter mocha-ctrf-json-reporter --reporter-options outputDir=. 'tests/**/*.test.ts'
 
       - name: Generate CTRF annotations
         id: ctrf-annotations
