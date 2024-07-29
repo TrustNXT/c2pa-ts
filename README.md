@@ -160,6 +160,7 @@ The following resources were helpful during creation of this library:
 - [MIPAMS JPEG Systems](https://github.com/nickft/mipams-jpeg-systems)
 - [cbor-x](https://github.com/kriszyp/cbor-x)
 - [mocha](https://mochajs.org)
+- [typed-binary](https://github.com/iwoplaza/typed-binary)
 
 Thank you for providing them and keeping open source alive!
 
