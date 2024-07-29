@@ -158,6 +158,8 @@ The following resources were helpful during creation of this library:
 - [PKI.js](https://github.com/PeculiarVentures/PKI.js)
 - [ASN1.js](https://github.com/PeculiarVentures/ASN1.js)
 - [MIPAMS JPEG Systems](https://github.com/nickft/mipams-jpeg-systems)
+- [cbor-x](https://github.com/kriszyp/cbor-x)
+- [mocha](https://mochajs.org)
 
 Thank you for providing them and keeping open source alive!
 
