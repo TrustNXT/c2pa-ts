@@ -42,6 +42,12 @@ export class ManifestStore {
                 superBox,
                 'Manifest store has wrong UUID',
             );
+        if (!superBox.descriptionBox.label)
+            throw new ValidationError(
+                ValidationStatusCode.ClaimRequiredMissing,
+                superBox,
+                'Manifest store box is missing the label',
+            );
 
         superBox.contentBoxes
             .filter((box): box is JUMBF.SuperBox => box instanceof JUMBF.SuperBox)
