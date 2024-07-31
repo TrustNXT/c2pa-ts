@@ -88,4 +88,43 @@ describe('JSONBox Tests', function () {
             assert.equal(JSON.stringify(box.content), JSON.stringify({ a: 1 }));
         });
     });
+
+    describe('UTF-8', function () {
+        it('serialization', async function () {
+            const box = new JSONBox();
+            box.content = { shrug: '🤷‍♂️' };
+
+            // fetch schema from the box
+            const schema = box.schema;
+
+            // write the box to a buffer
+            const length = schema.measure(box).size;
+            const buffer = Buffer.alloc(length);
+            const writer = new bin.BufferWriter(buffer, { endianness: 'big' });
+            schema.write(writer, box);
+
+            // verify expected buffer contents
+            assert.equal(
+                BinaryHelper.toHexString(buffer),
+                '000000216a736f6e7b227368727567223a22f09fa4b7e2808de29982efb88f227d',
+            );
+        });
+
+        it('deserialization', async function () {
+            const buffer = BinaryHelper.fromHexString(
+                '000000216a736f6e7b227368727567223a22f09fa4b7e2808de29982efb88f227d',
+            );
+
+            // fetch schema from the box class
+            const schema = JSONBox.schema;
+
+            // read the box from the buffer
+            const reader = new bin.BufferReader(buffer, { endianness: 'big' });
+            const box = schema.read(reader);
+
+            // validate resulting box
+            if (!(box instanceof JSONBox)) assert.fail('resulting box has wrong type');
+            assert.equal((box.content as Record<string, string>).shrug, '🤷‍♂️');
+        });
+    });
 });
