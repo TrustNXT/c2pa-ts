@@ -3,7 +3,6 @@ import { Box } from './Box';
 import { BoxSchema } from './BoxSchema';
 import * as schemata from './schemata';
 
-// TODO: JSON is UTF-8, but we're reading bytes as if they were codepoints here
 class JSONBoxSchema extends BoxSchema<JSONBox> {
     readonly length = schemata.length;
     readonly type = schemata.type;
@@ -11,10 +10,12 @@ class JSONBoxSchema extends BoxSchema<JSONBox> {
     readContent(input: bin.ISerialInput, type: string, length: number): JSONBox {
         if (type != JSONBox.typeCode) throw new Error(`JSONBox: Unexpected type ${type}`);
 
-        let json = '';
-        for (let i = 0; i < length - 8; i++) {
-            json += String.fromCharCode(input.readByte());
+        const payloadLength = length - 8;
+        const jsonBuffer = new Uint8Array(payloadLength);
+        for (let i = 0; i < payloadLength; i++) {
+            jsonBuffer[i] = input.readByte();
         }
+        const json = new TextDecoder().decode(jsonBuffer);
 
         const box = new JSONBox();
         try {
@@ -27,16 +28,21 @@ class JSONBoxSchema extends BoxSchema<JSONBox> {
         return box;
     }
 
-    writeContent(output: bin.ISerialOutput, value: JSONBox): void {
-        const json = value.content === undefined ? '' : JSON.stringify(value.content);
+    private encodeContent(value: JSONBox): Uint8Array {
+        if (!value.content) return new Uint8Array(0);
+        return new TextEncoder().encode(JSON.stringify(value.content));
+    }
 
-        for (let i = 0; i != json.length; i++) output.writeByte(json.charCodeAt(i));
+    writeContent(output: bin.ISerialOutput, value: JSONBox): void {
+        const jsonBuffer = this.encodeContent(value);
+        for (let i = 0; i != jsonBuffer.length; i++) output.writeByte(jsonBuffer[i]);
     }
 
     measureContent(value: JSONBox, measurer: bin.IMeasurer): bin.IMeasurer {
-        const json = value.content === undefined ? '' : JSON.stringify(value.content);
-
-        return measurer.add(json.length);
+        // We need to do the entire encoding twice (once to measure, once to write) which is
+        // not ideal but unavoidable without rather complicated caching and the resulting
+        // invalidation handling.
+        return measurer.add(this.encodeContent(value).length);
     }
 }
 
