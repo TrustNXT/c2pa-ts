@@ -57,7 +57,7 @@ export class Manifest implements ManifestComponent {
         }
 
         if (!box.descriptionBox.label)
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Claim box is missing label');
+            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Manifest box is missing label');
         manifest.label = box.descriptionBox.label;
 
         const claim = box.getByUUID(raw.UUIDs.claim);
