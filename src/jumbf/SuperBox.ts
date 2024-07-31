@@ -1,41 +1,96 @@
+import * as bin from 'typed-binary';
 import { BinaryHelper } from '../util';
 import { Box } from './Box';
-import { BoxReader } from './BoxReader';
+import { BoxSchema } from './BoxSchema';
 import { DescriptionBox } from './DescriptionBox';
+import { GenericBoxSchema } from './GenericBoxSchema';
 import { IBox } from './IBox';
+
+class SuperBoxSchema extends BoxSchema<SuperBox> {
+    // Note: This doesn't work due to a circular import.
+    // readonly contentBoxes = new GenericBoxSchema();
+
+    readContent(input: bin.ISerialInput, type: string, length: number): SuperBox {
+        if (type != SuperBox.typeCode) throw new Error(`SuperBox: Unexpected type ${type}`);
+
+        const box = new SuperBox();
+
+        // read raw content excluding (length, type) header
+        const rawContentSchema = bin.arrayOf(bin.byte, length - 8);
+        const buf = rawContentSchema.read(input);
+        box.rawContent = new Uint8Array(buf);
+        input.skipBytes(-(length - 8));
+
+        const end = input.currentByteOffset + length - 8;
+        const nestedBoxSchema = new GenericBoxSchema();
+        while (input.currentByteOffset < end) {
+            const nestedBox = nestedBoxSchema.read(input);
+            if (nestedBox instanceof DescriptionBox) {
+                box.descriptionBox = nestedBox;
+            } else {
+                box.contentBoxes.push(nestedBox);
+            }
+        }
+        if (input.currentByteOffset > end)
+            throw new Error(
+                `SuperBox: Private field data exceeded box length by ${input.currentByteOffset - end} bytes`,
+            );
+
+        if (!box.descriptionBox) throw new Error('SuperBox: Missing description box');
+
+        return box;
+    }
+
+    writeContent(output: bin.ISerialOutput, value: SuperBox): void {
+        if (!value.descriptionBox) throw new Error('SuperBox: Missing description box');
+
+        value.descriptionBox.schema.write(output, value.descriptionBox);
+        value.contentBoxes.forEach(box => {
+            box.schema.write(output, box);
+        });
+    }
+
+    measureContent(value: SuperBox, measurer: bin.IMeasurer): bin.IMeasurer {
+        if (!value.descriptionBox) throw new Error('SuperBox: Missing description box');
+
+        return measurer.add(
+            value.descriptionBox.schema.measure(value.descriptionBox).size + // description box
+                value.contentBoxes.reduce((acc, box) => acc + box.schema.measure(box).size, 0),
+        );
+    }
+}
 
 export class SuperBox extends Box {
     public static readonly typeCode = 'jumb';
+    public static readonly schema = new SuperBoxSchema();
     public descriptionBox?: DescriptionBox;
     public contentBoxes: IBox[] = [];
     public rawContent: Uint8Array | undefined;
     public uri: string | undefined;
 
     constructor() {
-        super(SuperBox.typeCode);
+        super(SuperBox.typeCode, SuperBox.schema);
     }
 
     public static fromBuffer(buf: Uint8Array): SuperBox {
-        const box = BoxReader.readFromBuffer(buf, 'self#jumbf=').box;
-        if (!(box instanceof SuperBox)) throw new Error('Outer box is not a JUMBF super box');
+        const reader = new bin.BufferReader(buf, { endianness: 'big' });
+        const box = SuperBox.schema.read(reader);
+
+        const rootURI = 'self#jumbf=';
+
+        // set URI fields on this and nested boxes
+        SuperBox.applyURI(box, rootURI);
+
         return box;
     }
 
-    public parse(buf: Uint8Array, uriPrefix?: string) {
-        this.rawContent = buf;
-
-        while (buf.length > 0) {
-            const { box, lBox } = BoxReader.readFromBuffer(buf, this.uri);
-            if (box instanceof DescriptionBox) {
-                this.descriptionBox = box;
-                if (uriPrefix && this.descriptionBox.label) this.uri = uriPrefix + '/' + this.descriptionBox.label;
-            } else {
-                this.contentBoxes.push(box);
-            }
-            buf = buf.subarray(lBox);
+    private static applyURI(box: SuperBox, uri: string) {
+        if (box.descriptionBox!.label) {
+            box.uri = `${uri}/${box.descriptionBox!.label}`;
         }
-
-        if (!this.descriptionBox) throw new Error('Super box is missing description box');
+        box.contentBoxes.forEach(subBox => {
+            if (subBox instanceof SuperBox) SuperBox.applyURI(subBox, box.uri!);
+        });
     }
 
     public toString(prefix?: string) {

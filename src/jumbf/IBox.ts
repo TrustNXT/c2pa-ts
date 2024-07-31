@@ -1,5 +1,7 @@
+import * as bin from 'typed-binary';
+
 export interface IBox {
     type: string;
-    parse(buf: Uint8Array, urlPrefix?: string): void;
+    schema: bin.ISchema<IBox>;
     toString(prefix?: string): string;
 }
