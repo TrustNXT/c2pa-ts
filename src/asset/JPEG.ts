@@ -170,4 +170,14 @@ export class JPEG extends BaseAsset implements Asset {
 
         return undefined;
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    public ensureManifestSpace(length: number): Promise<void> {
+        throw new Error('Method not implemented.');
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
+        throw new Error('Method not implemented.');
+    }
 }

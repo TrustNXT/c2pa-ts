@@ -1,5 +1,8 @@
-export class BaseAsset {
-    constructor(protected readonly data: Uint8Array) {}
+/**
+ * Base class for an asset based on a Uint8Array as its data buffer.
+ */
+export abstract class BaseAsset {
+    constructor(protected data: Uint8Array) {}
 
     public getDataLength(): number {
         return this.data.length;
