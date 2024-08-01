@@ -203,19 +203,10 @@ describe('Functional JPEG Reading Tests', function () {
 
                     // verify raw content
                     // Note: The raw content does not include the header (length, type),
-                    // hence the offset 8. The limit to 50 bytes is for dev experience
-                    // and because Mocha can't handle 10k+ size strings.
-                    // TODO: The input data in `jumbf` is not consumed completely, maybe
-                    // we could truncate the data before presenting it as JUMBF structure?
+                    // hence the offset 8.
                     assert.ok(superBox.rawContent);
-                    assert.equal(
-                        superBox.rawContent.length,
-                        jumbf.length - 8,
-                        'not all JUMBF data was stored as raw data',
-                    );
-                    assert.equal(
-                        BinaryHelper.toHexString(superBox.rawContent.subarray(0, 50)),
-                        BinaryHelper.toHexString(jumbf.subarray(8, 50 + 8)),
+                    assert.ok(
+                        BinaryHelper.bufEqual(superBox.rawContent, jumbf.subarray(8)),
                         'the stored raw content is different from the stored JUMBF data',
                     );
 
