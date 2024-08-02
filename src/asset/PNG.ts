@@ -81,7 +81,8 @@ export class PNG extends BaseAsset implements Asset {
 
             this.chunks.push(new Chunk(pos, chunkLength, chunkType, crc));
 
-            if (chunkType === 'caBX' && !this.manifestChunkIndex) this.manifestChunkIndex = this.chunks.length - 1;
+            if (chunkType === 'caBX' && this.manifestChunkIndex === undefined)
+                this.manifestChunkIndex = this.chunks.length - 1;
 
             pos += chunkLength;
         }
@@ -91,7 +92,7 @@ export class PNG extends BaseAsset implements Asset {
      * Extracts the manifest store in raw JUMBF format from caBX type chunks.
      */
     public getManifestJUMBF(): Uint8Array | undefined {
-        if (!this.manifestChunkIndex) return undefined;
+        if (this.manifestChunkIndex === undefined) return undefined;
         return this.chunks[this.manifestChunkIndex].getSubBuffer(this.data);
     }
 
@@ -99,7 +100,7 @@ export class PNG extends BaseAsset implements Asset {
         let shiftAmount = 0; // The number of bytes that everything after the manifest chunk will need to be moved forward
         let manifestChunk: Chunk;
 
-        if (this.manifestChunkIndex) {
+        if (this.manifestChunkIndex !== undefined) {
             // There is already a manifest chunk: Make sure it is large enough and shift remaining chunks by the
             // number of bytes the chunk needs to be enlarged (if any)
             manifestChunk = this.chunks[this.manifestChunkIndex];
@@ -108,7 +109,7 @@ export class PNG extends BaseAsset implements Asset {
         } else {
             // Insert the manifest chunk just before the first IDAT chunk
             this.manifestChunkIndex = this.chunks.findIndex(c => c.type === 'IDAT');
-            if (!this.manifestChunkIndex) {
+            if (this.manifestChunkIndex === -1) {
                 // There is no IDAT – probably not a valid PNG anyway but let's just put the manifest at the end
                 this.manifestChunkIndex = this.chunks.length;
             }
@@ -155,7 +156,10 @@ export class PNG extends BaseAsset implements Asset {
     }
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
-        if (!this.manifestChunkIndex || this.chunks[this.manifestChunkIndex].payloadLength < jumbf.length) {
+        if (
+            this.manifestChunkIndex === undefined ||
+            this.chunks[this.manifestChunkIndex].payloadLength < jumbf.length
+        ) {
             throw new Error('Not enough space in asset file');
         }
 
