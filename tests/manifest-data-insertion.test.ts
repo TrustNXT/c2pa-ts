@@ -1,0 +1,79 @@
+import assert from 'node:assert/strict';
+import * as crypto from 'node:crypto';
+import * as fs from 'node:fs/promises';
+import { Asset, JPEG, PNG } from '../src/asset';
+import { BinaryHelper } from '../src/util';
+
+const baseDir = 'tests/fixtures';
+
+const manifestData = {
+    small: Buffer.alloc(100),
+    large: Buffer.alloc(10000),
+};
+for (const buffer of Object.values(manifestData)) crypto.randomFillSync(buffer);
+
+describe('Asset Manifest Data Insertion Tests', function () {
+    this.timeout(0);
+
+    const assetTypes = [
+        {
+            name: 'PNG',
+            assetClass: PNG,
+            testFile: 'trustnxt-icon.png',
+        },
+        {
+            name: 'JPEG',
+            assetClass: JPEG,
+            testFile: 'trustnxt-icon.jpg',
+        },
+    ];
+
+    for (const assetType of assetTypes) {
+        describe(`Insert manifest data into ${assetType.name} file`, () => {
+            let asset: Asset;
+            it(`load ${assetType.name}`, async () => {
+                const buf = await fs.readFile(`${baseDir}/${assetType.testFile}`);
+                assert.ok(buf);
+                asset = new assetType.assetClass(buf);
+                assert.ok(asset);
+            });
+
+            it('ensure no existing JUMBF', async function () {
+                if (!asset) {
+                    this.skip();
+                }
+
+                assert.ok(!asset.getManifestJUMBF());
+            });
+
+            it('try to add too large data', async function () {
+                if (!asset) {
+                    this.skip();
+                }
+
+                await asset.ensureManifestSpace(manifestData.small.length);
+                await assert.rejects(
+                    () => asset.writeManifestJUMBF(manifestData.large),
+                    'Should not allow writing data larger than available space',
+                );
+            });
+
+            for (const dataType of ['small', 'large']) {
+                it(`add ${dataType} data and re-read asset`, async function () {
+                    const data = manifestData[dataType as keyof typeof manifestData];
+
+                    if (!asset) {
+                        this.skip();
+                    }
+
+                    await asset.ensureManifestSpace(data.length);
+                    await asset.writeManifestJUMBF(data);
+                    const newAsset = new assetType.assetClass(await asset.getDataRange());
+                    const newManifest = newAsset.getManifestJUMBF();
+                    assert.ok(newManifest, 'No manifest data in updated file');
+                    assert.ok(BinaryHelper.bufEqual(newManifest, data), 'Manifest data does not have expected content');
+                });
+            }
+        });
+    }
+});
