@@ -42,7 +42,7 @@
     "eslint-plugin-prettier": "^5.2.1",
     "github-actions-ctrf": "^0.0.21",
     "mocha": "^10.7.0",
-    "mocha-ctrf-json-reporter": "^0.0.4",
+    "mocha-ctrf-json-reporter": "^0.0.6",
     "prettier": "3.3.3",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
