@@ -1,6 +1,7 @@
 import * as COSE from '../cose';
 import * as JUMBF from '../jumbf';
 import { MalformedContentError } from '../util';
+import * as raw from './rawTypes';
 import { ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 import { ValidationResult } from './ValidationResult';
@@ -28,6 +29,19 @@ export class Signature implements ManifestComponent {
         signature.signatureData = box.contentBoxes[0].content;
 
         return signature;
+    }
+
+    public generateJUMBFBox(): JUMBF.SuperBox {
+        const box = new JUMBF.SuperBox();
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.label = 'c2pa.signature';
+        box.descriptionBox.uuid = raw.UUIDs.signature;
+        const contentBox = new JUMBF.CBORBox();
+        contentBox.content = this.signatureData;
+        box.contentBoxes.push(contentBox);
+
+        this.sourceBox = box;
+        return this.sourceBox;
     }
 
     public async validate(payload: Uint8Array): Promise<ValidationResult> {
