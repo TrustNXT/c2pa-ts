@@ -8,9 +8,16 @@ const baseDir = 'tests/fixtures';
 
 const manifestData = {
     small: Buffer.alloc(100),
-    large: Buffer.alloc(10000),
+    large: Buffer.alloc(200000),
 };
-for (const buffer of Object.values(manifestData)) crypto.randomFillSync(buffer);
+for (const buffer of Object.values(manifestData)) {
+    // Construct a dummy JUMBF header (just enough to satisfy the JPEG parser) and
+    // fill the rest with random bytes
+    const dataView = new DataView(buffer.buffer);
+    dataView.setUint32(0, buffer.length);
+    buffer.set(BinaryHelper.fromHexString('6A756D62000000116A756D6463327061'), 4);
+    crypto.randomFillSync(buffer, 36);
+}
 
 describe('Asset Manifest Data Insertion Tests', function () {
     this.timeout(0);
@@ -68,10 +75,17 @@ describe('Asset Manifest Data Insertion Tests', function () {
 
                     await asset.ensureManifestSpace(data.length);
                     await asset.writeManifestJUMBF(data);
+                    const manifest = asset.getManifestJUMBF();
+                    assert.ok(manifest, 'No manifest data in asset after adding');
+                    assert.ok(BinaryHelper.bufEqual(manifest, data), 'Manifest data does not have expected content');
+
                     const newAsset = new assetType.assetClass(await asset.getDataRange());
                     const newManifest = newAsset.getManifestJUMBF();
                     assert.ok(newManifest, 'No manifest data in updated file');
-                    assert.ok(BinaryHelper.bufEqual(newManifest, data), 'Manifest data does not have expected content');
+                    assert.ok(
+                        BinaryHelper.bufEqual(newManifest, data),
+                        'Manifest data does not have expected content after reading back file',
+                    );
                 });
             }
         });
