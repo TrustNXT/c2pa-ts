@@ -7,7 +7,8 @@ import { ValidationResult } from './ValidationResult';
 
 export class Signature implements ManifestComponent {
     public label?: string;
-    public sourceBox: JUMBF.SuperBox | undefined;
+    public signatureData: unknown;
+    public sourceBox?: JUMBF.SuperBox;
 
     public static read(box: JUMBF.SuperBox): Signature {
         if (!box.contentBoxes.length || !(box.contentBoxes[0] instanceof JUMBF.CBORBox))
@@ -24,12 +25,14 @@ export class Signature implements ManifestComponent {
             throw new ValidationError(ValidationStatusCode.ClaimSignatureMissing, box, 'Signature has invalid label');
         signature.label = box.descriptionBox.label;
 
+        signature.signatureData = box.contentBoxes[0].content;
+
         return signature;
     }
 
     public async validate(payload: Uint8Array): Promise<ValidationResult> {
         try {
-            const sig = COSE.Signature.readFromJUMBF(this.sourceBox!.contentBoxes[0] as JUMBF.CBORBox);
+            const sig = COSE.Signature.readFromJUMBFData(this.signatureData);
             return sig.validate(payload, this.sourceBox);
         } catch (e) {
             if (e instanceof MalformedContentError) {

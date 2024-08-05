@@ -29,9 +29,9 @@ export class Signature {
     public signature?: Uint8Array;
     public timeStampResponses: TimeStampResp[] = [];
 
-    public static readFromJUMBF(box: JUMBF.CBORBox) {
+    public static readFromJUMBFData(content: unknown) {
         const signature = new Signature();
-        const rawContent = box.content as CoseSignature;
+        const rawContent = content as CoseSignature;
 
         let protectedBucket: ProtectedBucket | undefined;
         try {
