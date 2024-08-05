@@ -48,6 +48,55 @@ export class Claim implements ManifestComponent {
         return claim;
     }
 
+    public generateJUMBFBox(): JUMBF.SuperBox {
+        const box = new JUMBF.SuperBox();
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        const contentBox = new JUMBF.CBORBox();
+        box.contentBoxes.push(contentBox);
+        switch (this.version) {
+            case ClaimVersion.V1:
+                box.descriptionBox.label = 'c2pa.claim';
+                // TODO: Several values here are pure fantasy, they are not
+                // present in the Claim but only stored in the CBOR data used
+                // in tests. In any case, we should define our own generator
+                // name.
+                contentBox.content = {
+                    alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
+                    // TODO: alg_soft:
+                    assertions: this.assertions.map(assertion => {
+                        if (assertion.algorithm === this.defaultAlgorithm) {
+                            return {
+                                url: assertion.uri,
+                                hash: assertion.hash,
+                            };
+                        } else {
+                            return {
+                                url: assertion.uri,
+                                hash: assertion.hash,
+                                alg: Claim.reverseMapHashAlgorithm(assertion.algorithm),
+                            };
+                        }
+                    }),
+                    claim_generator: 'make_test_images/0.16.1 c2pa-rs/0.16.1',
+                    // TODO: claim_generator_info:
+                    'dc:format': 'image/jpeg',
+                    'dc:title': 'C.jpg',
+                    instanceID: 'xmp:iid:f7ba134b-8dec-4334-911d-a30409e32d8e',
+                    // TODO: metadata:
+                    // TODO: redacted_assertions:
+                    signature: this.signatureRef,
+                };
+                break;
+            case ClaimVersion.V2:
+                box.descriptionBox.label = 'c2pa.claim.v2';
+                contentBox.content = []; // TODO, add the actual content
+                break;
+        }
+
+        this.sourceBox = box;
+        return this.sourceBox;
+    }
+
     public static mapHashAlgorithm(alg: raw.HashAlgorithm | undefined): HashAlgorithm | undefined {
         switch (alg) {
             case 'sha256':
@@ -56,6 +105,19 @@ export class Claim implements ManifestComponent {
                 return 'SHA-384';
             case 'sha512':
                 return 'SHA-512';
+            default:
+                return undefined;
+        }
+    }
+
+    private static reverseMapHashAlgorithm(alg: HashAlgorithm | undefined): raw.HashAlgorithm | undefined {
+        switch (alg) {
+            case 'SHA-256':
+                return 'sha256';
+            case 'SHA-384':
+                return 'sha384';
+            case 'SHA-512':
+                return 'sha512';
             default:
                 return undefined;
         }
