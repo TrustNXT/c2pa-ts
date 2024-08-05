@@ -4,6 +4,7 @@ import { AssertionLabels } from './assertions/AssertionLabels';
 import { BMFFHashAssertion } from './assertions/BMFFHashAssertion';
 import { IngredientAssertion } from './assertions/IngredientAssertion';
 import { Claim } from './Claim';
+import * as raw from './rawTypes';
 import { ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 
@@ -66,6 +67,17 @@ export class AssertionStore implements ManifestComponent {
         assertion.readFromJUMBF(box, claim);
 
         return assertion;
+    }
+
+    public generateJUMBFBox(claim: Claim): JUMBF.SuperBox {
+        const box = new JUMBF.SuperBox();
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.label = this.label;
+        box.descriptionBox.uuid = raw.UUIDs.assertionStore;
+        box.contentBoxes = this.assertions.map(assertion => assertion.generateJUMBFBox(claim));
+
+        this.sourceBox = box;
+        return box;
     }
 
     public getHardBindings() {
