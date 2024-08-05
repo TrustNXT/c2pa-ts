@@ -8,6 +8,8 @@ export class Claim implements ManifestComponent {
     public label?: string;
     public version: ClaimVersion = ClaimVersion.V2;
     public defaultAlgorithm: HashAlgorithm | undefined;
+    public instanceID: string | undefined;
+    public format: string | undefined;
     public assertions: HashedURI[] = [];
     public redactedAssertions: HashedURI[] = [];
     public sourceBox?: JUMBF.SuperBox;
@@ -33,10 +35,13 @@ export class Claim implements ManifestComponent {
         if (box.descriptionBox.label === 'c2pa.claim.v2') {
             claim.version = ClaimVersion.V2;
             const fullContent = claimContent as raw.ClaimV2;
+            claim.instanceID = fullContent.instanceID;
             claim.assertions = fullContent.created_assertions.map(a => claim.mapHashedURI(a));
         } else if (box.descriptionBox.label === 'c2pa.claim') {
             claim.version = ClaimVersion.V1;
             const fullContent = claimContent as raw.ClaimV1;
+            claim.instanceID = fullContent.instanceID;
+            claim.format = fullContent['dc:format'];
             claim.assertions = fullContent.assertions.map(a => claim.mapHashedURI(a));
         } else {
             throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Claim has invalid label');
@@ -46,6 +51,48 @@ export class Claim implements ManifestComponent {
         claim.redactedAssertions = claimContent.redacted_assertions?.map(a => claim.mapHashedURI(a)) ?? [];
 
         return claim;
+    }
+
+    public generateJUMBFBox(): JUMBF.SuperBox {
+        if (!this.instanceID) throw new Error('Claim: missing instanceID');
+
+        const box = new JUMBF.SuperBox();
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.uuid = raw.UUIDs.claim;
+        const contentBox = new JUMBF.CBORBox();
+        box.contentBoxes.push(contentBox);
+        switch (this.version) {
+            case ClaimVersion.V1:
+                if (!this.format) throw new Error('Claim: missing format');
+
+                box.descriptionBox.label = 'c2pa.claim';
+                contentBox.content = {
+                    alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
+                    instanceID: this.instanceID,
+                    signature: this.signatureRef,
+                    // TODO: we should define our own generator name including a version,
+                    // like 'make_test_images/0.16.1 c2pa-rs/0.16.1'
+                    claim_generator: 'c2pa-ts',
+                    'dc:format': this.format,
+                    assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
+                } as raw.ClaimV1;
+                break;
+            case ClaimVersion.V2:
+                box.descriptionBox.label = 'c2pa.claim.v2';
+                contentBox.content = {
+                    alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
+                    instanceID: this.instanceID,
+                    signature: this.signatureRef,
+                    claim_generator_info: {
+                        name: 'c2pa-ts',
+                    } as raw.ClaimGeneratorInfo,
+                    created_assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
+                } as raw.ClaimV2;
+                break;
+        }
+
+        this.sourceBox = box;
+        return this.sourceBox;
     }
 
     public static mapHashAlgorithm(alg: raw.HashAlgorithm | undefined): HashAlgorithm | undefined {
