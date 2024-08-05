@@ -63,6 +63,8 @@ export class PNG extends BaseAsset implements Asset {
     private readChunks() {
         let pos = PNG.pngSignature.length;
 
+        const manifestChunkIndices: number[] = [];
+
         // Read until we found an IEND chunk
         while (!this.chunks.length || this.chunks[this.chunks.length - 1].type !== 'IEND') {
             // We need at least 4 bytes length + 4 bytes chunk type + 4 bytes CRC
@@ -81,11 +83,12 @@ export class PNG extends BaseAsset implements Asset {
 
             this.chunks.push(new Chunk(pos, chunkLength, chunkType, crc));
 
-            if (chunkType === 'caBX' && this.manifestChunkIndex === undefined)
-                this.manifestChunkIndex = this.chunks.length - 1;
+            if (chunkType === 'caBX') manifestChunkIndices.push(this.chunks.length - 1);
 
             pos += chunkLength;
         }
+
+        this.manifestChunkIndex = manifestChunkIndices.length === 1 ? manifestChunkIndices[0] : undefined;
     }
 
     /**
