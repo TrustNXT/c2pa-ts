@@ -100,62 +100,57 @@ export class PNG extends BaseAsset implements Asset {
     }
 
     public async ensureManifestSpace(length: number): Promise<void> {
-        let shiftAmount = 0; // The number of bytes that everything after the manifest chunk will need to be moved forward
-        let manifestChunk: Chunk;
+        // Existing manifest chunk is already large enough?
+        if (this.manifestChunkIndex !== undefined && this.chunks[this.manifestChunkIndex].payloadLength >= length)
+            return;
 
-        if (this.manifestChunkIndex !== undefined) {
-            // There is already a manifest chunk: Make sure it is large enough and shift remaining chunks by the
-            // number of bytes the chunk needs to be enlarged (if any)
-            manifestChunk = this.chunks[this.manifestChunkIndex];
-            shiftAmount = Math.max(length - manifestChunk.payloadLength, 0);
-            manifestChunk.length += shiftAmount;
-        } else {
+        // Ensure there is a manifest chunk in the list of chunks
+        if (this.manifestChunkIndex === undefined) {
             // Insert the manifest chunk just before the first IDAT chunk
             this.manifestChunkIndex = this.chunks.findIndex(c => c.type === 'IDAT');
             if (this.manifestChunkIndex === -1) {
                 // There is no IDAT – probably not a valid PNG anyway but let's just put the manifest at the end
                 this.manifestChunkIndex = this.chunks.length;
             }
+            // Insert manifest chunk stub into chunks array
+            this.chunks.splice(this.manifestChunkIndex, 0, new Chunk(0, 0, 'caBX', 0));
+        }
 
-            // Find the byte position for the new chunk
-            let offset = 0;
-            if (this.manifestChunkIndex > 0) {
-                const previousChunk = this.chunks[this.manifestChunkIndex - 1];
-                offset = previousChunk.offset + previousChunk.length;
+        const parts: {
+            position: number;
+            data: Uint8Array;
+            length?: number;
+        }[] = [
+            {
+                position: 0,
+                data: PNG.pngSignature,
+            },
+        ];
+
+        // Go through all chunks, update their positions, and gather payload for the new PNG
+        let pos = PNG.pngSignature.length;
+        for (let i = 0; i < this.chunks.length; i++) {
+            const chunk = this.chunks[i];
+            let data: Uint8Array;
+
+            if (i === this.manifestChunkIndex) {
+                chunk.length = length + 12;
+                data = new Uint8Array(8);
+                // Write manifest chunk header
+                const dataView = new DataView(data.buffer);
+                dataView.setUint32(0, chunk.payloadLength);
+                chunk.type.split('').forEach((c, i) => dataView.setUint8(4 + i, c.charCodeAt(0)));
+                // Chunk content and CRC are left blank here – will be patched in later
+            } else {
+                data = this.data.subarray(chunk.offset, chunk.offset + chunk.length);
             }
 
-            // Create a manifest chunk and shift remaining chunks by the full length of the new chunk
-            manifestChunk = new Chunk(offset, length + 12, 'caBX', 0);
-            shiftAmount = manifestChunk.length;
-            this.chunks.splice(this.manifestChunkIndex, 0, manifestChunk);
+            chunk.offset = pos;
+            parts.push({ position: pos, data, length: chunk.length });
+            pos += chunk.length;
         }
 
-        // If nothing needs to be moved there's no need to write anything to the file
-        if (shiftAmount === 0) return;
-
-        // Create a new buffer and fill it with everything before the manifest chunk
-        const newData = new Uint8Array(this.data.length + shiftAmount);
-        newData.set(this.data.subarray(0, this.chunks[this.manifestChunkIndex].offset));
-
-        // Fill in manifest chunk header
-        const dataView = new DataView(newData.buffer);
-        dataView.setUint32(manifestChunk.offset, manifestChunk.payloadLength);
-        manifestChunk.type
-            .split('')
-            .forEach((c, i) => dataView.setUint8(manifestChunk.offset + 4 + i, c.charCodeAt(0)));
-        // Manifest chunk content and CRC are left blank here – will be patched in later
-
-        // Copy over remaining chunks at new position
-        for (let i = this.manifestChunkIndex + 1; i < this.chunks.length; i++) {
-            const newOffset = this.chunks[i].offset + shiftAmount;
-            newData.set(
-                this.data.subarray(this.chunks[i].offset, this.chunks[i].offset + this.chunks[i].length),
-                newOffset,
-            );
-            this.chunks[i].offset = newOffset;
-        }
-
-        this.data = newData;
+        this.data = this.assembleBuffer(parts);
     }
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {

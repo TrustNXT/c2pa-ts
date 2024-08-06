@@ -192,98 +192,94 @@ export class JPEG extends BaseAsset implements Asset {
     }
 
     public async ensureManifestSpace(length: number): Promise<void> {
+        // Nothing to do?
         if (this.getJUMBFLength(this.manifestSegments) === length) return;
 
         const maxPayloadSize = 0xffff - 4;
 
-        // Build a new list of segments (and their original location if applicable), removing all existing manifest
-        // segments in the process and adding the new ones
-        const newSegments: {
-            segment: Segment;
-            originalOffset?: number;
-            sequence?: number;
-        }[] = [];
+        const lastSegment = this.segments[this.segments.length - 1];
+        const originalEndOfLastSegment = lastSegment.offset + lastSegment.length;
+
+        // Remove any existing manifest segments
+        if (this.manifestSegments) {
+            this.segments = this.segments.filter((_, i) => !this.manifestSegments?.some(s => s.segmentIndex === i));
+        }
 
         // Put the new APP11 segments after the APP0 segment – or at the beginning as a fallback
-        const newSegmentsIndex = this.segments.findIndex(s => s.type === 0xe0) + 1;
-        const newManifestSegments: typeof this.manifestSegments = [];
+        let newSegmentIndex = this.segments.findIndex(s => s.type === 0xe0) + 1;
+        this.manifestSegments = [];
 
-        let shiftAmount = 0;
+        // Insert new manifest segment stubs
+        let remainingLengthNeeded = length;
+        while (remainingLengthNeeded > 0) {
+            // The first 8 bytes of the JUMBF header are copied over to the beginning of each manifest segment,
+            // so any segments after the first one hold 8 bytes less payload
+            const headerLength = this.manifestSegments.length === 0 ? 8 : 16;
 
+            const segmentPayloadLength = Math.min(remainingLengthNeeded + headerLength, maxPayloadSize);
+
+            const newSegment = new Segment(0, segmentPayloadLength + 4, 0xeb);
+            this.segments.splice(newSegmentIndex, 0, newSegment);
+
+            this.manifestSegments.push({
+                segmentIndex: newSegmentIndex,
+                skipBytes: headerLength,
+            });
+
+            newSegmentIndex++;
+            remainingLengthNeeded -= segmentPayloadLength - headerLength;
+        }
+
+        const parts: {
+            position: number;
+            data: Uint8Array;
+            length?: number;
+        }[] = [
+            {
+                position: 0,
+                data: new Uint8Array([0xff, 0xd8]),
+            },
+        ];
+
+        // Go through all segments, update their positions, and gather payload for the new JPEG
+        let pos = 2;
+        let sequence = 1;
         for (let i = 0; i < this.segments.length; i++) {
             const segment = this.segments[i];
+            let data: Uint8Array;
 
-            if (i === newSegmentsIndex) {
-                // This is where the new APP11 segments go
-                let remainingLengthNeeded = length;
-                let pos = segment.offset;
-                let sequence = 1;
-                while (remainingLengthNeeded > 0) {
-                    // The first 8 bytes of the JUMBF header are copied over to the beginning of each APP11 segment,
-                    // so any segments after the first one hold 8 bytes less payload
-                    const headerLength = sequence === 1 ? 8 : 16;
-
-                    const segmentPayloadLength = Math.min(remainingLengthNeeded + headerLength, maxPayloadSize);
-
-                    const newSegment = new Segment(pos, segmentPayloadLength + 4, 0xeb);
-                    newSegments.push({ segment: newSegment, sequence });
-
-                    newManifestSegments.push({
-                        segmentIndex: newSegments.length - 1,
-                        skipBytes: headerLength,
-                    });
-
-                    sequence++;
-                    pos += newSegment.length;
-                    shiftAmount += newSegment.length;
-                    remainingLengthNeeded -= segmentPayloadLength - headerLength;
-                }
-            }
-
-            if (this.manifestSegments?.some(s => s.segmentIndex === i)) {
-                // Is this one of the existing manifest segments? Splice it out
-                shiftAmount -= segment.length;
-            } else {
-                // Otherwise, keep it and shift position as needed
-                newSegments.push({ segment: segment, originalOffset: segment.offset });
-                segment.offset += shiftAmount;
-            }
-        }
-
-        // Assemble the new file based on the list of segments
-        const newData = new Uint8Array(this.data.length + shiftAmount);
-        newData[0] = 0xff;
-        newData[1] = 0xd8;
-
-        for (const segment of newSegments) {
-            if (segment.originalOffset) {
-                // This is a segment copied from the original file, copy it over entirely
-                newData.set(
-                    this.data.subarray(segment.originalOffset, segment.originalOffset + segment.segment.length),
-                    segment.segment.offset,
-                );
-            } else {
+            if (this.manifestSegments.some(s => s.segmentIndex === i)) {
                 // This is a newly created segment, write its header
-                const dataView = new DataView(newData.buffer, segment.segment.offset, segment.segment.length);
+                data = new Uint8Array(12);
+                const dataView = new DataView(data.buffer);
                 dataView.setUint8(0, 0xff);
-                dataView.setUint8(1, segment.segment.type);
-                dataView.setUint16(2, segment.segment.length - 2);
+                dataView.setUint8(1, segment.type);
+                dataView.setUint16(2, segment.length - 2);
                 dataView.setUint16(4, 0x4a50); // Common Identifier
                 dataView.setUint16(6, 0x0211); // Instance Number – just needs to be non-conflicting; this is what other implementations use
-                dataView.setUint32(8, segment.sequence!);
+                dataView.setUint32(8, sequence++);
+            } else {
+                data = this.data.subarray(segment.offset, segment.offset + segment.length);
             }
+
+            segment.offset = pos;
+
+            parts.push({
+                position: pos,
+                data,
+                length: segment.length,
+            });
+
+            pos += segment.length;
         }
 
-        // Fill buffer with remainder of original image data
-        const lastSegment = newSegments[newSegments.length - 1];
-        newData.set(
-            this.data.subarray(lastSegment.originalOffset! + lastSegment.segment.length),
-            lastSegment.segment.offset + lastSegment.segment.length,
-        );
+        // Append remainder of original image data
+        parts.push({
+            position: pos,
+            data: this.data.subarray(originalEndOfLastSegment),
+        });
 
-        this.segments = newSegments.map(s => s.segment);
-        this.manifestSegments = newManifestSegments;
-        this.data = newData;
+        this.data = this.assembleBuffer(parts);
     }
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
