@@ -73,7 +73,7 @@ export class BMFF extends BaseAsset implements Asset {
         for (let i = 1; i < pathParts.length; i++) {
             let nextBox: Box<object>;
 
-            const m = pathParts[i].match(/^(.+)\[(\d+)\]$/);
+            const m = /^(.+)\[(\d+)\]$/.exec(pathParts[i]);
             if (m) {
                 const index = Number(m[2]);
                 const matchingBoxes = boxes.filter(box => box.type === m[1]);
