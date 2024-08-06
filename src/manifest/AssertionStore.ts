@@ -24,20 +24,14 @@ export class AssertionStore implements ManifestComponent {
             );
         assertionStore.label = box.descriptionBox.label;
 
-        box.contentBoxes.forEach(contentBox => {
-            if (!(contentBox instanceof JUMBF.SuperBox))
-                throw new ValidationError(
-                    ValidationStatusCode.AssertionMissing,
-                    box,
-                    'Assertion store contains invalid boxes',
-                );
-            assertionStore.assertions.push(this.readAssertion(contentBox, claim));
-        });
+        assertionStore.assertions = box.contentBoxes.map(contentBox => this.readAssertion(contentBox, claim));
 
         return assertionStore;
     }
 
-    private static readAssertion(box: JUMBF.SuperBox, claim: Claim): Assertion {
+    private static readAssertion(box: JUMBF.IBox, claim: Claim): Assertion {
+        if (!(box instanceof JUMBF.SuperBox))
+            throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion is not a SuperBox');
         if (!box.descriptionBox?.label)
             throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, box, 'Assertion is missing label');
         if (!box.contentBoxes.length)
