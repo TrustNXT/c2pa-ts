@@ -73,6 +73,10 @@ export class BMFFHashAssertion extends Assertion {
         }
     }
 
+    public generateJUMBFBoxForContent(): JUMBF.IBox {
+        throw new Error('Method not implemented.');
+    }
+
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         // TODO Merkle hashing is currently not implemented
 
