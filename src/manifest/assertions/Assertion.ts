@@ -47,6 +47,21 @@ export abstract class Assertion implements ManifestComponent {
 
     public abstract readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void;
 
+    public generateJUMBFBox(claim: Claim): JUMBF.SuperBox {
+        const box = new JUMBF.SuperBox();
+
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.label = this.fullLabel;
+        if (this.uuid) box.descriptionBox.uuid = this.uuid;
+
+        box.contentBoxes.push(this.generateJUMBFBoxForContent(claim));
+
+        this.sourceBox = box;
+        return box;
+    }
+
+    public abstract generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox;
+
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         return new ValidationResult();
     }
