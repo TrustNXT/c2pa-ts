@@ -94,6 +94,25 @@ export class Manifest implements ManifestComponent {
         }
     }
 
+    public generateJUMBFBox(): JUMBF.SuperBox {
+        if (!this.assertions) throw new Error('Manifest must have assertions');
+        if (!this.claim) throw new Error('Manifest must have a claim');
+        if (!this.signature) throw new Error('Manifest must have a signature');
+
+        const box = new JUMBF.SuperBox();
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.uuid = this.type === ManifestType.Standard ? raw.UUIDs.manifest : raw.UUIDs.updateManifest;
+        box.descriptionBox.label = this.label;
+        box.contentBoxes = [
+            this.assertions.generateJUMBFBox(this.claim),
+            this.claim.generateJUMBFBox(),
+            this.signature.generateJUMBFBox(),
+        ];
+
+        this.sourceBox = box;
+        return box;
+    }
+
     /**
      * Resolves a JUMBF URL to a manifest component
      * @param url JUMBF URL
