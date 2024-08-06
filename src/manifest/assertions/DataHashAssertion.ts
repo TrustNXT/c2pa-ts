@@ -74,6 +74,25 @@ export class DataHashAssertion extends Assertion {
         }
     }
 
+    public generateJUMBFBoxForContent(): JUMBF.IBox {
+        if (!this.hash) throw new Error('Assertion has no hash');
+        if (!this.name) throw new Error('Assertion has no name');
+        if (!this.algorithm) throw new Error('Assertion has no algorithm');
+
+        const content: RawDataHashMap = {
+            exclusions: this.exclusions,
+            alg: Claim.reverseMapHashAlgorithm(this.algorithm),
+            hash: this.hash,
+            pad: new Uint8Array(),
+            name: this.name,
+        };
+
+        const box = new JUMBF.CBORBox();
+        box.content = content;
+
+        return box;
+    }
+
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         if (!this.hash || !this.algorithm) {
             return ValidationResult.error(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
