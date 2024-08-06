@@ -47,16 +47,11 @@ export class AssertionStore implements ManifestComponent {
                 'Assertion is missing content',
             );
 
-        let label = box.descriptionBox.label;
-        let labelSuffix: number | undefined;
-        const match = /^(.+)__(\d+)$/.exec(label);
-        if (match) {
-            label = match[1];
-            labelSuffix = Number(match[2]);
-        }
+        // split the label into the actual label and the index
+        const label = Assertion.splitLabel(box.descriptionBox.label);
 
         let assertion: Assertion;
-        switch (label) {
+        switch (label.label) {
             case AssertionLabels.actions:
             case AssertionLabels.actionsV2:
                 assertion = new ActionAssertion();
@@ -77,8 +72,8 @@ export class AssertionStore implements ManifestComponent {
         assertion.sourceBox = box;
         assertion.uuid = box.descriptionBox.uuid;
         assertion.fullLabel = box.descriptionBox.label;
-        assertion.label = label;
-        assertion.labelSuffix = labelSuffix;
+        assertion.label = label.label;
+        assertion.labelSuffix = label.index;
 
         assertion.readFromJUMBF(box.contentBoxes[0], claim);
 
