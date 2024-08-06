@@ -49,7 +49,7 @@ export class AssertionStore implements ManifestComponent {
 
         let label = box.descriptionBox.label;
         let labelSuffix: number | undefined;
-        const match = label.match(/^(.+)__(\d+)$/);
+        const match = /^(.+)__(\d+)$/.exec(label);
         if (match) {
             label = match[1];
             labelSuffix = Number(match[2]);
