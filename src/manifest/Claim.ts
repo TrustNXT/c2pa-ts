@@ -85,6 +85,22 @@ export class Claim implements ManifestComponent {
         };
     }
 
+    public reverseMapHashedURI(hashedURI: HashedURI): raw.HashedURI {
+        if (hashedURI.algorithm === this.defaultAlgorithm) {
+            // don't store the algorithm redundantly if it's the default
+            return {
+                url: hashedURI.uri,
+                hash: hashedURI.hash,
+            };
+        } else {
+            return {
+                url: hashedURI.uri,
+                hash: hashedURI.hash,
+                alg: Claim.reverseMapHashAlgorithm(hashedURI.algorithm),
+            };
+        }
+    }
+
     public getBytes(): Uint8Array {
         return (this.sourceBox!.contentBoxes[0] as JUMBF.CBORBox).rawContent!;
     }
