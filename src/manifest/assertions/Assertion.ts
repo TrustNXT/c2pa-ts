@@ -12,7 +12,7 @@ export abstract class Assertion implements ManifestComponent {
     public uuid?: Uint8Array;
     public sourceBox: JUMBF.SuperBox | undefined;
 
-    public abstract readFromJUMBF(box: JUMBF.IBox, claim?: Claim): void;
+    public abstract readFromJUMBF(box: JUMBF.IBox, claim: Claim): void;
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         return new ValidationResult();
