@@ -7,50 +7,56 @@ import { ValidationError } from '../ValidationError';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 
+interface RawAction {
+    action: ActionType | string;
+    // `when` currently not implemented
+    softwareAgent?: string;
+    reason?: ActionReason | string;
+    changed?: string;
+    instanceID?: string;
+    parameters?: {
+        [key: string]: unknown;
+        ingredient?: raw.HashedURI;
+        description?: string;
+    };
+    digitalSourceType?: DigitalSourceType;
+}
+
 interface RawActionsMap {
-    actions: {
-        action: ActionType | string;
-        // `when` currently not implemented
-        softwareAgent?: string;
-        reason?: ActionReason | string;
-        changed?: string;
-        instanceID?: string;
-        parameters?: {
-            [key: string]: unknown;
-            ingredient?: raw.HashedURI;
-            description?: string;
-        };
-        digitalSourceType?: DigitalSourceType;
-    }[];
+    actions: RawAction[];
     metadata?: raw.AssertionMetadataMap;
 }
 
-interface RawActionsMapV2 {
-    actions: {
-        action: ActionType | string;
-        softwareAgent?: raw.ClaimGeneratorInfo;
-        description?: string;
-        digitalSourceType?: DigitalSourceType;
-        // `when` currently not implemented
-        // `changed` currently not implemented
-        // `related` currently not implemented
-        reason?: ActionReason | string;
+interface RawActionV2 {
+    action: ActionType | string;
+    softwareAgent?: raw.ClaimGeneratorInfo;
+    description?: string;
+    digitalSourceType?: DigitalSourceType;
+    // `when` currently not implemented
+    // `changed` currently not implemented
+    // `related` currently not implemented
+    reason?: ActionReason | string;
+    instanceID?: string;
+    parameters?: {
+        [key: string]: unknown;
         instanceID?: string;
-        parameters?: {
-            [key: string]: unknown;
-            instanceID?: string;
-            redacted?: string;
-            ingredients?: raw.HashedURI[];
-        };
-    }[];
-    templates?: {
-        action: ActionType | string;
-        softwareAgent?: raw.ClaimGeneratorInfo;
-        description?: string;
-        digitalSourceType?: DigitalSourceType;
-        icon?: raw.HashedURI; // TODO could also be extURI
-        templateParameters?: Record<string, unknown>;
-    }[];
+        redacted?: string;
+        ingredients?: raw.HashedURI[];
+    };
+}
+
+interface RawTemplateV2 {
+    action: ActionType | string;
+    softwareAgent?: raw.ClaimGeneratorInfo;
+    description?: string;
+    digitalSourceType?: DigitalSourceType;
+    icon?: raw.HashedURI; // TODO could also be extURI
+    templateParameters?: Record<string, unknown>;
+}
+
+interface RawActionsMapV2 {
+    actions: RawActionV2[];
+    templates?: RawTemplateV2[];
     metadata?: raw.AssertionMetadataMap;
 }
 
