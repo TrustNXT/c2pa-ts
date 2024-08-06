@@ -128,7 +128,7 @@ export class PNG extends BaseAsset implements Asset {
         ];
 
         // Go through all chunks, update their positions, and gather payload for the new PNG
-        let pos = PNG.pngSignature.length;
+        let targetPosition = PNG.pngSignature.length;
         for (let i = 0; i < this.chunks.length; i++) {
             const chunk = this.chunks[i];
             let data: Uint8Array;
@@ -145,9 +145,9 @@ export class PNG extends BaseAsset implements Asset {
                 data = this.data.subarray(chunk.offset, chunk.offset + chunk.length);
             }
 
-            chunk.offset = pos;
-            parts.push({ position: pos, data, length: chunk.length });
-            pos += chunk.length;
+            chunk.offset = targetPosition;
+            parts.push({ position: targetPosition, data, length: chunk.length });
+            targetPosition += chunk.length;
         }
 
         this.data = this.assembleBuffer(parts);

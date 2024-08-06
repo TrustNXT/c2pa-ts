@@ -242,7 +242,7 @@ export class JPEG extends BaseAsset implements Asset {
         ];
 
         // Go through all segments, update their positions, and gather payload for the new JPEG
-        let pos = 2;
+        let targetPosition = 2;
         let sequence = 1;
         for (let i = 0; i < this.segments.length; i++) {
             const segment = this.segments[i];
@@ -262,20 +262,20 @@ export class JPEG extends BaseAsset implements Asset {
                 data = this.data.subarray(segment.offset, segment.offset + segment.length);
             }
 
-            segment.offset = pos;
+            segment.offset = targetPosition;
 
             parts.push({
-                position: pos,
+                position: targetPosition,
                 data,
                 length: segment.length,
             });
 
-            pos += segment.length;
+            targetPosition += segment.length;
         }
 
         // Append remainder of original image data
         parts.push({
-            position: pos,
+            position: targetPosition,
             data: this.data.subarray(originalEndOfLastSegment),
         });
 
