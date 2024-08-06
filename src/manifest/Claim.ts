@@ -61,6 +61,19 @@ export class Claim implements ManifestComponent {
         }
     }
 
+    public static reverseMapHashAlgorithm(alg: HashAlgorithm | undefined): raw.HashAlgorithm | undefined {
+        switch (alg) {
+            case 'SHA-256':
+                return 'sha256';
+            case 'SHA-384':
+                return 'sha384';
+            case 'SHA-512':
+                return 'sha512';
+            default:
+                return undefined;
+        }
+    }
+
     public mapHashedURI(hashedURI: raw.HashedURI): HashedURI {
         const algorithm = Claim.mapHashAlgorithm(hashedURI.alg) ?? this.defaultAlgorithm;
         if (!algorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported, hashedURI.url);
