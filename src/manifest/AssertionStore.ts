@@ -63,13 +63,7 @@ export class AssertionStore implements ManifestComponent {
                 assertion = new UnknownAssertion();
         }
 
-        assertion.sourceBox = box;
-        assertion.uuid = box.descriptionBox.uuid;
-        assertion.fullLabel = box.descriptionBox.label;
-        assertion.label = label.label;
-        assertion.labelSuffix = label.index;
-
-        assertion.readFromJUMBF(box.contentBoxes[0], claim);
+        assertion.readFromJUMBF(box, claim);
 
         return assertion;
     }

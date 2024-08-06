@@ -24,7 +24,7 @@ export class DataHashAssertion extends Assertion {
     public hash?: Uint8Array;
     public exclusions: HashExclusionRange[] = [];
 
-    public readFromJUMBF(box: JUMBF.IBox): void {
+    public readContentFromJUMBF(box: JUMBF.IBox): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
                 ValidationStatusCode.AssertionRequiredMissing,

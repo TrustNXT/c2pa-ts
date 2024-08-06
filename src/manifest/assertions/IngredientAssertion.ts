@@ -34,7 +34,7 @@ export class IngredientAssertion extends Assertion {
     public relationship?: RelationshipType;
     public manifestReference?: HashedURI;
 
-    public readFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
+    public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
                 ValidationStatusCode.AssertionRequiredMissing,

@@ -1,7 +1,8 @@
 import { Asset } from '../../asset';
 import * as JUMBF from '../../jumbf';
 import { Claim } from '../Claim';
-import { ManifestComponent, ManifestComponentType } from '../types';
+import { ManifestComponent, ManifestComponentType, ValidationStatusCode } from '../types';
+import { ValidationError } from '../ValidationError';
 import { ValidationResult } from '../ValidationResult';
 
 export abstract class Assertion implements ManifestComponent {
@@ -28,7 +29,23 @@ export abstract class Assertion implements ManifestComponent {
         }
     }
 
-    public abstract readFromJUMBF(box: JUMBF.IBox, claim: Claim): void;
+    public readFromJUMBF(box: JUMBF.SuperBox, claim: Claim): void {
+        if (!box.descriptionBox?.label)
+            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, box, 'Assertion is missing label');
+
+        const label = Assertion.splitLabel(box.descriptionBox.label);
+
+        this.sourceBox = box;
+        this.uuid = box.descriptionBox.uuid;
+        this.fullLabel = box.descriptionBox.label;
+        this.label = label.label;
+        this.labelSuffix = label.index;
+
+        // delegate further extraction to derived class
+        this.readContentFromJUMBF(box.contentBoxes[0], claim);
+    }
+
+    public abstract readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void;
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         return new ValidationResult();

@@ -57,7 +57,7 @@ interface RawActionsMapV2 {
 export class ActionAssertion extends Assertion {
     public actions: Action[] = [];
 
-    public readFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
+    public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
                 ValidationStatusCode.AssertionRequiredMissing,
