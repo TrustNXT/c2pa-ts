@@ -48,7 +48,30 @@ export class IngredientAssertion extends Assertion {
             throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
         this.title = content['dc:title'];
         this.format = content['dc:format'];
+        this.documentID = content.documentID;
+        this.instanceID = content.instanceID;
+
         this.relationship = content.relationship;
         if (content.c2pa_manifest) this.manifestReference = claim.mapHashedURI(content.c2pa_manifest);
+    }
+
+    public generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox {
+        if (!this.title) throw new Error('Assertion has no title');
+        if (!this.format) throw new Error('Assertion has no format');
+        if (!this.relationship) throw new Error('Assertion has no relationship');
+
+        const content: RawIngredientMapV2 = {
+            'dc:title': this.title,
+            'dc:format': this.format,
+            documentID: this.documentID,
+            instanceID: this.instanceID,
+            relationship: this.relationship,
+        };
+        if (this.manifestReference) content.c2pa_manifest = claim.reverseMapHashedURI(this.manifestReference);
+
+        const box = new JUMBF.CBORBox();
+        box.content = content;
+
+        return box;
     }
 }
