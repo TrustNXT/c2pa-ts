@@ -6,7 +6,7 @@ import { HashedURI, RelationshipType, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { Assertion } from './Assertion';
 
-interface RawIngredientMap {
+interface RawIngredientMapV2 {
     'dc:title': string;
     'dc:format': string;
     documentID?: string;
@@ -42,7 +42,7 @@ export class IngredientAssertion extends Assertion {
                 'Ingredient assertion has invalid type',
             );
 
-        const content = box.content as RawIngredientMap;
+        const content = box.content as RawIngredientMapV2;
 
         if (!content['dc:title'] || !content['dc:format'] || !content.relationship)
             throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
