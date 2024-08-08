@@ -1,5 +1,5 @@
 import * as JUMBF from '../jumbf';
-import { ActionAssertion, Assertion, DataHashAssertion, UnknownAssertion } from './assertions';
+import { ActionAssertion, Assertion, DataHashAssertion, MetadataAssertion, UnknownAssertion } from './assertions';
 import { AssertionLabels } from './assertions/AssertionLabels';
 import { BMFFHashAssertion } from './assertions/BMFFHashAssertion';
 import { IngredientAssertion } from './assertions/IngredientAssertion';
@@ -59,6 +59,9 @@ export class AssertionStore implements ManifestComponent {
                 break;
             case AssertionLabels.ingredient:
                 assertion = new IngredientAssertion();
+                break;
+            case AssertionLabels.metadata:
+                assertion = new MetadataAssertion();
                 break;
             default:
                 assertion = new UnknownAssertion();

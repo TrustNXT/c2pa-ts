@@ -18,6 +18,8 @@ export class AssertionLabels {
     public static readonly actions = 'c2pa.actions';
     public static readonly actionsV2 = 'c2pa.actions.v2';
 
+    public static readonly metadata = 'c2pa.metadata';
+
     public static readonly thumbnailPrefix = 'c2pa.thumbnail.claim.';
     public static readonly ingredientThumbnailPrefix = 'c2pa.thumbnail.ingredient';
 }
