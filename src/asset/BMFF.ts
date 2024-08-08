@@ -523,9 +523,11 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
             if (this.payload.version > 0) pos++; // reserved, construction_method
             pos += 2; // data_reference_index
             if (this.payload.baseOffsetSize === 8) {
-                dataView.setBigUint64(pos, (item.baseOffset as bigint) + BigInt(amount));
+                item.baseOffset = (item.baseOffset as bigint) + BigInt(amount);
+                dataView.setBigUint64(pos, item.baseOffset);
             } else if (this.payload.baseOffsetSize === 4) {
-                dataView.setUint32(pos, (item.baseOffset as number) + amount);
+                item.baseOffset = (item.baseOffset as number) + amount;
+                dataView.setUint32(pos, item.baseOffset);
             }
             pos += this.payload.baseOffsetSize;
 
@@ -539,9 +541,11 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
                     extent.offset !== 0
                 ) {
                     if (this.payload.offsetSize === 8) {
-                        dataView.setBigUint64(pos, (extent.offset as bigint) + BigInt(amount));
+                        extent.offset = (extent.offset as bigint) + BigInt(amount);
+                        dataView.setBigUint64(pos, extent.offset);
                     } else if (this.payload.offsetSize === 4) {
-                        dataView.setUint32(pos, (extent.offset as number) + amount);
+                        extent.offset = (extent.offset as number) + amount;
+                        dataView.setUint32(pos, extent.offset);
                     }
                 }
                 pos += this.payload.offsetSize;
