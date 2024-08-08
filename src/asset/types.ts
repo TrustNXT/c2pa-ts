@@ -23,4 +23,17 @@ export interface Asset {
      * Returns diagnostic info about the asset structure
      */
     dumpInfo(): string;
+
+    /**
+     * Ensures there is enough space in the asset to hold a JUMBF manifest of the given length.
+     * Note that this leaves the asset's manifest data in an undefined state and must be followed
+     * by a call to `writeManifestJUMBF`.
+     * @param length Manifest length in bytes
+     */
+    ensureManifestSpace(length: number): Promise<void>;
+
+    /**
+     * Fills in the manifest store JUMBF into the previously created sapce.
+     */
+    writeManifestJUMBF(jumbf: Uint8Array): Promise<void>;
 }

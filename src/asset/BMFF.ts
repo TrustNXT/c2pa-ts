@@ -54,10 +54,12 @@ export class BMFF extends BaseAsset implements Asset {
      * Extracts the manifest store in raw JUMBF format from a UUID box
      */
     public getManifestJUMBF(): Uint8Array | undefined {
-        const manifestStores = this.boxes
-            .filter(box => box instanceof C2PABox && box.payload.purpose === 'manifest')
-            .map(box => (box.payload as C2PAManifestBoxPayload).manifestContent);
-        return manifestStores.length === 1 ? manifestStores[0] : undefined;
+        return (this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload | undefined)?.manifestContent;
+    }
+
+    private getManifestStoreBox(): C2PABox | undefined {
+        const manifestStores = this.boxes.filter(box => box instanceof C2PABox && box.payload.purpose === 'manifest');
+        return manifestStores.length === 1 ? (manifestStores[0] as C2PABox) : undefined;
     }
 
     /**
@@ -100,6 +102,68 @@ export class BMFF extends BaseAsset implements Asset {
      */
     public getTopLevelBoxes() {
         return this.boxes;
+    }
+
+    public async ensureManifestSpace(length: number): Promise<void> {
+        // Nothing to do?
+        if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) >= length)
+            return;
+
+        const parts: {
+            position: number;
+            data: Uint8Array;
+            length?: number;
+        }[] = [];
+
+        let targetPosition = 0;
+        let shiftAmount = 0;
+
+        // Go through boxes, remove any existing C2PA box, and add a new one right after ftyp,
+        // assembling them into a new file structure as we go. We currently only care about
+        // top-level boxes. (`box.shiftPosition()` does update child boxes recursively.)
+        for (let i = 0; i < this.boxes.length; i++) {
+            const box = this.boxes[i];
+
+            // Remove existing C2PABox
+            if (box instanceof C2PABox) {
+                shiftAmount -= box.size;
+                this.boxes.splice(i, 1);
+                i--;
+                continue;
+            }
+
+            // Add box (and its child boxes) to new file
+            parts.push({
+                position: targetPosition,
+                data: this.data.subarray(box.offset, box.offset + box.size),
+            });
+            targetPosition += box.size;
+            box.shiftPosition(shiftAmount, this.data);
+
+            // Insert new C2PABox after FileTypeBox
+            if (box instanceof FileTypeBox) {
+                const c2paBox = C2PABox.createManifestBox(targetPosition, length);
+                this.boxes.splice(i + 1, 0, c2paBox);
+                i++;
+                parts.push({
+                    position: targetPosition,
+                    data: c2paBox.getHeader(),
+                    length: c2paBox.size,
+                });
+                targetPosition += c2paBox.size;
+                shiftAmount += c2paBox.size;
+            }
+        }
+
+        this.data = this.assembleBuffer(parts);
+    }
+
+    public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
+        const box = this.getManifestStoreBox();
+        if (!box || (box.payload as C2PAManifestBoxPayload).manifestContent.length < jumbf.length)
+            throw new Error('Not enough space in asset file');
+
+        box.fillManifestContent(this.data, jumbf);
     }
 }
 
@@ -148,6 +212,8 @@ class BoxReader {
                 box = new FileTypeBox(pos, size, payloadPos, payloadSize, boxType);
             } else if (boxType === 'meta') {
                 box = new MetaBox(pos, size, payloadPos, payloadSize, boxType);
+            } else if (boxType === 'iloc') {
+                box = new ItemLocationBox(pos, size, payloadPos, payloadSize, boxType);
             } else if (SimpleContainerBox.boxTypes.has(boxType)) {
                 box = new SimpleContainerBox(pos, size, payloadPos, payloadSize, boxType);
             } else {
@@ -184,7 +250,7 @@ class Box<T extends object> implements BMFFBox<T> {
     public childBoxes: Box<object>[] = [];
 
     public constructor(
-        public readonly offset: number,
+        public offset: number,
         public readonly size: number,
         public payloadOffset: number,
         public payloadSize: number,
@@ -205,6 +271,20 @@ class Box<T extends object> implements BMFFBox<T> {
     protected readChildBoxes(buf: Uint8Array) {
         if (this.payloadSize === 0) return;
         this.childBoxes = Array.from(BoxReader.read(buf, this.payloadOffset, this.payloadSize));
+    }
+
+    /**
+     * Shifts the position of the box by the specified number of bytes. This does not
+     * actually move the data around, it only adjusts the box's properties.
+     * It does, however, patch any values contained inside the box at the box's original
+     * position in `buf`.
+     */
+    public shiftPosition(amount: number, buf: Uint8Array) {
+        if (amount === 0) return;
+
+        this.offset += amount;
+        this.payloadOffset += amount;
+        for (const box of this.childBoxes) box.shiftPosition(amount, buf);
     }
 }
 
@@ -302,6 +382,181 @@ class MetaBox extends FullBox<MetaBoxPayload> {
     }
 }
 
+enum ItemLocationConstructionMethod {
+    file = 0,
+    idat = 1,
+    item = 2,
+}
+
+interface ItemLocationExtent {
+    index?: number | bigint;
+    offset: number | bigint;
+    length: number | bigint;
+}
+
+interface ItemLocationItem {
+    itemID: number;
+    constructionMethod?: ItemLocationConstructionMethod;
+    dataReferenceIndex: number;
+    baseOffset: number | bigint;
+    extents: ItemLocationExtent[];
+}
+
+interface ItemLocationBoxPayload extends FullBoxPayload {
+    offsetSize: 0 | 4 | 8;
+    lengthSize: 0 | 4 | 8;
+    baseOffsetSize: 0 | 4 | 8;
+    indexSize?: 0 | 4 | 8;
+    items: ItemLocationItem[];
+}
+
+class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
+    private readNumber(buf: Uint8Array, pos: number, size: 0 | 4 | 8): number | bigint {
+        switch (size) {
+            case 8:
+                return BinaryHelper.readUInt64(buf, pos);
+            case 4:
+                return BinaryHelper.readUInt32(buf, pos);
+        }
+        return 0;
+    }
+
+    public readContents(buf: Uint8Array): void {
+        super.readContents(buf);
+
+        if (this.payload.version > 2) return;
+        if (this.payloadSize < 6 || (this.payload.version === 2 && this.payloadSize < 8))
+            throw new Error('Malformed BMFF (item location box too small)');
+
+        let pos = this.payloadOffset;
+        const end = this.payloadOffset + this.payloadSize;
+
+        this.payload.offsetSize = (buf[pos] >> 4) as 0 | 4 | 8;
+        this.payload.lengthSize = (buf[pos] & 0x0f) as 0 | 4 | 8;
+        pos++;
+        this.payload.baseOffsetSize = (buf[pos] >> 4) as 0 | 4 | 8;
+        if (this.payload.version === 1 || this.payload.version === 2) {
+            this.payload.indexSize = (buf[pos] & 0x0f) as 0 | 4 | 8;
+        }
+        pos++;
+        let itemCount: number;
+        if (this.payload.version === 2) {
+            itemCount = BinaryHelper.readUInt32(buf, pos);
+            pos += 4;
+        } else {
+            itemCount = BinaryHelper.readUInt16(buf, pos);
+            pos += 2;
+        }
+
+        const minimumItemSize =
+            (this.payload.version === 2 ? 4 : 2) + // item_ID
+            (this.payload.version > 0 ? 2 : 0) + // reserved, construction_method
+            2 + // data_reference_index
+            this.payload.baseOffsetSize + // base_offset
+            2; // extent_count
+
+        const extentSize =
+            (this.payload.version > 0 ? this.payload.indexSize! : 0) + // extend_index
+            this.payload.offsetSize + // extent_offset
+            this.payload.lengthSize; // extent_length
+
+        this.payload.items = [];
+        for (let i = 0; i < itemCount; i++) {
+            if (end - pos < minimumItemSize) throw new Error('Malformed BMFF (item location box too small)');
+
+            let itemID: number;
+            if (this.payload.version === 2) {
+                itemID = BinaryHelper.readUInt32(buf, pos);
+                pos += 4;
+            } else {
+                itemID = BinaryHelper.readUInt16(buf, pos);
+                pos += 2;
+            }
+
+            let constructionMethod: ItemLocationConstructionMethod | undefined;
+            if (this.payload.version > 0) {
+                pos++;
+                constructionMethod = (buf[pos++] & 0x0f) as ItemLocationConstructionMethod;
+            }
+
+            const dataReferenceIndex = BinaryHelper.readUInt16(buf, pos);
+            pos += 2;
+
+            const baseOffset = this.readNumber(buf, pos, this.payload.baseOffsetSize);
+            pos += this.payload.baseOffsetSize;
+
+            const extentCount = BinaryHelper.readUInt16(buf, pos);
+            const extents: ItemLocationExtent[] = [];
+            pos += 2;
+
+            for (let j = 0; j < extentCount; j++) {
+                if (end - pos < extentSize) throw new Error('Malformed BMFF (item location box too small)');
+
+                let index: number | bigint | undefined;
+                if (this.payload.version > 0) {
+                    index = this.readNumber(buf, pos, this.payload.indexSize!);
+                    pos += this.payload.indexSize!;
+                }
+                const offset = this.readNumber(buf, pos, this.payload.offsetSize);
+                pos += this.payload.offsetSize;
+                const length = this.readNumber(buf, pos, this.payload.lengthSize);
+                pos += this.payload.lengthSize;
+                extents.push({ index, offset, length });
+            }
+
+            this.payload.items.push({
+                itemID,
+                constructionMethod,
+                dataReferenceIndex,
+                baseOffset,
+                extents,
+            });
+        }
+    }
+
+    public shiftPosition(amount: number, buf: Uint8Array): void {
+        const dataView = new DataView(buf.buffer, this.payloadOffset);
+        let pos = this.payload.version === 2 ? 6 : 4;
+
+        for (const item of this.payload.items) {
+            pos += this.payload.version === 2 ? 4 : 2; // item_ID
+            if (this.payload.version > 0) pos++; // reserved, construction_method
+            pos += 2; // data_reference_index
+            if (this.payload.baseOffsetSize === 8) {
+                item.baseOffset = (item.baseOffset as bigint) + BigInt(amount);
+                dataView.setBigUint64(pos, item.baseOffset);
+            } else if (this.payload.baseOffsetSize === 4) {
+                item.baseOffset = (item.baseOffset as number) + amount;
+                dataView.setUint32(pos, item.baseOffset);
+            }
+            pos += this.payload.baseOffsetSize;
+
+            pos += 2; // extent_count
+            for (const extent of item.extents) {
+                if (this.payload.indexSize) pos += this.payload.indexSize;
+                if (
+                    (item.constructionMethod ??
+                        ItemLocationConstructionMethod.file === ItemLocationConstructionMethod.file) &&
+                    item.baseOffset === 0 &&
+                    extent.offset !== 0
+                ) {
+                    if (this.payload.offsetSize === 8) {
+                        extent.offset = (extent.offset as bigint) + BigInt(amount);
+                        dataView.setBigUint64(pos, extent.offset);
+                    } else if (this.payload.offsetSize === 4) {
+                        extent.offset = (extent.offset as number) + amount;
+                        dataView.setUint32(pos, extent.offset);
+                    }
+                }
+                pos += this.payload.offsetSize;
+                pos += this.payload.lengthSize;
+            }
+        }
+
+        super.shiftPosition(amount, buf);
+    }
+}
+
 interface C2PABoxPayload extends FullBoxPayload {
     purpose: string;
 }
@@ -316,6 +571,13 @@ class C2PABox extends FullBox<C2PABoxPayload> {
     public static c2paUserType = [
         0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
     ];
+
+    private static readonly headerLength =
+        4 + // size
+        4 + // type
+        16 + // uuid
+        3 + // flags
+        1; // version
 
     public readContents(buf: Uint8Array): void {
         super.readContents(buf);
@@ -342,5 +604,65 @@ class C2PABox extends FullBox<C2PABoxPayload> {
         }
 
         // Merkle tree hashing currently not implemented
+    }
+
+    public static createManifestBox(position: number, manifestLength: number): C2PABox {
+        const innerHeaderLength =
+            'manifest'.length +
+            1 + // null terminator
+            8; // merkleOffset
+
+        const box = new C2PABox(
+            position,
+            C2PABox.headerLength + innerHeaderLength + manifestLength,
+            position + C2PABox.headerLength,
+            manifestLength + innerHeaderLength,
+            'uuid',
+        );
+
+        box.userType = new Uint8Array(C2PABox.c2paUserType);
+        const payload: C2PAManifestBoxPayload = {
+            version: 0,
+            flags: 0,
+            purpose: 'manifest',
+            merkleOffset: 0n,
+            manifestContent: new Uint8Array(manifestLength),
+        };
+        box.payload = payload;
+
+        return box;
+    }
+
+    /**
+     * Returns the box header for the FullBox, not including anything defined in C2PAPayload
+     * (i.e., anything _before_ this.payloadOffset).
+     */
+    public getHeader(): Uint8Array {
+        const header = new Uint8Array(C2PABox.headerLength);
+        const dataView = new DataView(header.buffer);
+        dataView.setUint32(0, this.size);
+        this.type.split('').forEach((c, i) => dataView.setUint8(4 + i, c.charCodeAt(0)));
+        header.set(this.userType!, 8);
+        dataView.setUint8(24, this.payload.version);
+        dataView.setUint8(25, this.payload.flags >> 16);
+        dataView.setUint8(26, this.payload.flags >> 8);
+        dataView.setUint8(27, this.payload.flags);
+
+        return header;
+    }
+
+    /**
+     * Takes the given manifest content and writes the box payload into buf.
+     */
+    public fillManifestContent(buf: Uint8Array, manifest: Uint8Array): void {
+        const payload = this.payload as C2PAManifestBoxPayload;
+        payload.manifestContent.fill(0);
+        payload.manifestContent.set(manifest);
+
+        const dataView = new DataView(buf.buffer, this.payloadOffset, this.payloadSize);
+        payload.purpose.split('').forEach((c, i) => dataView.setUint8(i, c.charCodeAt(0)));
+        dataView.setUint8(payload.purpose.length, 0);
+        dataView.setBigUint64(payload.purpose.length + 1, payload.merkleOffset);
+        buf.set(payload.manifestContent, this.payloadOffset + payload.purpose.length + 9);
     }
 }

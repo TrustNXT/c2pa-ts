@@ -165,9 +165,7 @@ describe('Functional JPEG Reading Tests', function () {
 
             let asset: Asset | undefined = undefined;
             it(`constructing the asset`, async function () {
-                if (!buf) {
-                    this.skip();
-                }
+                if (!buf) this.skip();
 
                 // ensure it's a JPEG
                 assert.ok(JPEG.canRead(buf));
@@ -178,9 +176,7 @@ describe('Functional JPEG Reading Tests', function () {
 
             let jumbf: Uint8Array | undefined = undefined;
             it(`extract the manifest JUMBF`, async function () {
-                if (!asset) {
-                    this.skip();
-                }
+                if (!asset) this.skip();
 
                 // extract the C2PA manifest store in binary JUMBF format
                 jumbf = asset.getManifestJUMBF();
@@ -194,9 +190,7 @@ describe('Functional JPEG Reading Tests', function () {
             if (data.jumbf) {
                 let validationResult: ValidationResult | undefined = undefined;
                 it(`validate manifest`, async function () {
-                    if (!jumbf || !asset) {
-                        this.skip();
-                    }
+                    if (!jumbf || !asset) this.skip();
 
                     // deserialize the JUMBF box structure
                     const superBox = SuperBox.fromBuffer(jumbf);
@@ -220,9 +214,7 @@ describe('Functional JPEG Reading Tests', function () {
 
                 data.statusCodes.forEach(value => {
                     it(`check status code ${value}`, async function () {
-                        if (validationResult === undefined) {
-                            this.skip();
-                        }
+                        if (validationResult === undefined) this.skip();
 
                         assert.ok(
                             validationResult.statusEntries.some(entry => entry.code === value),
