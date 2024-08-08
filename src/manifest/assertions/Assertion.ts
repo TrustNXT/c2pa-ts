@@ -14,7 +14,6 @@ export abstract class Assertion implements ManifestComponent {
 
     public abstract readFromJUMBF(box: JUMBF.IBox, claim?: Claim): void;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         return new ValidationResult();
     }

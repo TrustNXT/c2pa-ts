@@ -7,12 +7,7 @@ class EmbeddedFileDescriptionBoxSchema extends BoxSchema<EmbeddedFileDescription
     readonly fileName = bin.string;
     readonly mediaType = bin.string;
 
-    readContent(
-        input: bin.ISerialInput,
-        type: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        length: number,
-    ): EmbeddedFileDescriptionBox {
+    readContent(input: bin.ISerialInput, type: string, length: number): EmbeddedFileDescriptionBox {
         if (type != EmbeddedFileDescriptionBox.typeCode)
             throw new Error(`EmbeddedFileDescriptionBox: Unexpected type ${type}`);
 

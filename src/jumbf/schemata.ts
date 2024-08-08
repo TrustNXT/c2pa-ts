@@ -71,7 +71,6 @@ class FallbackBoxSchema extends bin.Schema<Box> {
         return new Box(type, this);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     write(output: bin.ISerialOutput, value: Box): void {
         // not implemented:
         // - We could (since we know the length), read and store the
@@ -83,7 +82,6 @@ class FallbackBoxSchema extends bin.Schema<Box> {
         throw new Error('Method not implemented.');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     measure(value: Box, measurer: bin.IMeasurer = new bin.Measurer()): bin.IMeasurer {
         throw new Error('Method not implemented.');
     }
