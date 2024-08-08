@@ -51,17 +51,13 @@ describe('Asset Manifest Data Insertion Tests', function () {
             });
 
             it('ensure no existing JUMBF', async function () {
-                if (!asset) {
-                    this.skip();
-                }
+                if (!asset) this.skip();
 
                 assert.ok(!asset.getManifestJUMBF());
             });
 
             it('try to add too large data', async function () {
-                if (!asset) {
-                    this.skip();
-                }
+                if (!asset) this.skip();
 
                 await asset.ensureManifestSpace(manifestData.small.length);
                 await assert.rejects(
@@ -74,9 +70,7 @@ describe('Asset Manifest Data Insertion Tests', function () {
                 it(`add ${dataType} data and re-read asset`, async function () {
                     const data = manifestData[dataType as keyof typeof manifestData];
 
-                    if (!asset) {
-                        this.skip();
-                    }
+                    if (!asset) this.skip();
 
                     await asset.ensureManifestSpace(data.length);
                     await asset.writeManifestJUMBF(data);
