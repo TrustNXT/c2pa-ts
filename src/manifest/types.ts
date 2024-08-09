@@ -230,7 +230,7 @@ export enum MetadataNamespace {
     XMPPagedText = 'http://ns.adobe.com/xap/1.0/t/pg/',
 }
 
-export type MetadataValue = string | number | MetadataValue[];
+export type MetadataValue = string | number | MetadataValue[] | { [key: string]: MetadataValue };
 
 export interface MetadataEntry {
     namespace: MetadataNamespace | string;

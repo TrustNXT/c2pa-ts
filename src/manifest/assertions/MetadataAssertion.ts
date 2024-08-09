@@ -9,7 +9,13 @@ import { Assertion } from './Assertion';
 // This assertion implements a very simplistic JSON-LD parser/writer. A proper JSON-LD library
 // might be better but also introduces more complexity; for now this seems to do well enough.
 
-type JsonLDItem = MetadataValue | { '@list': JsonLDItem[] } | { '@value': JsonLDItem };
+type JsonLDItem =
+    | string
+    | number
+    | JsonLDItem[]
+    | { '@list': JsonLDItem[] }
+    | { '@value': JsonLDItem }
+    | { [key: string]: JsonLDItem };
 
 interface JsonLDContext {
     '@context': Record<string, string>;
@@ -62,30 +68,20 @@ export class MetadataAssertion extends Assertion {
         }
 
         const content = box.content as JsonLDMetadata;
-        const mapToPrimitive = (item: JsonLDItem): MetadataValue => {
-            if (typeof item === 'object') {
-                if ('@value' in item) return mapToPrimitive(item['@value']);
-                if ('@list' in item) return item['@list'].map(mapToPrimitive);
-            }
-            return item as MetadataValue;
-        };
 
-        if (!content['@context'])
+        const context = content['@context'];
+        if (!context)
             throw new ValidationError(
                 ValidationStatusCode.AssertionJSONInvalid,
                 this.sourceBox,
                 'JSON-LD is missing @context',
             );
 
-        for (const key in content) {
-            if (key === '@context') {
-                const context = content['@context'];
-                for (const prefix in context) {
-                    this.namespacePrefixes[context[prefix]] = prefix;
-                }
-                continue;
-            }
+        for (const prefix in context) {
+            this.namespacePrefixes[context[prefix]] = prefix;
+        }
 
+        const splitKey = (key: string) => {
             let namespace = '';
             let name = key;
 
@@ -109,10 +105,48 @@ export class MetadataAssertion extends Assertion {
                 }
             }
 
+            return { namespace, name };
+        };
+
+        const mapValue = (item: JsonLDItem, expectedNamespace: string): MetadataValue => {
+            if (typeof item === 'object' && !Array.isArray(item)) {
+                // Turn @value into just the value
+                if ('@value' in item) return mapValue(item['@value'], expectedNamespace);
+
+                // Turn @list into in array
+                if ('@list' in item)
+                    return (item['@list'] as JsonLDItem[]).map(val => mapValue(val, expectedNamespace));
+
+                // Map subobjects, removing namespace prefix
+                const obj = item as Record<string, JsonLDItem>;
+                const retObj: Record<string, MetadataValue> = {};
+                for (const key in obj) {
+                    if (key.startsWith('@')) continue;
+
+                    const { namespace, name } = splitKey(key);
+                    if (namespace !== expectedNamespace)
+                        throw new ValidationError(
+                            ValidationStatusCode.AssertionJSONInvalid,
+                            this.sourceBox,
+                            'Subobject contains key from different namespace',
+                        );
+
+                    retObj[name] = mapValue(obj[key], expectedNamespace);
+                }
+                return retObj;
+            }
+            return item as MetadataValue;
+        };
+
+        for (const key in content) {
+            if (key === '@context') continue;
+
+            const { namespace, name } = splitKey(key);
+
             this.entries.push({
                 namespace,
                 name,
-                value: mapToPrimitive(content[key]),
+                value: mapValue(content[key], namespace),
             });
         }
     }
@@ -129,18 +163,30 @@ export class MetadataAssertion extends Assertion {
             context[namespace] = entry.namespace;
         }
 
-        const mapFromPrimitive = (value: MetadataValue): JsonLDItem => {
-            if (Array.isArray(value)) return { '@list': value.map(mapFromPrimitive) };
+        const buildKey = (namespace: string, name: string) => {
+            const prefix = this.namespacePrefixes[namespace];
+            if (prefix) return `${prefix}:${name}`;
+            return `${namespace}/${name}`;
+        };
+
+        const mapValue = (value: MetadataValue, namespace: string): JsonLDItem => {
+            // Turn array into @list
+            if (Array.isArray(value)) return { '@list': value.map(val => mapValue(val, namespace)) };
+
+            // Map subojects, prepending the namespace prefix to keys
+            if (typeof value === 'object') {
+                const obj: Record<string, JsonLDItem> = {};
+                for (const key in value) obj[buildKey(namespace, key)] = mapValue(value[key], namespace);
+                return obj;
+            }
             return value;
         };
+
         box.content = {
             '@context': context,
             ...this.entries.reduce(
                 (acc, entry) => {
-                    const prefix = this.namespacePrefixes[entry.namespace];
-                    const value = mapFromPrimitive(entry.value);
-                    if (prefix) acc[`${prefix}:${entry.name}`] = value;
-                    else acc[`${entry.namespace}/${entry.name}`] = value;
+                    acc[buildKey(entry.namespace, entry.name)] = mapValue(entry.value, entry.namespace);
                     return acc;
                 },
                 {} as Record<string, JsonLDItem>,

@@ -16,6 +16,9 @@ describe('MetadataAssertion Tests', function () {
         },
         'photoshop:DateCreated': 'Aug 31, 2022',
         'Iptc4xmpExt:DigitalSourceType': 'http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture',
+        'Iptc4xmpExt:LocationCreated': {
+            'Iptc4xmpExt:City': 'San Francisco',
+        },
         'exif:GPSLatitude': '39,21.102N',
         'exif:GPSLongitude': '74,26.5737W',
         'exif:GPSTimeStamp': '2019-09-22T18:22:57Z',
@@ -59,6 +62,13 @@ describe('MetadataAssertion Tests', function () {
                 name: 'DigitalSourceType',
                 namespace: MetadataNamespace.IPTCExtension,
                 value: DigitalSourceType.DigitalCapture,
+            },
+            {
+                name: 'LocationCreated',
+                namespace: MetadataNamespace.IPTCExtension,
+                value: {
+                    City: 'San Francisco',
+                },
             },
             {
                 name: 'GPSLatitude',
