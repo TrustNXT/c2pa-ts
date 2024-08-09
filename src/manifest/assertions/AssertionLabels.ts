@@ -31,6 +31,8 @@ export class AssertionLabels {
         AssertionLabels.iptcPhotoMetadata,
     ];
 
+    public static readonly creativeWork = 'stds.schema-org.CreativeWork';
+
     public static readonly thumbnailPrefix = 'c2pa.thumbnail.claim.';
     public static readonly ingredientThumbnailPrefix = 'c2pa.thumbnail.ingredient';
 }

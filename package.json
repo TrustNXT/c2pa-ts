@@ -55,6 +55,7 @@
     "cbor-x": "^1.6.0",
     "crc-32": "^1.2.2",
     "pkijs": "^3.2.4",
+    "schema-dts": "^1.1.2",
     "typed-binary": "^4.0.1"
   },
   "mocha": {

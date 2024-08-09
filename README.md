@@ -41,7 +41,8 @@ Anything that's not listed below is not currently planned to be implemented.
 - :x: Thumbnail
 - :white_check_mark: Actions
 - :white_check_mark: Ingredient
-- :x: Metadata
+- :white_check_mark: Metadata
+- :white_check_mark: Creative Work
 - :x: [CAWG](https://github.com/creator-assertions/) assertions
 
 ### JUMBF boxes
