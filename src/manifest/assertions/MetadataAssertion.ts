@@ -1,4 +1,4 @@
-import { IBox, JSONBox } from '../../jumbf';
+import { CBORBox, IBox, JSONBox } from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
 import * as raw from '../rawTypes';
@@ -45,12 +45,21 @@ export class MetadataAssertion extends Assertion {
     };
 
     public readContentFromJUMBF(box: IBox, claim: Claim): void {
-        if (!(box instanceof JSONBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.jsonAssertion))
+        if (
+            !this.uuid ||
+            // Earlier versions of the specification didn't explicitly specify a JSON box so the JSON-LD
+            // could actually be serialized into a CBOR box
+            !(
+                (BinaryHelper.bufEqual(this.uuid, raw.UUIDs.jsonAssertion) && box instanceof JSONBox) ||
+                (BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion) && box instanceof CBORBox)
+            )
+        ) {
             throw new ValidationError(
                 ValidationStatusCode.AssertionRequiredMissing,
                 this.sourceBox,
                 'Metadata assertion has invalid type',
             );
+        }
 
         const content = box.content as JsonLDMetadata;
         const mapToPrimitive = (item: JsonLDItem): MetadataValue => {

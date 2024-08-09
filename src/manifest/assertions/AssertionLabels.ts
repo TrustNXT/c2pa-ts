@@ -18,7 +18,18 @@ export class AssertionLabels {
     public static readonly actions = 'c2pa.actions';
     public static readonly actionsV2 = 'c2pa.actions.v2';
 
-    public static readonly metadata = 'c2pa.metadata';
+    public static readonly metadata = 'c2pa.metadata'; // C2PA 2.0
+    public static readonly commonMetadata = 'stds.metadata'; // C2PA 1.4
+    public static readonly exifMetadata = 'stds.exif'; // C2PA 1.3
+    public static readonly iptcMetadata = 'stds.iptc'; // C2PA 1.2
+    public static readonly iptcPhotoMetadata = 'stds.iptc.photo-metadata'; // C2PA 1.1
+    public static readonly metadataAssertions = [
+        AssertionLabels.metadata,
+        AssertionLabels.commonMetadata,
+        AssertionLabels.exifMetadata,
+        AssertionLabels.iptcMetadata,
+        AssertionLabels.iptcPhotoMetadata,
+    ];
 
     public static readonly thumbnailPrefix = 'c2pa.thumbnail.claim.';
     public static readonly ingredientThumbnailPrefix = 'c2pa.thumbnail.ingredient';

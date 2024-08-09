@@ -46,25 +46,18 @@ export class AssertionStore implements ManifestComponent {
         const label = Assertion.splitLabel(box.descriptionBox.label);
 
         let assertion: Assertion;
-        switch (label.label) {
-            case AssertionLabels.actions:
-            case AssertionLabels.actionsV2:
-                assertion = new ActionAssertion();
-                break;
-            case AssertionLabels.bmffV2Hash:
-                assertion = new BMFFHashAssertion();
-                break;
-            case AssertionLabels.dataHash:
-                assertion = new DataHashAssertion();
-                break;
-            case AssertionLabels.ingredient:
-                assertion = new IngredientAssertion();
-                break;
-            case AssertionLabels.metadata:
-                assertion = new MetadataAssertion();
-                break;
-            default:
-                assertion = new UnknownAssertion();
+        if (label.label === AssertionLabels.actions || label.label === AssertionLabels.actionsV2) {
+            assertion = new ActionAssertion();
+        } else if (label.label === AssertionLabels.bmffV2Hash) {
+            assertion = new BMFFHashAssertion();
+        } else if (label.label === AssertionLabels.dataHash) {
+            assertion = new DataHashAssertion();
+        } else if (label.label === AssertionLabels.ingredient) {
+            assertion = new IngredientAssertion();
+        } else if (AssertionLabels.metadataAssertions.includes(label.label)) {
+            assertion = new MetadataAssertion();
+        } else {
+            assertion = new UnknownAssertion();
         }
 
         assertion.readFromJUMBF(box, claim);
