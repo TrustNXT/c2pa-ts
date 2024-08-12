@@ -7,6 +7,12 @@ import { ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { Assertion } from './Assertion';
 
+/**
+ * Generic base class for Schema.org based assertions.
+ *
+ * Subclasses are expected to override `readContentFromJUMBF()` and
+ * `generateJUMBFBoxForContent()` and process/set the protected `item` property.
+ */
 export abstract class SchemaOrgAssertion<T extends Thing> extends Assertion {
     protected item?: T;
 

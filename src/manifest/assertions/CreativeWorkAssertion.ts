@@ -5,6 +5,10 @@ import { ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { SchemaOrgAssertion } from './SchemaOrgAssertion';
 
+/**
+ * Schema.org based Creative Work assertion.
+ * (Deprecated as of C2PA 2.0)
+ */
 export class CreativeWorkAssertion extends SchemaOrgAssertion<CreativeWork> {
     public creativeWork: CreativeWork = {
         '@type': 'CreativeWork',

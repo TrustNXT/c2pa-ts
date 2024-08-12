@@ -6,9 +6,6 @@ import { MetadataEntry, MetadataNamespace, MetadataValue, ValidationStatusCode }
 import { ValidationError } from '../ValidationError';
 import { Assertion } from './Assertion';
 
-// This assertion implements a very simplistic JSON-LD parser/writer. A proper JSON-LD library
-// might be better but also introduces more complexity; for now this seems to do well enough.
-
 type JsonLDItem =
     | string
     | number
@@ -22,10 +19,17 @@ interface JsonLDContext {
 }
 type JsonLDMetadata = JsonLDContext & Record<string, JsonLDItem>;
 
+/**
+ * JSON-LD based metadata assertion.
+ *
+ * This assertion implements a very simplistic JSON-LD parser/writer. A proper JSON-LD library
+ * might be better but also introduces more complexity; for now this seems to do well enough.
+ */
 export class MetadataAssertion extends Assertion {
     /**
      * List of metadata entries. If a namespace is used that's not part of the
-     * `MetadataNamespace` enum, it should also be added to `namespaceMappings`. */
+     * `MetadataNamespace` enum, it should also be added to `namespaceMappings`.
+     */
     public entries: MetadataEntry[] = [];
 
     /**
@@ -113,7 +117,7 @@ export class MetadataAssertion extends Assertion {
                 // Turn @value into just the value
                 if ('@value' in item) return mapValue(item['@value'], expectedNamespace);
 
-                // Turn @list into in array
+                // Turn @list into array
                 if ('@list' in item)
                     return (item['@list'] as JsonLDItem[]).map(val => mapValue(val, expectedNamespace));
 
