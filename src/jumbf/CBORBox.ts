@@ -80,6 +80,20 @@ export class CBORBox extends Box {
     }
 
     public toString(prefix?: string): string {
-        return (prefix ?? '') + 'CBOR content';
+        if (this.content === undefined) return (prefix ?? '') + 'CBOR content (empty)';
+
+        try {
+            const s = JSON.stringify(this.content, (key: string, value) => {
+                if (value instanceof Uint8Array) {
+                    // represent as JSON array, not as JSON object
+                    return [...value];
+                }
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return value;
+            });
+            return (prefix ?? '') + 'CBOR content ' + s;
+        } catch {
+            return (prefix ?? '') + 'CBOR content (unserializable)';
+        }
     }
 }
