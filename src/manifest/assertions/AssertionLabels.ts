@@ -18,6 +18,28 @@ export class AssertionLabels {
     public static readonly actions = 'c2pa.actions';
     public static readonly actionsV2 = 'c2pa.actions.v2';
 
+    /** Generic JSON-LD based metadata assertion (C2PA 2.0) */
+    public static readonly metadata = 'c2pa.metadata';
+    /** Common metadata assertion (deprecated as of C2PA 2.0) */
+    public static readonly commonMetadata = 'stds.metadata';
+    /** EXIF metadata assertion (deprecated as of C2PA 1.4) */
+    public static readonly exifMetadata = 'stds.exif';
+    /** IPTC metadata assertion (deprecated as of C2PA 1.3) */
+    public static readonly iptcMetadata = 'stds.iptc';
+    /** IPTC photo metadata assertion (deprecated as of C2PA 1.2) */
+    public static readonly iptcPhotoMetadata = 'stds.iptc.photo-metadata';
+    /** All JSON-LD based metadata assertions */
+    public static readonly metadataAssertions = [
+        AssertionLabels.metadata,
+        AssertionLabels.commonMetadata,
+        AssertionLabels.exifMetadata,
+        AssertionLabels.iptcMetadata,
+        AssertionLabels.iptcPhotoMetadata,
+    ];
+
+    /** Schema.org based Creative Work assertion (deprecated as of C2PA 2.0) */
+    public static readonly creativeWork = 'stds.schema-org.CreativeWork';
+
     public static readonly thumbnailPrefix = 'c2pa.thumbnail.claim.';
     public static readonly ingredientThumbnailPrefix = 'c2pa.thumbnail.ingredient';
 }

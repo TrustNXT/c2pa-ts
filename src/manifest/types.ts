@@ -211,3 +211,29 @@ export interface Action {
     description?: string;
     digitalSourceType?: DigitalSourceType;
 }
+
+export enum MetadataNamespace {
+    CameraRaw = 'http://ns.adobe.com/camera-raw-settings/1.0/',
+    DublinCore = 'http://purl.org/dc/elements/1.1/',
+    Exif = 'http://ns.adobe.com/exif/1.0/',
+    ExifEx_1_0 = 'http://cipa.jp/exif/1.0/',
+    ExifEx_2_32 = 'http://cipa.jp/exif/2.32/',
+    IPTCCore = 'http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/',
+    IPTCExtension = 'http://iptc.org/std/Iptc4xmpExt/2008-02-29/',
+    PDF = 'http://ns.adobe.com/pdf/1.3/',
+    Photoshop = 'http://ns.adobe.com/photoshop/1.0/',
+    PLUS = 'http://ns.useplus.org/ldf/xmp/1.0/',
+    TIFF = 'http://ns.adobe.com/tiff/1.0/',
+    XMPBasic = 'http://ns.adobe.com/xap/1.0/',
+    XMPDynamicMedia = 'http://ns.adobe.com/xmp/1.0/DynamicMedia/',
+    XMPMediaManagement = 'http://ns.adobe.com/xap/1.0/mm/',
+    XMPPagedText = 'http://ns.adobe.com/xap/1.0/t/pg/',
+}
+
+export type MetadataValue = string | number | MetadataValue[] | { [key: string]: MetadataValue };
+
+export interface MetadataEntry {
+    namespace: MetadataNamespace | string;
+    name: string;
+    value: MetadataValue;
+}
