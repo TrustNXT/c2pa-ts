@@ -56,9 +56,9 @@ export const UUIDs = {
     embeddedFile: BinaryHelper.fromUUID('40CB0C32-BB8A-489D-A70B-2AD6F47F4369'),
     embeddedFileDescription: BinaryHelper.fromUUID('62666462-0011-0010-8000-00AA00389B71'),
     embeddedFileData: BinaryHelper.fromUUID('62696462-0011-0010-8000-00AA00389B71'),
-    verifiableCredentialsTore: BinaryHelper.fromUUID('63327663-0011-0010-8000-00AA00389B71'),
+    verifiableCredentialsStore: BinaryHelper.fromUUID('63327663-0011-0010-8000-00AA00389B71'),
     uuidAssertion: BinaryHelper.fromUUID('75756964-0011-0010-8000-00AA00389B71'),
-    databoxesStores: BinaryHelper.fromUUID('63326462-0011-0010-8000-00AA00389B71'),
+    databoxesStore: BinaryHelper.fromUUID('63326462-0011-0010-8000-00AA00389B71'),
 };
 
 export interface StatusMap {
