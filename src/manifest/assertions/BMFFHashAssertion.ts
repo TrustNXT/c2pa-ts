@@ -49,7 +49,7 @@ export class BMFFHashAssertion extends Assertion {
     public hash?: Uint8Array;
     public name: string | undefined;
 
-    public readFromJUMBF(box: JUMBF.IBox): void {
+    public readContentFromJUMBF(box: JUMBF.IBox): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
                 ValidationStatusCode.AssertionRequiredMissing,
@@ -71,6 +71,10 @@ export class BMFFHashAssertion extends Assertion {
                 this.exclusions.push(exclusion);
             }
         }
+    }
+
+    public generateJUMBFBoxForContent(): JUMBF.IBox {
+        throw new Error('Method not implemented.');
     }
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {

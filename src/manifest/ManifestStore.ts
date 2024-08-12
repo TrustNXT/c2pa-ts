@@ -60,6 +60,17 @@ export class ManifestStore {
         return manifestStore;
     }
 
+    public generateJUMBFBox(): JUMBF.SuperBox {
+        const box = new JUMBF.SuperBox();
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.uuid = raw.UUIDs.manifestStore;
+        box.descriptionBox.label = 'c2pa';
+        box.contentBoxes = this.manifests.map(manifest => manifest.generateJUMBFBox());
+
+        this.sourceBox = box;
+        return box;
+    }
+
     /**
      * Validates the active manifest
      * @param asset Asset for validation of bindings

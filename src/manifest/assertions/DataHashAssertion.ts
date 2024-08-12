@@ -24,7 +24,7 @@ export class DataHashAssertion extends Assertion {
     public hash?: Uint8Array;
     public exclusions: HashExclusionRange[] = [];
 
-    public readFromJUMBF(box: JUMBF.IBox): void {
+    public readContentFromJUMBF(box: JUMBF.IBox): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
                 ValidationStatusCode.AssertionRequiredMissing,
@@ -72,6 +72,25 @@ export class DataHashAssertion extends Assertion {
                     );
             }
         }
+    }
+
+    public generateJUMBFBoxForContent(): JUMBF.IBox {
+        if (!this.hash) throw new Error('Assertion has no hash');
+        if (!this.name) throw new Error('Assertion has no name');
+        if (!this.algorithm) throw new Error('Assertion has no algorithm');
+
+        const content: RawDataHashMap = {
+            exclusions: this.exclusions,
+            alg: Claim.reverseMapHashAlgorithm(this.algorithm),
+            hash: this.hash,
+            pad: new Uint8Array(),
+            name: this.name,
+        };
+
+        const box = new JUMBF.CBORBox();
+        box.content = content;
+
+        return box;
     }
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {

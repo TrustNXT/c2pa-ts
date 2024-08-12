@@ -4,6 +4,7 @@ import { AssertionLabels } from './assertions/AssertionLabels';
 import { BMFFHashAssertion } from './assertions/BMFFHashAssertion';
 import { IngredientAssertion } from './assertions/IngredientAssertion';
 import { Claim } from './Claim';
+import * as raw from './rawTypes';
 import { ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 
@@ -24,20 +25,14 @@ export class AssertionStore implements ManifestComponent {
             );
         assertionStore.label = box.descriptionBox.label;
 
-        box.contentBoxes.forEach(contentBox => {
-            if (!(contentBox instanceof JUMBF.SuperBox))
-                throw new ValidationError(
-                    ValidationStatusCode.AssertionMissing,
-                    box,
-                    'Assertion store contains invalid boxes',
-                );
-            assertionStore.assertions.push(this.readAssertion(contentBox, claim));
-        });
+        assertionStore.assertions = box.contentBoxes.map(contentBox => this.readAssertion(contentBox, claim));
 
         return assertionStore;
     }
 
-    private static readAssertion(box: JUMBF.SuperBox, claim: Claim): Assertion {
+    private static readAssertion(box: JUMBF.IBox, claim: Claim): Assertion {
+        if (!(box instanceof JUMBF.SuperBox))
+            throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion is not a SuperBox');
         if (!box.descriptionBox?.label)
             throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, box, 'Assertion is missing label');
         if (!box.contentBoxes.length)
@@ -47,16 +42,11 @@ export class AssertionStore implements ManifestComponent {
                 'Assertion is missing content',
             );
 
-        let label = box.descriptionBox.label;
-        let labelSuffix: number | undefined;
-        const match = /^(.+)__(\d+)$/.exec(label);
-        if (match) {
-            label = match[1];
-            labelSuffix = Number(match[2]);
-        }
+        // split the label into the actual label and the index
+        const label = Assertion.splitLabel(box.descriptionBox.label);
 
         let assertion: Assertion;
-        switch (label) {
+        switch (label.label) {
             case AssertionLabels.actions:
             case AssertionLabels.actionsV2:
                 assertion = new ActionAssertion();
@@ -74,15 +64,20 @@ export class AssertionStore implements ManifestComponent {
                 assertion = new UnknownAssertion();
         }
 
-        assertion.sourceBox = box;
-        assertion.uuid = box.descriptionBox.uuid;
-        assertion.fullLabel = box.descriptionBox.label;
-        assertion.label = label;
-        assertion.labelSuffix = labelSuffix;
-
-        assertion.readFromJUMBF(box.contentBoxes[0], claim);
+        assertion.readFromJUMBF(box, claim);
 
         return assertion;
+    }
+
+    public generateJUMBFBox(claim: Claim): JUMBF.SuperBox {
+        const box = new JUMBF.SuperBox();
+        box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.label = this.label;
+        box.descriptionBox.uuid = raw.UUIDs.assertionStore;
+        box.contentBoxes = this.assertions.map(assertion => assertion.generateJUMBFBox(claim));
+
+        this.sourceBox = box;
+        return box;
     }
 
     public getHardBindings() {
