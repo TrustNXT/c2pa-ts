@@ -95,6 +95,7 @@ export class Manifest implements ManifestComponent {
     }
 
     public generateJUMBFBox(): JUMBF.SuperBox {
+        if (!this.label) throw new Error('Manifest must have a label');
         if (!this.assertions) throw new Error('Manifest must have assertions');
         if (!this.claim) throw new Error('Manifest must have a claim');
         if (!this.signature) throw new Error('Manifest must have a signature');
