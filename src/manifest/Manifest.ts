@@ -83,14 +83,18 @@ export class Manifest implements ManifestComponent {
      * Builds a cache of manifest components by their label (for URL resolution)
      */
     private populateComponentStore() {
-        for (const assertion of this.assertions?.assertions ?? []) {
-            this.componentStore.set(`${this.assertions!.label}/${assertion.fullLabel}`, assertion);
-        }
-        if (this.claim?.label) {
+        this.componentStore.clear();
+        if (this.claim) {
             this.componentStore.set(this.claim.label, this.claim);
         }
-        if (this.signature?.label) {
+        if (this.signature) {
             this.componentStore.set(this.signature.label, this.signature);
+        }
+        if (this.assertions) {
+            this.componentStore.set(this.assertions.label, this.assertions);
+            for (const assertion of this.assertions.assertions) {
+                this.componentStore.set(`${this.assertions.label}/${assertion.fullLabel}`, assertion);
+            }
         }
     }
 
