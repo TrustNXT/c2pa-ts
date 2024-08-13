@@ -57,10 +57,20 @@ export class ManifestStore {
                 manifestStore.manifests.push(manifest);
             });
 
+        try {
+            manifestStore.verifyUniqueLabels();
+        } catch (err) {
+            if (err instanceof ValidationError) throw err;
+            const message = err instanceof Error ? err.message : String(err);
+            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, superBox, message);
+        }
+
         return manifestStore;
     }
 
     public generateJUMBFBox(): JUMBF.SuperBox {
+        this.verifyUniqueLabels();
+
         const box = new JUMBF.SuperBox();
         box.descriptionBox = new JUMBF.DescriptionBox();
         box.descriptionBox.uuid = raw.UUIDs.manifestStore;
@@ -82,5 +92,18 @@ export class ManifestStore {
         } else {
             return ValidationResult.error(ValidationStatusCode.ClaimRequiredMissing, this.sourceBox);
         }
+    }
+
+    /**
+     * verify that all manifest labels are set and unique
+     */
+    private verifyUniqueLabels(): void {
+        this.manifests
+            .map(manifest => manifest.label)
+            .reduce((labels, label, index) => {
+                if (!label) throw new Error(`No label in manifest ${index}`);
+                if (labels.has(label)) throw new Error(`Duplicate label ${label} in manifest ${index}`);
+                return labels.add(label);
+            }, new Set<string>());
     }
 }
