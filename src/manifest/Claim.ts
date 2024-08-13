@@ -5,7 +5,6 @@ import { ClaimVersion, HashedURI, ManifestComponent, ValidationStatusCode } from
 import { ValidationError } from './ValidationError';
 
 export class Claim implements ManifestComponent {
-    public label?: string;
     public version: ClaimVersion = ClaimVersion.V2;
     public defaultAlgorithm: HashAlgorithm | undefined;
     public instanceID: string | undefined;
@@ -14,6 +13,10 @@ export class Claim implements ManifestComponent {
     public redactedAssertions: HashedURI[] = [];
     public sourceBox?: JUMBF.SuperBox;
     public signatureRef?: string;
+
+    public get label(): string {
+        return this.version === ClaimVersion.V2 ? 'c2pa.claim.v2' : 'c2pa.claim';
+    }
 
     public static read(box: JUMBF.SuperBox) {
         if (!box.contentBoxes.length || !(box.contentBoxes[0] instanceof JUMBF.CBORBox))
@@ -58,6 +61,7 @@ export class Claim implements ManifestComponent {
 
         const box = new JUMBF.SuperBox();
         box.descriptionBox = new JUMBF.DescriptionBox();
+        box.descriptionBox.label = this.label;
         box.descriptionBox.uuid = raw.UUIDs.claim;
         const contentBox = new JUMBF.CBORBox();
         box.contentBoxes.push(contentBox);
@@ -65,7 +69,6 @@ export class Claim implements ManifestComponent {
             case ClaimVersion.V1:
                 if (!this.format) throw new Error('Claim: missing format');
 
-                box.descriptionBox.label = 'c2pa.claim';
                 contentBox.content = {
                     alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
                     instanceID: this.instanceID,
@@ -78,7 +81,6 @@ export class Claim implements ManifestComponent {
                 } as raw.ClaimV1;
                 break;
             case ClaimVersion.V2:
-                box.descriptionBox.label = 'c2pa.claim.v2';
                 contentBox.content = {
                     alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
                     instanceID: this.instanceID,

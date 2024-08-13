@@ -143,7 +143,7 @@ describe('Claim Tests', function () {
 
             assert.equal(c.sourceBox, superBox);
 
-            assert.equal(c.label, undefined);
+            assert.equal(c.label, 'c2pa.claim');
             assert.equal(c.version, ClaimVersion.V1);
             assert.equal(c.defaultAlgorithm, 'SHA-256');
             assert.equal(c.instanceID, 'xmp:iid:f7ba134b-8dec-4334-911d-a30409e32d8e');
