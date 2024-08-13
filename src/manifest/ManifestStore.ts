@@ -57,7 +57,13 @@ export class ManifestStore {
                 manifestStore.manifests.push(manifest);
             });
 
-        manifestStore.verifyUniqueLabels();
+        try {
+            manifestStore.verifyUniqueLabels();
+        } catch (err) {
+            if (err instanceof ValidationError) throw err;
+            const message = err instanceof Error ? err.message : String(err);
+            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, superBox, message);
+        }
 
         return manifestStore;
     }
@@ -91,13 +97,13 @@ export class ManifestStore {
     /**
      * verify that all manifest labels are set and unique
      */
-    private verifyUniqueLabels() {
+    private verifyUniqueLabels(): void {
         this.manifests
             .map(manifest => manifest.label)
-            .reduce((previous, label, index) => {
+            .reduce((labels, label, index) => {
                 if (!label) throw new Error(`No label in manifest ${index}`);
-                if (label in previous) throw new Error(`Duplicate label ${label} in manifest ${index}`);
-                return Object.assign(previous, { [label]: true });
-            }, {});
+                if (labels.has(label)) throw new Error(`Duplicate label ${label} in manifest ${index}`);
+                return labels.add(label);
+            }, new Set<string>());
     }
 }
