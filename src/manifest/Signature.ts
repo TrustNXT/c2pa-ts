@@ -7,7 +7,7 @@ import { ValidationError } from './ValidationError';
 import { ValidationResult } from './ValidationResult';
 
 export class Signature implements ManifestComponent {
-    public label?: string;
+    public readonly label: string = 'c2pa.signature';
     public signatureData: unknown;
     public sourceBox?: JUMBF.SuperBox;
 
@@ -24,7 +24,6 @@ export class Signature implements ManifestComponent {
 
         if (box.descriptionBox?.label !== 'c2pa.signature')
             throw new ValidationError(ValidationStatusCode.ClaimSignatureMissing, box, 'Signature has invalid label');
-        signature.label = box.descriptionBox.label;
 
         signature.signatureData = box.contentBoxes[0].content;
 
@@ -34,7 +33,7 @@ export class Signature implements ManifestComponent {
     public generateJUMBFBox(): JUMBF.SuperBox {
         const box = new JUMBF.SuperBox();
         box.descriptionBox = new JUMBF.DescriptionBox();
-        box.descriptionBox.label = 'c2pa.signature';
+        box.descriptionBox.label = this.label;
         box.descriptionBox.uuid = raw.UUIDs.signature;
         const contentBox = new JUMBF.CBORBox();
         contentBox.content = this.signatureData;
