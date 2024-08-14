@@ -282,6 +282,15 @@ export class JPEG extends BaseAsset implements Asset {
         this.data = this.assembleBuffer(parts);
     }
 
+    public getHashExclusionRange(): { start: number; length: number } {
+        if (!this.manifestSegments) throw new Error('No manifest storage reserved');
+
+        const segments = this.manifestSegments.map(s => this.segments[s.segmentIndex]);
+        const start = segments[0].offset;
+        const end = segments[segments.length - 1].offset + segments[segments.length - 1].length;
+        return { start, length: end - start };
+    }
+
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         // For JPEG, the segments' payload length needs to match the JUMBF length exactly
         if (this.getJUMBFLength(this.manifestSegments) !== jumbf.length)
