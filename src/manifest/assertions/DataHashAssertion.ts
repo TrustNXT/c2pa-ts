@@ -19,6 +19,12 @@ interface RawDataHashMap {
 }
 
 export class DataHashAssertion extends Assertion {
+    private static readonly hashSizes = {
+        'SHA-256': 32,
+        'SHA-384': 48,
+        'SHA-512': 64,
+    };
+
     public algorithm?: HashAlgorithm;
     public name?: string;
     public hash?: Uint8Array;
@@ -42,6 +48,13 @@ export class DataHashAssertion extends Assertion {
         // assume it has to be present
         if (!algorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported, this.sourceBox);
         this.algorithm = algorithm;
+        if (this.hash.length !== DataHashAssertion.hashSizes[algorithm]) {
+            throw new ValidationError(
+                ValidationStatusCode.AssertionCBORInvalid,
+                this.sourceBox,
+                'mismatch between algorithm and hash length',
+            );
+        }
 
         if (content.exclusions) {
             for (const exclusion of content.exclusions) {
@@ -77,6 +90,9 @@ export class DataHashAssertion extends Assertion {
     public generateJUMBFBoxForContent(): JUMBF.IBox {
         if (!this.hash) throw new Error('Assertion has no hash');
         if (!this.algorithm) throw new Error('Assertion has no algorithm');
+        if (this.hash.length !== DataHashAssertion.hashSizes[this.algorithm]) {
+            throw new Error('mismatch between algorithm and hash length');
+        }
 
         const content: RawDataHashMap = {
             exclusions: this.exclusions,
