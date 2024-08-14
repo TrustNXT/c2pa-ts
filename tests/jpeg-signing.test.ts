@@ -50,6 +50,10 @@ describe('Functional Signing Tests', function () {
             dataHashAssertion.exclusions,
             dataHashAssertion.algorithm,
         );
+        dataHashAssertion.exclusions.push({
+            start: 0,
+            length: buf.length,
+        });
 
         // create an assertion store and add the data hash assertion to it
         const assertionStore = new AssertionStore();
