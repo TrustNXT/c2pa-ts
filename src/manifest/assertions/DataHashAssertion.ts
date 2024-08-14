@@ -1,5 +1,5 @@
 import { Asset } from '../../asset';
-import { Crypto, HashAlgorithm } from '../../crypto';
+import { HashAlgorithm } from '../../crypto';
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
@@ -8,6 +8,7 @@ import { HashExclusionRange, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
+import { AssertionUtils } from './AssertionUtils';
 
 interface RawDataHashMap {
     exclusions?: HashExclusionRange[];
@@ -19,6 +20,12 @@ interface RawDataHashMap {
 }
 
 export class DataHashAssertion extends Assertion {
+    private static readonly hashSizes = {
+        'SHA-256': 32,
+        'SHA-384': 48,
+        'SHA-512': 64,
+    };
+
     public algorithm?: HashAlgorithm;
     public name?: string;
     public hash?: Uint8Array;
@@ -42,6 +49,13 @@ export class DataHashAssertion extends Assertion {
         // assume it has to be present
         if (!algorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported, this.sourceBox);
         this.algorithm = algorithm;
+        if (this.hash.length !== DataHashAssertion.hashSizes[algorithm]) {
+            throw new ValidationError(
+                ValidationStatusCode.AssertionCBORInvalid,
+                this.sourceBox,
+                'mismatch between algorithm and hash length',
+            );
+        }
 
         if (content.exclusions) {
             for (const exclusion of content.exclusions) {
@@ -76,16 +90,18 @@ export class DataHashAssertion extends Assertion {
 
     public generateJUMBFBoxForContent(): JUMBF.IBox {
         if (!this.hash) throw new Error('Assertion has no hash');
-        if (!this.name) throw new Error('Assertion has no name');
         if (!this.algorithm) throw new Error('Assertion has no algorithm');
+        if (this.hash.length !== DataHashAssertion.hashSizes[this.algorithm]) {
+            throw new Error('mismatch between algorithm and hash length');
+        }
 
         const content: RawDataHashMap = {
             exclusions: this.exclusions,
             alg: Claim.reverseMapHashAlgorithm(this.algorithm),
             hash: this.hash,
             pad: new Uint8Array(),
-            name: this.name,
         };
+        if (this.name) content.name = this.name;
 
         const box = new JUMBF.CBORBox();
         box.content = content;
@@ -98,27 +114,7 @@ export class DataHashAssertion extends Assertion {
             return ValidationResult.error(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
         }
 
-        let hash: Uint8Array;
-
-        if (!this.exclusions.length) {
-            hash = await Crypto.digest(await asset.getDataRange(), this.algorithm);
-        } else {
-            const digest = Crypto.streamingDigest(this.algorithm);
-
-            for (let i = 0; i < this.exclusions.length; i++) {
-                const previousEnd = i > 0 ? this.exclusions[i - 1].start + this.exclusions[i - 1].length : 0;
-                const length = this.exclusions[i].start - previousEnd;
-                if (length > 0) digest.update(await asset.getDataRange(previousEnd, length));
-            }
-
-            const endOfLastExclusion =
-                this.exclusions[this.exclusions.length - 1].start + this.exclusions[this.exclusions.length - 1].length;
-            if (asset.getDataLength() > endOfLastExclusion) {
-                digest.update(await asset.getDataRange(endOfLastExclusion));
-            }
-
-            hash = await digest.final();
-        }
+        const hash = await AssertionUtils.hashWithExclusions(asset, this.exclusions, this.algorithm);
 
         if (BinaryHelper.bufEqual(this.hash, hash)) {
             return ValidationResult.success(ValidationStatusCode.AssertionDataHashMatch, this.sourceBox);
