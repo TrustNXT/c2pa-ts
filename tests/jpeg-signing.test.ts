@@ -87,13 +87,36 @@ describe('Functional Signing Tests', function () {
         manifest.signature = signature;
         manifestStore.manifests.push(manifest);
 
-        // serialize the manifest store to a JUMBF box
-        const jumbfBox = manifestStore.generateJUMBFBox();
-        const schema = jumbfBox.schema;
+        const schema = SuperBox.schema;
 
         // insert the JUMBF box data into the asset
-        const length = schema.measure(jumbfBox).size;
+        const length = schema.measure(manifestStore.generateJUMBFBox()).size;
         await asset.ensureManifestSpace(length);
+
+        // adjust the exclusion range for the data hash assertion and
+        // calculate the hash for the remaining data
+        const excludedRange = asset.getHashExclusionRange();
+        dataHashAssertion.exclusions = [
+            {
+                start: excludedRange.start,
+                length: excludedRange.length,
+            },
+        ];
+        dataHashAssertion.hash = await AssertionUtils.hashWithExclusions(
+            asset,
+            dataHashAssertion.exclusions,
+            dataHashAssertion.algorithm,
+        );
+
+        // check whether the length of the JUMBF changed
+        const jumbfBox = manifestStore.generateJUMBFBox();
+        const length2 = schema.measure(jumbfBox).size;
+        if (length !== length2) {
+            // TODO: use padding or repeat fitting
+            throw new Error('JUMBF length mismatch');
+        }
+
+        // write the JUMBF box to the asset
         const buffer = Buffer.alloc(length);
         const writer = new bin.BufferWriter(buffer, { endianness: 'big' });
         schema.write(writer, jumbfBox);
