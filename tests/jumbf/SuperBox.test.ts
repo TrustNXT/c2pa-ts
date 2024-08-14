@@ -33,6 +33,12 @@ describe('SuperBox Tests', function () {
 
             // verify expected buffer contents
             assert.equal(BinaryHelper.toHexString(buffer), serializedString);
+
+            // validate generating the raw content buffer
+            const rawContent = box.toBuffer();
+            assert.ok(rawContent);
+            assert.equal(box.rawContent, rawContent);
+            assert.equal(BinaryHelper.toHexString(box.rawContent), serializedString.slice(8 * 2));
         });
 
         it('deserialization', async function () {
@@ -112,6 +118,12 @@ describe('SuperBox Tests', function () {
 
             // verify expected buffer contents
             assert.equal(BinaryHelper.toHexString(buffer), serializedString);
+
+            // validate generating the raw content buffer
+            const rawContent = box.toBuffer();
+            assert.ok(rawContent);
+            assert.equal(box.rawContent, rawContent);
+            assert.equal(BinaryHelper.toHexString(box.rawContent), serializedString.slice(8 * 2));
         });
 
         it('deserialization', async function () {
