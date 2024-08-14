@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises';
 import { after } from 'mocha';
 import * as bin from 'typed-binary';
 import { JPEG } from '../src/asset';
+import { CoseSignature } from '../src/cose';
 import { Crypto } from '../src/crypto';
 import { SuperBox } from '../src/jumbf';
 import {
@@ -54,25 +55,28 @@ describe('Functional Signing Tests', function () {
         const assertionStore = new AssertionStore();
         assertionStore.assertions.push(dataHashAssertion);
 
+        // create an empty signature
+        const signature = new Signature();
+        const coseSignature: CoseSignature = [new Uint8Array(), { pad: new Uint8Array(25000) }, null, new Uint8Array()];
+        signature.signatureData = coseSignature;
+
         // create a claim and add the data hash assertion to it
         const claim = new Claim();
         claim.instanceID = 'aoeu'; // TODO: ....
         claim.defaultAlgorithm = 'SHA-256';
+        claim.signatureRef = 'self#jumbf=' + signature.label;
         const createHashedURIForAssertion = async (assertion: Assertion) => {
             const box = assertion.generateJUMBFBox(claim);
             if (!box.rawContent) box.toBuffer();
             const digest = await Crypto.digest(box.rawContent!, claim.defaultAlgorithm!);
             return {
                 // TODO: This URI should be assigned by the component store within the manifest
-                uri: 'self#jumbf=c2pa.assertions/' + AssertionLabels.dataHash,
+                uri: 'self#jumbf=c2pa.assertions/' + assertion.fullLabel,
                 algorithm: claim.defaultAlgorithm!,
                 hash: digest,
             };
         };
         claim.assertions.push(await createHashedURIForAssertion(dataHashAssertion));
-
-        // create an empty (TODO) signature
-        const signature = new Signature();
 
         // create a manifest from the assertion store, claim, and signature
         const manifestStore = new ManifestStore();
@@ -126,9 +130,9 @@ describe('Functional Signing Tests', function () {
         // check individual codes
         assert.deepEqual(validationResult.statusEntries, [
             {
-                code: ValidationStatusCode.ClaimSignatureMissing,
+                code: ValidationStatusCode.SigningCredentialInvalid,
                 explanation: undefined,
-                url: undefined,
+                url: 'self#jumbf=/c2pa/c2pa-ts:urn:uuid:14cd3c1b-3048-45ac-a613-9b497a41528b/c2pa.signature',
             },
             {
                 code: ValidationStatusCode.AssertionHashedURIMatch,
