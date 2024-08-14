@@ -43,7 +43,7 @@ export class UUIDBox extends Box {
         super(UUIDBox.typeCode, UUIDBox.schema);
     }
 
-    public toString(prefix?: string | undefined): string {
+    public toString(prefix?: string): string {
         let s = `${prefix ?? ''}UUID: ${BinaryHelper.toUUIDString(this.uuid)}`;
         if (this.content) s += `, with content (length ${this.content.length})`;
         return s;

@@ -48,7 +48,7 @@ export class EmbeddedFileDescriptionBox extends Box {
         super(EmbeddedFileDescriptionBox.typeCode, EmbeddedFileDescriptionBox.schema);
     }
 
-    public toString(prefix?: string | undefined): string {
+    public toString(prefix?: string): string {
         let s = `${prefix ?? ''}Embedded file description: ${this.mediaType}`;
         if (this.fileName) s += `, file name: ${this.fileName}`;
         return s;

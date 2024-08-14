@@ -10,7 +10,7 @@ export class Box implements IBox {
         this.schema = schema;
     }
 
-    public toString(prefix?: string | undefined) {
+    public toString(prefix?: string) {
         return `${prefix ?? ''}${this.type}`;
     }
 }

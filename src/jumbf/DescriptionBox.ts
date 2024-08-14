@@ -90,8 +90,8 @@ export class DescriptionBox extends Box {
         super(DescriptionBox.typeCode, DescriptionBox.schema);
     }
 
-    public toString(): string {
-        const parts: string[] = [`UUID: ${BinaryHelper.toUUIDString(this.uuid)}`];
+    public toString(prefix?: string): string {
+        const parts: string[] = [`${prefix ?? ''}UUID: ${BinaryHelper.toUUIDString(this.uuid)}`];
         if (this.requestable) parts.push(`requestable`);
         if (this.hash) parts.push('with hash');
         if (this.label) parts.push(`label: ${this.label}`);
