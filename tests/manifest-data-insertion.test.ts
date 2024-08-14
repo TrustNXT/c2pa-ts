@@ -73,6 +73,14 @@ describe('Asset Manifest Data Insertion Tests', function () {
                     if (!asset) this.skip();
 
                     await asset.ensureManifestSpace(data.length);
+
+                    // ensure the hash exclusion range can fully contain the
+                    // JUMBF and that it doesn't exceed the asset's storage
+                    const { start, length } = asset.getHashExclusionRange();
+                    assert.ok(start >= 0);
+                    assert.ok(length >= data.length);
+                    assert.ok(start + length <= asset.getDataLength());
+
                     await asset.writeManifestJUMBF(data);
                     const manifest = asset.getManifestJUMBF();
                     assert.ok(manifest, 'No manifest data in asset after adding');
