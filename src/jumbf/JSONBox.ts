@@ -56,6 +56,20 @@ export class JSONBox extends Box {
     }
 
     public toString(prefix?: string): string {
-        return (prefix ?? '') + 'JSON content';
+        if (this.content === undefined) return (prefix ?? '') + 'JSON content (empty)';
+
+        try {
+            const s = JSON.stringify(this.content, (key: string, value) => {
+                if (value instanceof Uint8Array) {
+                    // represent as JSON array, not as JSON object
+                    return [...value];
+                }
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return value;
+            });
+            return (prefix ?? '') + 'JSON content ' + s;
+        } catch {
+            return (prefix ?? '') + 'JSON content (unserializable)';
+        }
     }
 }

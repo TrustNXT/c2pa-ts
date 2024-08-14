@@ -41,7 +41,7 @@ export class EmbeddedFileBox extends Box {
         super(EmbeddedFileBox.typeCode, EmbeddedFileBox.schema);
     }
 
-    public toString(prefix?: string | undefined): string {
+    public toString(prefix?: string): string {
         return `${prefix ?? ''}Embedded file content (length ${this.content?.length ?? 0})`;
     }
 }

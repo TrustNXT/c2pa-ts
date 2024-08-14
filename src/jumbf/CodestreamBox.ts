@@ -37,7 +37,7 @@ export class CodestreamBox extends Box {
         super(CodestreamBox.typeCode, CodestreamBox.schema);
     }
 
-    public toString(prefix?: string | undefined): string {
+    public toString(prefix?: string): string {
         return `${prefix ?? ''}Codestream content (length ${this.content?.length ?? 0})`;
     }
 }

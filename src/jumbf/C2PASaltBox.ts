@@ -37,7 +37,7 @@ export class C2PASaltBox extends Box {
         super(C2PASaltBox.typeCode, C2PASaltBox.schema);
     }
 
-    public toString(prefix?: string | undefined): string {
+    public toString(prefix?: string): string {
         return (prefix ?? '') + 'C2PA salt: ' + (this.salt ? BinaryHelper.toHexString(this.salt) : '<empty>');
     }
 }
