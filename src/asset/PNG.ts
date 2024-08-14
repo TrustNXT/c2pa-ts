@@ -153,6 +153,14 @@ export class PNG extends BaseAsset implements Asset {
         this.data = this.assembleBuffer(parts);
     }
 
+    public getHashExclusionRange(): { start: number; length: number } {
+        if (this.manifestChunkIndex === undefined) throw new Error('No manifest storage reserved');
+
+        const chunk = this.chunks[this.manifestChunkIndex];
+
+        return { start: chunk.offset, length: chunk.length };
+    }
+
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         if (
             this.manifestChunkIndex === undefined ||
