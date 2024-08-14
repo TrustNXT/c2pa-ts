@@ -106,7 +106,7 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async ensureManifestSpace(length: number): Promise<void> {
         // Nothing to do?
-        if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) >= length)
+        if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) === length)
             return;
 
         const parts: {
@@ -160,8 +160,8 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         const box = this.getManifestStoreBox();
-        if (!box || (box.payload as C2PAManifestBoxPayload).manifestContent.length < jumbf.length)
-            throw new Error('Not enough space in asset file');
+        if (!box || (box.payload as C2PAManifestBoxPayload).manifestContent.length !== jumbf.length)
+            throw new Error('Wrong amount of space in asset');
 
         box.fillManifestContent(this.data, jumbf);
     }
@@ -656,13 +656,16 @@ class C2PABox extends FullBox<C2PABoxPayload> {
      */
     public fillManifestContent(buf: Uint8Array, manifest: Uint8Array): void {
         const payload = this.payload as C2PAManifestBoxPayload;
-        payload.manifestContent.fill(0);
         payload.manifestContent.set(manifest);
 
         const dataView = new DataView(buf.buffer, this.payloadOffset, this.payloadSize);
+        // Write purpose string
         payload.purpose.split('').forEach((c, i) => dataView.setUint8(i, c.charCodeAt(0)));
+        // Write null terminator
         dataView.setUint8(payload.purpose.length, 0);
+        // Write Merkle offset
         dataView.setBigUint64(payload.purpose.length + 1, payload.merkleOffset);
-        buf.set(payload.manifestContent, this.payloadOffset + payload.purpose.length + 9);
+        // Write content
+        buf.set(manifest, this.payloadOffset + payload.purpose.length + 9);
     }
 }
