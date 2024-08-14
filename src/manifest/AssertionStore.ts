@@ -16,8 +16,8 @@ import { ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 
 export class AssertionStore implements ManifestComponent {
+    public readonly label: string = 'c2pa.assertions';
     public assertions: Assertion[] = [];
-    public label?: string;
     public sourceBox: JUMBF.SuperBox | undefined;
 
     public static read(box: JUMBF.SuperBox, claim: Claim): AssertionStore {
@@ -30,7 +30,8 @@ export class AssertionStore implements ManifestComponent {
                 box,
                 'Assertion store is missing label',
             );
-        assertionStore.label = box.descriptionBox.label;
+        if (box.descriptionBox.label !== 'c2pa.assertions')
+            throw new ValidationError(ValidationStatusCode.ClaimSignatureMissing, box, 'Assertion has invalid label');
 
         assertionStore.assertions = box.contentBoxes.map(contentBox => this.readAssertion(contentBox, claim));
 
