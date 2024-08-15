@@ -45,11 +45,7 @@ describe('Functional Signing Tests', function () {
         dataHashAssertion.label = AssertionLabels.dataHash;
         dataHashAssertion.fullLabel = dataHashAssertion.label;
         dataHashAssertion.algorithm = 'SHA-256';
-        dataHashAssertion.hash = await AssertionUtils.hashWithExclusions(
-            asset,
-            dataHashAssertion.exclusions,
-            dataHashAssertion.algorithm,
-        );
+        dataHashAssertion.hash = new Uint8Array(32);
         dataHashAssertion.exclusions.push({
             start: 0,
             length: buf.length,
