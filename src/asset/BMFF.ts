@@ -158,6 +158,13 @@ export class BMFF extends BaseAsset implements Asset {
         this.data = this.assembleBuffer(parts);
     }
 
+    public getHashExclusionRange(): { start: number; length: number } {
+        const box = this.getManifestStoreBox();
+        if (box === undefined) throw new Error('No manifest storage reserved');
+
+        return { start: box.offset, length: box.size };
+    }
+
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         const box = this.getManifestStoreBox();
         if (!box || (box.payload as C2PAManifestBoxPayload).manifestContent.length !== jumbf.length)

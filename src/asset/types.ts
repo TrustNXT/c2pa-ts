@@ -33,7 +33,15 @@ export interface Asset {
     ensureManifestSpace(length: number): Promise<void>;
 
     /**
-     * Fills in the manifest store JUMBF into the previously created sapce.
+     * The returned range is for use in hash exclusions. It contains the JUMBF
+     * manifest and any required overhead imposed by the image format. For example,
+     * the storage can be chunked or the image format can add its own checksum.
+     * This is expected to be slightly larger than just the JUMBF!
+     */
+    getHashExclusionRange(): { start: number; length: number };
+
+    /**
+     * Fills in the manifest store JUMBF into the previously created space.
      */
     writeManifestJUMBF(jumbf: Uint8Array): Promise<void>;
 }
