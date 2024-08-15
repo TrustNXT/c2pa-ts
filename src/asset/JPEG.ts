@@ -283,7 +283,6 @@ export class JPEG extends BaseAsset implements Asset {
     }
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
-        // For JPEG, the segments' payload length needs to match the JUMBF length exactly
         if (this.getJUMBFLength(this.manifestSegments) !== jumbf.length)
             throw new Error('Wrong amount of space in asset');
 

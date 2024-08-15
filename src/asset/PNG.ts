@@ -100,8 +100,8 @@ export class PNG extends BaseAsset implements Asset {
     }
 
     public async ensureManifestSpace(length: number): Promise<void> {
-        // Existing manifest chunk is already large enough?
-        if (this.manifestChunkIndex !== undefined && this.chunks[this.manifestChunkIndex].payloadLength >= length)
+        // Nothing to do?
+        if (this.manifestChunkIndex !== undefined && this.chunks[this.manifestChunkIndex].payloadLength === length)
             return;
 
         // Ensure there is a manifest chunk in the list of chunks
@@ -156,19 +156,14 @@ export class PNG extends BaseAsset implements Asset {
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         if (
             this.manifestChunkIndex === undefined ||
-            this.chunks[this.manifestChunkIndex].payloadLength < jumbf.length
+            this.chunks[this.manifestChunkIndex].payloadLength !== jumbf.length
         ) {
-            throw new Error('Not enough space in asset file');
+            throw new Error('Wrong amount of space in asset');
         }
 
         const manifestChunk = this.chunks[this.manifestChunkIndex];
         const dataBuffer = manifestChunk.getSubBuffer(this.data);
         dataBuffer.set(jumbf);
-
-        // If the chunk is larger than the manifest, zero out the remainder
-        if (manifestChunk.payloadLength > jumbf.length) {
-            dataBuffer.fill(0, jumbf.length);
-        }
 
         // Update CRC
         manifestChunk.updateCRC(this.data);
