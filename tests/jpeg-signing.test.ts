@@ -67,7 +67,8 @@ describe('Functional Signing Tests', function () {
         claim.signatureRef = 'self#jumbf=' + signature.label;
         const createHashedURIForAssertion = async (assertion: Assertion) => {
             const box = assertion.generateJUMBFBox(claim);
-            if (!box.rawContent) box.toBuffer();
+            // generate or regenerate the buffer
+            box.toBuffer();
             const digest = await Crypto.digest(box.rawContent!, claim.defaultAlgorithm!);
             return {
                 // TODO: This URI should be assigned by the component store within the manifest
@@ -107,6 +108,9 @@ describe('Functional Signing Tests', function () {
             dataHashAssertion.exclusions,
             dataHashAssertion.algorithm,
         );
+
+        // update the hash in the claim now, too
+        claim.assertions = [await createHashedURIForAssertion(dataHashAssertion)];
 
         // check whether the length of the JUMBF changed
         const jumbfBox = manifestStore.generateJUMBFBox();
