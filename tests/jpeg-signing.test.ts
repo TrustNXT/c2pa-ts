@@ -166,6 +166,11 @@ describe('Functional Signing Tests', function () {
                 explanation: undefined,
                 url: 'self#jumbf=c2pa.assertions/c2pa.hash.data',
             },
+            {
+                code: ValidationStatusCode.AssertionDataHashMatch,
+                explanation: undefined,
+                url: 'self#jumbf=/c2pa/c2pa-ts:urn:uuid:14cd3c1b-3048-45ac-a613-9b497a41528b/c2pa.assertions/c2pa.hash.data',
+            },
         ]);
 
         // check overall validity

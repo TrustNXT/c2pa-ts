@@ -227,7 +227,8 @@ export class Manifest implements ManifestComponent {
         }
 
         // Only process asset data if everything has been validated so far
-        if (!result.isValid) return result;
+        // TODO: reactivate this again
+        // if (!result.isValid) return result;
 
         // Validate assertions against asset data (e.g. hash matches)
         for (const assertion of referencedAssertions) {
