@@ -25,7 +25,22 @@ export class Signature implements ManifestComponent {
         if (box.descriptionBox?.label !== 'c2pa.signature')
             throw new ValidationError(ValidationStatusCode.ClaimSignatureMissing, box, 'Signature has invalid label');
 
-        signature.signatureData = box.contentBoxes[0].content;
+        if (box.contentBoxes[0].tag !== undefined && box.contentBoxes[0].tag !== 18) {
+            throw new ValidationError(
+                ValidationStatusCode.ClaimSignatureMissing,
+                box,
+                'Signature has invalid CBOR tag',
+            );
+        }
+        const content = box.contentBoxes[0].content as COSE.CoseSignature;
+        if (!Array.isArray(content) || content.length !== 4) {
+            throw new ValidationError(
+                ValidationStatusCode.ClaimSignatureMissing,
+                box,
+                'Signature has invalid CBOR content',
+            );
+        }
+        signature.signatureData = content;
 
         return signature;
     }
@@ -36,6 +51,7 @@ export class Signature implements ManifestComponent {
         box.descriptionBox.label = this.label;
         box.descriptionBox.uuid = raw.UUIDs.signature;
         const contentBox = new JUMBF.CBORBox();
+        contentBox.tag = 18;
         contentBox.content = this.signatureData;
         box.contentBoxes.push(contentBox);
 

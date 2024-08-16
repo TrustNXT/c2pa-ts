@@ -22,7 +22,7 @@ export type UnprotectedBucket = HeaderBucket & {
 export type CoseSignature = [
     Uint8Array, // Protected bucket (CBOR encoded)
     UnprotectedBucket,
-    Uint8Array | undefined, // External AAD
+    Uint8Array | null, // External AAD
     Uint8Array, // Signature
 ];
 

@@ -30,8 +30,17 @@ describe('Signature Tests', function () {
         assert.deepEqual(box.descriptionBox.uuid, raw.UUIDs.signature);
         assert.equal(box.contentBoxes.length, 1);
         assert.ok(box.contentBoxes[0] instanceof CBORBox);
-        assert.ok(box.contentBoxes[0].content);
-        assert.ok(typeof box.contentBoxes[0].content === 'object');
+
+        // verify contained COSE signature
+        assert.equal(box.contentBoxes[0].tag, 18, 'expected CBOR COSE_Sign1 tag');
+        const coseSignature = box.contentBoxes[0].content;
+        assert.ok(coseSignature);
+        assert.ok(Array.isArray(coseSignature));
+        assert.equal(coseSignature.length, 4);
+        assert.ok(coseSignature[0] instanceof Uint8Array);
+        assert.ok(coseSignature[1] instanceof Object);
+        assert.equal(coseSignature[2], null);
+        assert.ok(coseSignature[3] instanceof Uint8Array);
 
         superBox = box;
     });
@@ -65,6 +74,7 @@ describe('Signature Tests', function () {
         assert.deepEqual(box.descriptionBox.uuid, raw.UUIDs.signature);
         assert.equal(box.contentBoxes.length, 1);
         assert.ok(box.contentBoxes[0] instanceof CBORBox);
+        assert.equal(box.contentBoxes[0].tag, 18, 'expected CBOR COSE_Sign1 tag');
         assert.ok(box.contentBoxes[0].content);
         assert.ok(typeof box.contentBoxes[0].content === 'object');
     });
