@@ -146,6 +146,8 @@ Created and curated by TrustNXT GmbH, a proud member of CAI and C2PA.
 - [Website](https://trustnxt.com/)
 - [LinkedIn](https://www.linkedin.com/company/trustnxt/)
 
+This project is not affiliated with or endorsed by CAI, C2PA, CAWG, or any other organization except TrustNXT.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Acknowledgments
