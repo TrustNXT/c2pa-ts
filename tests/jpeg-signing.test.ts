@@ -11,6 +11,7 @@ import {
     AssertionLabels,
     AssertionStore,
     Claim,
+    ClaimVersion,
     DataHashAssertion,
     Manifest,
     ManifestStore,
@@ -62,6 +63,8 @@ describe('Functional Signing Tests', function () {
 
         // create a claim and add the data hash assertion to it
         const claim = new Claim();
+        claim.version = ClaimVersion.V1;
+        claim.format = 'image/jpeg';
         claim.instanceID = 'aoeu'; // TODO: ....
         claim.defaultAlgorithm = 'SHA-256';
         claim.signatureRef = 'self#jumbf=' + signature.label;
@@ -177,8 +180,10 @@ describe('Functional Signing Tests', function () {
         assert.ok(!validationResult.isValid);
     });
 
+    /*
     after(async function () {
         // delete test file, ignore the case it doesn't exist
         await fs.unlink(targetFile).catch(() => undefined);
     });
+    */
 });
