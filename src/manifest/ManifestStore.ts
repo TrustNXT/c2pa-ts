@@ -1,15 +1,70 @@
+import { X509Certificate } from '@peculiar/x509';
+import { v4 as uuidv4 } from 'uuid';
 import { Asset } from '../asset';
+import { CoseAlgorithmIdentifier } from '../cose';
+import { Crypto, HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { BinaryHelper } from '../util';
+import { AssertionStore } from './AssertionStore';
+import { Claim } from './Claim';
 import { Manifest } from './Manifest';
 import * as raw from './rawTypes';
-import { ValidationStatusCode } from './types';
+import { Signature } from './Signature';
+import { ClaimVersion, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 import { ValidationResult } from './ValidationResult';
 
 export class ManifestStore {
     public readonly manifests: Manifest[] = [];
     public sourceBox: JUMBF.SuperBox | undefined;
+
+    /**
+     * Appends a new manifest containing a claim, an assertion store, and a signature holder
+     */
+    public createManifest(options: {
+        claimVersion?: ClaimVersion;
+        assetFormat: string;
+        instanceID: string;
+        defaultHashAlgorithm?: HashAlgorithm;
+        certificate: X509Certificate;
+        signingAlgorithm: CoseAlgorithmIdentifier;
+        chainCertificates?: X509Certificate[];
+    }): Manifest {
+        const manifest = new Manifest(this);
+        manifest.label = `urn:uuid:${uuidv4({ random: Crypto.getRandomValues(16) })}`;
+        manifest.assertions = new AssertionStore();
+        this.manifests.push(manifest);
+
+        manifest.signature = Signature.createFromCertificate(
+            options.certificate,
+            options.signingAlgorithm,
+            options.chainCertificates,
+        );
+
+        const claim = new Claim();
+        claim.version = options.claimVersion ?? ClaimVersion.V1;
+        claim.format = options.assetFormat;
+        claim.instanceID = options.instanceID;
+        claim.defaultAlgorithm = options.defaultHashAlgorithm;
+        claim.signatureRef = 'self#jumbf=' + manifest.signature.label;
+        manifest.claim = claim;
+
+        return manifest;
+    }
+
+    /**
+     * Calculates the size (in bytes) of the serialized manifest store
+     */
+    public measureSize(): number {
+        return this.generateJUMBFBox().measureSize();
+    }
+
+    /**
+     * Serializes the manifest store into a buffer
+     */
+    public getBytes(): Uint8Array {
+        return this.generateJUMBFBox().toBuffer(false);
+    }
 
     /**
      * Retrieves the active manifest (the last one in the store)

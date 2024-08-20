@@ -71,4 +71,10 @@ export class WebCryptoProvider implements CryptoProvider {
 
         return new Uint8Array(signature);
     }
+
+    public getRandomValues(count: number): Uint8Array {
+        const bytes = new Uint8Array(count);
+        crypto.getRandomValues(bytes);
+        return bytes;
+    }
 }

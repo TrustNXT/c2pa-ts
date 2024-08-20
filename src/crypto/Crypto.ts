@@ -62,4 +62,12 @@ export class Crypto {
                 return 64;
         }
     }
+
+    /**
+     * Generates random bytes
+     * @param length
+     */
+    public static getRandomValues(length: number): Uint8Array {
+        return this.provider.getRandomValues(length);
+    }
 }

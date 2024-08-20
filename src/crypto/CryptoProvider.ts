@@ -13,4 +13,6 @@ export interface CryptoProvider {
     ): Promise<boolean>;
 
     sign(payload: Uint8Array, privateKey: Uint8Array, algorithm: SigningAlgorithm): Promise<Uint8Array>;
+
+    getRandomValues(count: number): Uint8Array;
 }

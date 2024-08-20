@@ -2,20 +2,10 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import { X509Certificate } from '@peculiar/x509';
 import { after } from 'mocha';
-import * as bin from 'typed-binary';
 import { JPEG } from '../src/asset';
 import { CoseAlgorithmIdentifier } from '../src/cose';
 import { SuperBox } from '../src/jumbf';
-import {
-    AssertionStore,
-    Claim,
-    ClaimVersion,
-    DataHashAssertion,
-    Manifest,
-    ManifestStore,
-    Signature,
-    ValidationStatusCode,
-} from '../src/manifest';
+import { DataHashAssertion, Manifest, ManifestStore, ValidationStatusCode } from '../src/manifest';
 
 // location of the image to sign
 const sourceFile = 'tests/fixtures/trustnxt-icon.jpg';
@@ -38,11 +28,21 @@ const testCertificates = [
 ];
 
 describe('Functional Signing Tests', function () {
-    this.timeout(0);
+    this.timeout(5000);
 
     for (const certificate of testCertificates) {
         describe(`using ${certificate.name}`, function () {
+            let manifest: Manifest | undefined;
+
             it('add a manifest to a JPEG test file', async function () {
+                // load the private key
+                const privateKeyData = await fs.readFile(certificate.privateKeyFile);
+                const base64 = privateKeyData
+                    .toString()
+                    .replace(/-{5}(BEGIN|END) .*-{5}/gm, '')
+                    .replace(/\s/gm, '');
+                const privateKey = Buffer.from(base64, 'base64');
+
                 // load the file into a buffer
                 const buf = await fs.readFile(sourceFile);
                 assert.ok(buf);
@@ -53,70 +53,39 @@ describe('Functional Signing Tests', function () {
                 // construct the asset
                 const asset = new JPEG(buf);
 
+                // create a new manifest store and append a new manifest
+                const manifestStore = new ManifestStore();
+                manifest = manifestStore.createManifest({
+                    assetFormat: 'image/jpeg',
+                    instanceID: 'xyzxyz',
+                    defaultHashAlgorithm: 'SHA-256',
+                    certificate: new X509Certificate(await fs.readFile(certificate.certificateFile)),
+                    signingAlgorithm: certificate.algorithm,
+                });
+
                 // create a data hash assertion
                 const dataHashAssertion = DataHashAssertion.create('SHA-512');
-
-                // create an empty signature
-                const signature = Signature.createFromCertificate(
-                    new X509Certificate(await fs.readFile(certificate.certificateFile)),
-                    certificate.algorithm,
-                );
-
-                // create a claim and add the data hash assertion to it
-                const claim = new Claim();
-                claim.version = ClaimVersion.V1;
-                claim.format = 'image/jpeg';
-                claim.instanceID = 'aoeu'; // TODO: ....
-                claim.defaultAlgorithm = 'SHA-256';
-                claim.signatureRef = 'self#jumbf=' + signature.label;
-
-                // create a manifest from the assertion store, claim, and signature
-                const manifestStore = new ManifestStore();
-                const manifest = new Manifest(manifestStore);
-                manifest.label = 'c2pa-ts:urn:uuid:14cd3c1b-3048-45ac-a613-9b497a41528b'; // TODO: Generate this value
-                manifest.assertions = new AssertionStore();
-                manifest.claim = claim;
-                manifest.signature = signature;
                 manifest.addAssertion(dataHashAssertion);
-                manifestStore.manifests.push(manifest);
 
-                const schema = SuperBox.schema;
-
-                // insert the JUMBF box data into the asset
-                const length = schema.measure(manifestStore.generateJUMBFBox()).size;
-                await asset.ensureManifestSpace(length);
+                // make space in the asset
+                await asset.ensureManifestSpace(manifestStore.measureSize());
 
                 // update the hard binding
                 await dataHashAssertion.updateWithAsset(asset);
 
                 // create the signature
-                const privateKeyData = await fs.readFile(certificate.privateKeyFile);
-                const base64 = privateKeyData
-                    .toString()
-                    .replace(/-{5}(BEGIN|END) .*-{5}/gm, '')
-                    .replace(/\s/gm, '');
-                const privateKey = Buffer.from(base64, 'base64');
-
                 await manifest.sign(privateKey);
 
-                // check whether the length of the JUMBF changed
-                const jumbfBox = manifestStore.generateJUMBFBox();
-                const length2 = schema.measure(jumbfBox).size;
-                if (length !== length2) {
-                    throw new Error('JUMBF length mismatch');
-                }
-
                 // write the JUMBF box to the asset
-                const buffer = Buffer.alloc(length);
-                const writer = new bin.BufferWriter(buffer, { endianness: 'big' });
-                schema.write(writer, jumbfBox);
-                await asset.writeManifestJUMBF(buffer);
+                await asset.writeManifestJUMBF(manifestStore.getBytes());
 
                 // write the asset to the target file
                 await fs.writeFile(targetFile, await asset.getDataRange());
             });
 
             it('read and verify the JPEG with manifest', async function () {
+                if (!manifest) this.skip();
+
                 // load the file into a buffer
                 const buf = await fs.readFile(targetFile).catch(() => undefined);
                 if (!buf) this.skip();
@@ -145,12 +114,12 @@ describe('Functional Signing Tests', function () {
                     {
                         code: ValidationStatusCode.SigningCredentialTrusted,
                         explanation: undefined,
-                        url: 'self#jumbf=/c2pa/c2pa-ts:urn:uuid:14cd3c1b-3048-45ac-a613-9b497a41528b/c2pa.signature',
+                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
                     },
                     {
                         code: ValidationStatusCode.ClaimSignatureValidated,
                         explanation: undefined,
-                        url: 'self#jumbf=/c2pa/c2pa-ts:urn:uuid:14cd3c1b-3048-45ac-a613-9b497a41528b/c2pa.signature',
+                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
                     },
                     {
                         code: ValidationStatusCode.AssertionHashedURIMatch,
@@ -160,7 +129,7 @@ describe('Functional Signing Tests', function () {
                     {
                         code: ValidationStatusCode.AssertionDataHashMatch,
                         explanation: undefined,
-                        url: 'self#jumbf=/c2pa/c2pa-ts:urn:uuid:14cd3c1b-3048-45ac-a613-9b497a41528b/c2pa.assertions/c2pa.hash.data',
+                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.assertions/c2pa.hash.data`,
                     },
                 ]);
 
