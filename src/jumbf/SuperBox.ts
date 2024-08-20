@@ -93,14 +93,17 @@ export class SuperBox extends Box {
         });
     }
 
-    public toBuffer(): Uint8Array {
-        const length = this.schema.measure(this).size;
-        const buffer = new Uint8Array(length);
+    public toBuffer(skipHeader = true): Uint8Array {
+        const buffer = new Uint8Array(this.measureSize());
         const writer = new bin.BufferWriter(buffer.buffer, { endianness: 'big' });
         this.schema.write(writer, this);
 
         this.rawContent = buffer.subarray(8);
-        return this.rawContent;
+        return skipHeader ? this.rawContent : buffer;
+    }
+
+    public measureSize(): number {
+        return this.schema.measure(this).size;
     }
 
     public toString(prefix?: string) {

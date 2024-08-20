@@ -146,14 +146,13 @@ export class DataHashAssertion extends Assertion {
         if (!this.algorithm) throw new Error('Assertion has no algorithm');
 
         // Measure the size before adding exclusions
-        const schema = JUMBF.SuperBox.schema;
-        const previousLength = schema.measure(this.generateJUMBFBox()).size;
+        const previousLength = this.generateJUMBFBox().measureSize();
 
         this.exclusions = [asset.getHashExclusionRange()];
         this.hash = await AssertionUtils.hashWithExclusions(asset, this.exclusions, this.algorithm);
 
         // Measure the new length after exclusions are added and adjust padding as necessary
-        const adjust = schema.measure(this.generateJUMBFBox()).size - previousLength;
+        const adjust = this.generateJUMBFBox().measureSize() - previousLength;
         if (adjust > this.paddingLength) throw new Error('Not enough padding for exclusions');
         this.paddingLength -= adjust;
     }
