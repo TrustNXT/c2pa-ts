@@ -37,4 +37,14 @@ export class Crypto {
     ): Promise<boolean> {
         return this.provider.verifySignature(payload, signature, publicKey, algorithm);
     }
+
+    /**
+     * Generates a cryptographic signature
+     * @param payload
+     * @param privateKey DER encoded private key
+     * @param algorithm
+     */
+    public static sign(payload: Uint8Array, privateKey: Uint8Array, algorithm: SigningAlgorithm): Promise<Uint8Array> {
+        return this.provider.sign(payload, privateKey, algorithm);
+    }
 }
