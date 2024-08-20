@@ -10,7 +10,7 @@ describe('SuperBox Tests', function () {
         const uuidString = '6332637300110010800000aa00389b71';
         const descriptionLabel = 'test.superbox';
         const serializedString =
-            '0000002f6a756d62000000276a756d646332637300110010800000aa00389b7102746573742e7375706572626f7800';
+            '0000002f6a756d62000000276a756d646332637300110010800000aa00389b7103746573742e7375706572626f7800';
         const uri = 'self#jumbf=/test.superbox';
 
         it('serialization', async function () {
@@ -33,6 +33,12 @@ describe('SuperBox Tests', function () {
 
             // verify expected buffer contents
             assert.equal(BinaryHelper.toHexString(buffer), serializedString);
+
+            // validate generating the raw content buffer
+            const rawContent = box.toBuffer();
+            assert.ok(rawContent);
+            assert.equal(box.rawContent, rawContent);
+            assert.equal(BinaryHelper.toHexString(box.rawContent), serializedString.slice(8 * 2));
         });
 
         it('deserialization', async function () {
@@ -53,6 +59,7 @@ describe('SuperBox Tests', function () {
             assert.ok(box.descriptionBox);
             assert.ok(box.descriptionBox.uuid);
             assert.equal(BinaryHelper.toHexString(box.descriptionBox.uuid), uuidString);
+            assert.ok(box.descriptionBox.requestable);
             assert.ok(box.descriptionBox.label);
             assert.equal(box.descriptionBox.label, descriptionLabel);
             assert.ok(box.rawContent);
@@ -71,6 +78,7 @@ describe('SuperBox Tests', function () {
             assert.ok(box.descriptionBox);
             assert.ok(box.descriptionBox.uuid);
             assert.equal(BinaryHelper.toHexString(box.descriptionBox.uuid), uuidString);
+            assert.ok(box.descriptionBox.requestable);
             assert.ok(box.descriptionBox.label);
             assert.equal(box.descriptionBox.label, descriptionLabel);
             assert.ok(box.rawContent);
@@ -85,7 +93,7 @@ describe('SuperBox Tests', function () {
         const descriptionLabel = 'test.superbox';
         const nestedData = { key: 'value' };
         const serializedString =
-            '000000466a756d62000000276a756d646a736f6e00110010800000aa00389b7102746573742e7375706572626f7800000000176a736f6e7b226b6579223a2276616c7565227d';
+            '000000466a756d62000000276a756d646a736f6e00110010800000aa00389b7103746573742e7375706572626f7800000000176a736f6e7b226b6579223a2276616c7565227d';
         const uri = 'self#jumbf=/test.superbox';
 
         it('serialization', async function () {
@@ -112,6 +120,12 @@ describe('SuperBox Tests', function () {
 
             // verify expected buffer contents
             assert.equal(BinaryHelper.toHexString(buffer), serializedString);
+
+            // validate generating the raw content buffer
+            const rawContent = box.toBuffer();
+            assert.ok(rawContent);
+            assert.equal(box.rawContent, rawContent);
+            assert.equal(BinaryHelper.toHexString(box.rawContent), serializedString.slice(8 * 2));
         });
 
         it('deserialization', async function () {
@@ -132,6 +146,7 @@ describe('SuperBox Tests', function () {
             assert.ok(box.descriptionBox);
             assert.ok(box.descriptionBox.uuid);
             assert.equal(BinaryHelper.toHexString(box.descriptionBox.uuid), uuidString);
+            assert.ok(box.descriptionBox.requestable);
             assert.ok(box.descriptionBox.label);
             assert.equal(box.descriptionBox.label, descriptionLabel);
             assert.ok(box.rawContent);
@@ -155,6 +170,7 @@ describe('SuperBox Tests', function () {
             assert.ok(box.descriptionBox);
             assert.ok(box.descriptionBox.uuid);
             assert.equal(BinaryHelper.toHexString(box.descriptionBox.uuid), uuidString);
+            assert.ok(box.descriptionBox.requestable);
             assert.ok(box.descriptionBox.label);
             assert.equal(box.descriptionBox.label, descriptionLabel);
             assert.ok(box.rawContent);

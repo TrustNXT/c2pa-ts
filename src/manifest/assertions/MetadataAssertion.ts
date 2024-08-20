@@ -155,7 +155,7 @@ export class MetadataAssertion extends Assertion {
         }
     }
 
-    public generateJUMBFBoxForContent(claim: Claim): IBox {
+    public generateJUMBFBoxForContent(): IBox {
         const box = new JSONBox();
 
         const context: Record<string, string> = {};

@@ -1,4 +1,5 @@
 import { Asset } from '../asset';
+import { HashAlgorithm } from '../crypto';
 import { Crypto } from '../crypto/Crypto';
 import * as JUMBF from '../jumbf';
 import { BinaryHelper, MalformedContentError } from '../util';
@@ -180,13 +181,25 @@ export class Manifest implements ManifestComponent {
     }
 
     /**
+     * Calculates the hash for the hashed reference based on the referenced component
+     */
+    public async updateHashedReference(reference: HashedURI): Promise<void> {
+        if (!this.claim) throw new Error('Manifest must have a claim');
+
+        const referencedComponent = this.getComponentByURL(reference.uri);
+        if (!referencedComponent) throw new Error(`Invalid hash reference to ${reference.uri}`);
+
+        reference.hash = await Crypto.digest(referencedComponent.getBytes(this.claim, true)!, reference.algorithm);
+    }
+
+    /**
      * Verifies a the manifest's claim's validity
      * @param asset Asset for validation of bindings
      */
     public async validate(asset: Asset): Promise<ValidationResult> {
         const result = new ValidationResult();
 
-        if (!this.claim) {
+        if (!this.claim?.sourceBox) {
             result.addError(ValidationStatusCode.ClaimMissing, this.sourceBox);
             return result;
         }
@@ -194,7 +207,7 @@ export class Manifest implements ManifestComponent {
         // Validate the signature
         const referencedSignature = this.getComponentByURL(this.claim?.signatureRef, true);
         if (this.signature && referencedSignature === this.signature) {
-            result.merge(await this.signature.validate(this.claim.getBytes()));
+            result.merge(await this.signature.validate(this.claim.getBytes(this.claim)!));
         } else {
             result.addError(ValidationStatusCode.ClaimSignatureMissing, this.claim.signatureRef);
         }
@@ -424,5 +437,45 @@ export class Manifest implements ManifestComponent {
         }
 
         return result;
+    }
+
+    /**
+     * Appends an assertion to the manifest's assertion store and adds a reference to the claim.
+     * The hash is left empty and will be calculated during sign().
+     */
+    public addAssertion(assertion: Assertion, hashAlgorithm: HashAlgorithm | undefined = undefined): void {
+        if (!this.claim) throw new Error('Manifest does not have claim');
+        if (!this.assertions) throw new Error('Manifest does not have an assertion store');
+
+        if (!hashAlgorithm && !this.claim.defaultAlgorithm) throw new Error('Missing algorithm');
+        const algorithm = hashAlgorithm ?? this.claim.defaultAlgorithm!;
+
+        this.assertions.assertions.push(assertion);
+        this.claim.assertions.push({
+            uri: `self#jumbf=${this.assertions.label}/${assertion.fullLabel}`,
+            hash: new Uint8Array(Crypto.getDigestLength(algorithm)),
+            algorithm,
+        });
+    }
+
+    /**
+     * Prepares the manifest for signing and fills in the signature using the provided private key
+     * @param privateKey Private key in PKCS#8 format
+     */
+    public async sign(privateKey: Uint8Array): Promise<void> {
+        if (!this.claim) throw new Error('Manifest does not have claim');
+        if (!this.signature) throw new Error('Manifest does not have signature');
+
+        this.populateComponentStore();
+
+        for (const assertionReference of [...this.claim.assertions, ...this.claim.redactedAssertions]) {
+            await this.updateHashedReference(assertionReference);
+        }
+
+        await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!);
+    }
+
+    public getBytes(claim: Claim, rebuild?: boolean | undefined): Uint8Array | undefined {
+        throw new Error('Not implemented');
     }
 }

@@ -22,7 +22,7 @@ Anything that's not listed below is not currently planned to be implemented.
 
 - :white_check_mark: Reading manifests
 - :construction: Validating manifests (mostly implemented except chain of trust validation)
-- :x: Creating manifests
+- :white_check_mark: Creating manifests
 
 ### Asset file formats
 
@@ -57,7 +57,11 @@ Anything that's not listed below is not currently planned to be implemented.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Usage example
+## Usage examples
+
+<details>
+
+<summary>Reading and validating a manifest</summary>
 
 Example usage in a Node.js environment:
 
@@ -114,6 +118,16 @@ if (jumbf) {
     console.log('Validation result', validationResult);
 }
 ```
+
+</details>
+
+<details>
+
+<summary>Creating a manifest</summary>
+
+This still needs proper example code ([issue #58](https://github.com/TrustNXT/c2pa-ts/issues/58)). For now, you can check [`jpeg-signing.test.ts`](https://github.com/TrustNXT/c2pa-ts/blob/b6cfeaa17d24c82c5c0ecc163a43a646806b189e/tests/jpeg-signing.test.ts#L53-L83).
+
+</details>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

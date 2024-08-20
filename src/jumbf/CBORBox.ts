@@ -26,7 +26,7 @@ class CBORBoxSchema extends BoxSchema<CBORBox> {
         try {
             // If the data is tagged, store content and tag separately,
             // but ignore the tag otherwise.
-            const decoded: unknown = cbor.decode(box.rawContent);
+            const decoded: unknown = CBORBox.decoder.decode(box.rawContent);
             if (decoded instanceof cbor.Tag) {
                 box.tag = decoded.tag;
                 box.content = decoded.value;
@@ -43,33 +43,36 @@ class CBORBoxSchema extends BoxSchema<CBORBox> {
     }
 
     writeContent(output: bin.ISerialOutput, value: CBORBox): void {
-        if (!value.rawContent) {
-            if (value.tag !== undefined) {
-                value.rawContent = cbor.encode(new cbor.Tag(value.content, value.tag));
-            } else {
-                value.rawContent = cbor.encode(value.content);
-            }
-        }
+        if (!value.rawContent) value.generateRawContent();
 
-        value.rawContent.forEach(byte => output.writeByte(byte));
+        value.rawContent!.forEach(byte => output.writeByte(byte));
     }
 
     measureContent(value: CBORBox, measurer: bin.IMeasurer): bin.IMeasurer {
-        if (!value.rawContent) {
-            if (value.tag === undefined) {
-                value.rawContent = cbor.encode(value.content);
-            } else {
-                value.rawContent = cbor.encode(new cbor.Tag(value.content, value.tag));
-            }
-        }
+        if (!value.rawContent) value.generateRawContent();
 
-        return measurer.add(value.rawContent.length);
+        return measurer.add(value.rawContent!.length);
     }
 }
 
 export class CBORBox extends Box {
     public static readonly typeCode = 'cbor';
     public static readonly schema = new CBORBoxSchema();
+
+    private static readonly cborOptions: cbor.Options = {
+        useRecords: false,
+        tagUint8Array: false,
+        // This is a workaround for the keys in our COSE header structures being strings, to make sure
+        // they are being serialized as integers. A better way would be to use named identifiers and map
+        // those to the corresponding integers.
+        keyMap: {
+            '1': 1,
+            '33': 33,
+        },
+    };
+    public static readonly decoder = new cbor.Decoder(this.cborOptions);
+    public static readonly encoder = new cbor.Encoder(this.cborOptions);
+
     // see https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml for assigned tag numbers
     public tag?: number;
     public content: unknown;
@@ -95,5 +98,11 @@ export class CBORBox extends Box {
         } catch {
             return (prefix ?? '') + 'CBOR content (unserializable)';
         }
+    }
+
+    public generateRawContent(): void {
+        this.rawContent = CBORBox.encoder.encode(
+            this.tag !== undefined ? new cbor.Tag(this.content, this.tag) : this.content,
+        );
     }
 }

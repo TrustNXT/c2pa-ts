@@ -26,9 +26,9 @@ export class CreativeWorkAssertion extends SchemaOrgAssertion<CreativeWork> {
         this.creativeWork = this.item;
     }
 
-    public generateJUMBFBoxForContent(claim: Claim): IBox {
+    public generateJUMBFBoxForContent(): IBox {
         if (this.creativeWork['@type'] !== 'CreativeWork') throw new Error('CreativeWork object has invalid type');
         this.item = this.creativeWork;
-        return super.generateJUMBFBoxForContent(claim);
+        return super.generateJUMBFBoxForContent();
     }
 }

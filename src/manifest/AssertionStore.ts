@@ -103,4 +103,9 @@ export class AssertionStore implements ManifestComponent {
                 (assertion.label?.startsWith(AssertionLabels.ingredientThumbnailPrefix) ?? false),
         );
     }
+
+    public getBytes(claim: Claim, rebuild = false) {
+        if (rebuild) this.generateJUMBFBox(claim);
+        return this.sourceBox?.toBuffer();
+    }
 }

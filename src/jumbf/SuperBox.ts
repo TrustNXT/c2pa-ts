@@ -93,6 +93,19 @@ export class SuperBox extends Box {
         });
     }
 
+    public toBuffer(skipHeader = true): Uint8Array {
+        const buffer = new Uint8Array(this.measureSize());
+        const writer = new bin.BufferWriter(buffer.buffer, { endianness: 'big' });
+        this.schema.write(writer, this);
+
+        this.rawContent = buffer.subarray(8);
+        return skipHeader ? this.rawContent : buffer;
+    }
+
+    public measureSize(): number {
+        return this.schema.measure(this).size;
+    }
+
     public toString(prefix?: string) {
         let str = `${prefix ?? ''}Superbox ${this.uri ?? ''}`;
         const subPrefix = (prefix ?? '') + '  ';

@@ -96,8 +96,7 @@ describe('DataHashAssertion Tests', function () {
                 91, 147, 97, 246, 247, 144, 233, 140, 43, 149, 219, 125, 137, 204, 55, 140, 123, 253, 51, 38, 234, 228,
                 228, 219, 227, 198, 185, 180, 12, 85, 230, 137,
             ]),
-            // TODO: properly implement padding (`pad`, `pad2`)
-            pad: new Uint8Array(),
+            pad: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0]),
         });
     });
 });

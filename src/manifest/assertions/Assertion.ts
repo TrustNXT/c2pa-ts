@@ -9,9 +9,12 @@ export abstract class Assertion implements ManifestComponent {
     public readonly componentType = ManifestComponentType.Assertion;
     public label?: string;
     public labelSuffix?: number;
-    public fullLabel?: string;
     public uuid?: Uint8Array;
     public sourceBox: JUMBF.SuperBox | undefined;
+
+    public get fullLabel() {
+        return this.labelSuffix !== undefined ? `${this.label}__${this.labelSuffix}` : this.label;
+    }
 
     /**
      * the label in the JUMBF box contains both the actual assertion type identifier
@@ -37,7 +40,6 @@ export abstract class Assertion implements ManifestComponent {
 
         this.sourceBox = box;
         this.uuid = box.descriptionBox.uuid;
-        this.fullLabel = box.descriptionBox.label;
         this.label = label.label;
         this.labelSuffix = label.index;
 
@@ -47,7 +49,7 @@ export abstract class Assertion implements ManifestComponent {
 
     public abstract readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void;
 
-    public generateJUMBFBox(claim: Claim): JUMBF.SuperBox {
+    public generateJUMBFBox(claim?: Claim): JUMBF.SuperBox {
         const box = new JUMBF.SuperBox();
 
         box.descriptionBox = new JUMBF.DescriptionBox();
@@ -60,9 +62,14 @@ export abstract class Assertion implements ManifestComponent {
         return box;
     }
 
-    public abstract generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox;
+    public abstract generateJUMBFBoxForContent(claim?: Claim): JUMBF.IBox;
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         return new ValidationResult();
+    }
+
+    public getBytes(claim: Claim, rebuild = false) {
+        if (rebuild) this.generateJUMBFBox(claim);
+        return this.sourceBox?.toBuffer();
     }
 }

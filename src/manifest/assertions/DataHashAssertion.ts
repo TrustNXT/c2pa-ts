@@ -1,5 +1,5 @@
 import { Asset } from '../../asset';
-import { HashAlgorithm } from '../../crypto';
+import { Crypto, HashAlgorithm } from '../../crypto';
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
@@ -8,6 +8,7 @@ import { HashExclusionRange, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
+import { AssertionLabels } from './AssertionLabels';
 import { AssertionUtils } from './AssertionUtils';
 
 interface RawDataHashMap {
@@ -20,16 +21,12 @@ interface RawDataHashMap {
 }
 
 export class DataHashAssertion extends Assertion {
-    private static readonly hashSizes = {
-        'SHA-256': 32,
-        'SHA-384': 48,
-        'SHA-512': 64,
-    };
-
     public algorithm?: HashAlgorithm;
     public name?: string;
     public hash?: Uint8Array;
     public exclusions: HashExclusionRange[] = [];
+    public paddingLength = 0;
+    public padding2Length = 0;
 
     public readContentFromJUMBF(box: JUMBF.IBox): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
@@ -41,6 +38,25 @@ export class DataHashAssertion extends Assertion {
 
         const content = box.content as RawDataHashMap;
 
+        if (content.pad) {
+            if (content.pad.some(e => e !== 0))
+                throw new ValidationError(
+                    ValidationStatusCode.AssertionCBORInvalid,
+                    this.sourceBox,
+                    'Malformed padding',
+                );
+            this.paddingLength = content.pad.length;
+        }
+        if (content.pad2) {
+            if (content.pad2.some(e => e !== 0))
+                throw new ValidationError(
+                    ValidationStatusCode.AssertionCBORInvalid,
+                    this.sourceBox,
+                    'Malformed padding',
+                );
+            this.padding2Length = content.pad2.length;
+        }
+
         this.name = content.name;
         this.hash = content.hash;
 
@@ -49,7 +65,7 @@ export class DataHashAssertion extends Assertion {
         // assume it has to be present
         if (!algorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported, this.sourceBox);
         this.algorithm = algorithm;
-        if (this.hash.length !== DataHashAssertion.hashSizes[algorithm]) {
+        if (this.hash.length !== Crypto.getDigestLength(algorithm)) {
             throw new ValidationError(
                 ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
@@ -89,19 +105,22 @@ export class DataHashAssertion extends Assertion {
     }
 
     public generateJUMBFBoxForContent(): JUMBF.IBox {
-        if (!this.hash) throw new Error('Assertion has no hash');
         if (!this.algorithm) throw new Error('Assertion has no algorithm');
-        if (this.hash.length !== DataHashAssertion.hashSizes[this.algorithm]) {
-            throw new Error('mismatch between algorithm and hash length');
+
+        const digestLength = Crypto.getDigestLength(this.algorithm);
+        if (this.hash && this.hash.length !== digestLength) {
+            throw new Error('Mismatch between algorithm and hash length');
         }
 
         const content: RawDataHashMap = {
             exclusions: this.exclusions,
             alg: Claim.reverseMapHashAlgorithm(this.algorithm),
-            hash: this.hash,
-            pad: new Uint8Array(),
+            hash: this.hash ?? new Uint8Array(digestLength),
+            pad: new Uint8Array(this.paddingLength),
         };
+
         if (this.name) content.name = this.name;
+        if (this.padding2Length) content.pad2 = new Uint8Array(this.padding2Length);
 
         const box = new JUMBF.CBORBox();
         box.content = content;
@@ -121,5 +140,29 @@ export class DataHashAssertion extends Assertion {
         } else {
             return ValidationResult.error(ValidationStatusCode.AssertionDataHashMismatch, this.sourceBox);
         }
+    }
+
+    public async updateWithAsset(asset: Asset): Promise<void> {
+        if (!this.algorithm) throw new Error('Assertion has no algorithm');
+
+        // Measure the size before adding exclusions
+        const previousLength = this.generateJUMBFBox().measureSize();
+
+        this.exclusions = [asset.getHashExclusionRange()];
+        this.hash = await AssertionUtils.hashWithExclusions(asset, this.exclusions, this.algorithm);
+
+        // Measure the new length after exclusions are added and adjust padding as necessary
+        const adjust = this.generateJUMBFBox().measureSize() - previousLength;
+        if (adjust > this.paddingLength) throw new Error('Not enough padding for exclusions');
+        this.paddingLength -= adjust;
+    }
+
+    public static create(algorithm: HashAlgorithm, initialPaddingLength = 100) {
+        const dataHashAssertion = new DataHashAssertion();
+        dataHashAssertion.uuid = raw.UUIDs.cborAssertion;
+        dataHashAssertion.label = AssertionLabels.dataHash;
+        dataHashAssertion.algorithm = algorithm;
+        dataHashAssertion.paddingLength = initialPaddingLength;
+        return dataHashAssertion;
     }
 }

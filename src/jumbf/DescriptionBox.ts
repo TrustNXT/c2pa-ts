@@ -80,8 +80,8 @@ export class DescriptionBox extends Box {
     public static readonly typeCode = 'jumd';
     public static readonly schema = new DescriptionBoxSchema();
     public uuid: Uint8Array = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-    public requestable?: boolean;
-    public label: string | undefined;
+    public requestable = true;
+    public label?: string;
     public id: number | undefined;
     public hash: Uint8Array | undefined;
     public privateBoxes: IBox[] = [];
