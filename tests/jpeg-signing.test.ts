@@ -5,11 +5,8 @@ import { after } from 'mocha';
 import * as bin from 'typed-binary';
 import { JPEG } from '../src/asset';
 import { CoseAlgorithmIdentifier } from '../src/cose';
-import { Crypto } from '../src/crypto';
 import { SuperBox } from '../src/jumbf';
 import {
-    Assertion,
-    AssertionLabels,
     AssertionStore,
     Claim,
     ClaimVersion,
@@ -19,8 +16,6 @@ import {
     Signature,
     ValidationStatusCode,
 } from '../src/manifest';
-import { AssertionUtils } from '../src/manifest/assertions/AssertionUtils';
-import { UUIDs } from '../src/manifest/rawTypes';
 
 // location of the image to sign
 const sourceFile = 'tests/fixtures/trustnxt-icon.jpg';
@@ -59,20 +54,7 @@ describe('Functional Signing Tests', function () {
                 const asset = new JPEG(buf);
 
                 // create a data hash assertion
-                const dataHashAssertion = new DataHashAssertion();
-                dataHashAssertion.uuid = UUIDs.cborAssertion; // TODO: This should not be required here!
-                dataHashAssertion.label = AssertionLabels.dataHash;
-                dataHashAssertion.fullLabel = dataHashAssertion.label;
-                dataHashAssertion.algorithm = 'SHA-256';
-                dataHashAssertion.hash = new Uint8Array(32);
-                dataHashAssertion.exclusions.push({
-                    start: 0,
-                    length: buf.length,
-                });
-
-                // create an assertion store and add the data hash assertion to it
-                const assertionStore = new AssertionStore();
-                assertionStore.assertions.push(dataHashAssertion);
+                const dataHashAssertion = DataHashAssertion.create('SHA-512');
 
                 // create an empty signature
                 const signature = Signature.createFromCertificate(
@@ -87,27 +69,15 @@ describe('Functional Signing Tests', function () {
                 claim.instanceID = 'aoeu'; // TODO: ....
                 claim.defaultAlgorithm = 'SHA-256';
                 claim.signatureRef = 'self#jumbf=' + signature.label;
-                const createHashedURIForAssertion = async (assertion: Assertion) => {
-                    const box = assertion.generateJUMBFBox(claim);
-                    // generate or regenerate the buffer
-                    box.toBuffer();
-                    const digest = await Crypto.digest(box.rawContent!, claim.defaultAlgorithm!);
-                    return {
-                        // TODO: This URI should be assigned by the component store within the manifest
-                        uri: 'self#jumbf=c2pa.assertions/' + assertion.fullLabel,
-                        algorithm: claim.defaultAlgorithm!,
-                        hash: digest,
-                    };
-                };
-                claim.assertions.push(await createHashedURIForAssertion(dataHashAssertion));
 
                 // create a manifest from the assertion store, claim, and signature
                 const manifestStore = new ManifestStore();
                 const manifest = new Manifest(manifestStore);
                 manifest.label = 'c2pa-ts:urn:uuid:14cd3c1b-3048-45ac-a613-9b497a41528b'; // TODO: Generate this value
-                manifest.assertions = assertionStore;
+                manifest.assertions = new AssertionStore();
                 manifest.claim = claim;
                 manifest.signature = signature;
+                manifest.addAssertion(dataHashAssertion);
                 manifestStore.manifests.push(manifest);
 
                 const schema = SuperBox.schema;
@@ -116,23 +86,8 @@ describe('Functional Signing Tests', function () {
                 const length = schema.measure(manifestStore.generateJUMBFBox()).size;
                 await asset.ensureManifestSpace(length);
 
-                // adjust the exclusion range for the data hash assertion and
-                // calculate the hash for the remaining data
-                const excludedRange = asset.getHashExclusionRange();
-                dataHashAssertion.exclusions = [
-                    {
-                        start: excludedRange.start,
-                        length: excludedRange.length,
-                    },
-                ];
-                dataHashAssertion.hash = await AssertionUtils.hashWithExclusions(
-                    asset,
-                    dataHashAssertion.exclusions,
-                    dataHashAssertion.algorithm,
-                );
-
-                // update the hash in the claim now, too
-                claim.assertions = [await createHashedURIForAssertion(dataHashAssertion)];
+                // update the hard binding
+                await dataHashAssertion.updateWithAsset(asset);
 
                 // create the signature
                 const privateKeyData = await fs.readFile(certificate.privateKeyFile);
@@ -142,7 +97,7 @@ describe('Functional Signing Tests', function () {
                     .replace(/\s/gm, '');
                 const privateKey = Buffer.from(base64, 'base64');
 
-                await signature.sign(privateKey, claim.getBytes(true));
+                await manifest.sign(privateKey);
 
                 // check whether the length of the JUMBF changed
                 const jumbfBox = manifestStore.generateJUMBFBox();
