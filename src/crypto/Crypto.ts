@@ -47,4 +47,19 @@ export class Crypto {
     public static sign(payload: Uint8Array, privateKey: Uint8Array, algorithm: SigningAlgorithm): Promise<Uint8Array> {
         return this.provider.sign(payload, privateKey, algorithm);
     }
+
+    /**
+     * Returns the digest length for the given algorithm
+     * @param algorithm
+     */
+    public static getDigestLength(algorithm: HashAlgorithm): number {
+        switch (algorithm) {
+            case 'SHA-256':
+                return 32;
+            case 'SHA-384':
+                return 48;
+            case 'SHA-512':
+                return 64;
+        }
+    }
 }

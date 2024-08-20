@@ -1,5 +1,5 @@
 import { Asset } from '../../asset';
-import { HashAlgorithm } from '../../crypto';
+import { Crypto, HashAlgorithm } from '../../crypto';
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
@@ -20,12 +20,6 @@ interface RawDataHashMap {
 }
 
 export class DataHashAssertion extends Assertion {
-    private static readonly hashSizes = {
-        'SHA-256': 32,
-        'SHA-384': 48,
-        'SHA-512': 64,
-    };
-
     public algorithm?: HashAlgorithm;
     public name?: string;
     public hash?: Uint8Array;
@@ -49,7 +43,7 @@ export class DataHashAssertion extends Assertion {
         // assume it has to be present
         if (!algorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported, this.sourceBox);
         this.algorithm = algorithm;
-        if (this.hash.length !== DataHashAssertion.hashSizes[algorithm]) {
+        if (this.hash.length !== Crypto.getDigestLength(algorithm)) {
             throw new ValidationError(
                 ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
@@ -91,8 +85,10 @@ export class DataHashAssertion extends Assertion {
     public generateJUMBFBoxForContent(): JUMBF.IBox {
         if (!this.hash) throw new Error('Assertion has no hash');
         if (!this.algorithm) throw new Error('Assertion has no algorithm');
-        if (this.hash.length !== DataHashAssertion.hashSizes[this.algorithm]) {
-            throw new Error('mismatch between algorithm and hash length');
+
+        const digestLength = Crypto.getDigestLength(this.algorithm);
+        if (this.hash && this.hash.length !== digestLength) {
+            throw new Error('Mismatch between algorithm and hash length');
         }
 
         const content: RawDataHashMap = {
