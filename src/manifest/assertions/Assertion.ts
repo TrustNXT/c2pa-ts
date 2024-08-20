@@ -9,9 +9,12 @@ export abstract class Assertion implements ManifestComponent {
     public readonly componentType = ManifestComponentType.Assertion;
     public label?: string;
     public labelSuffix?: number;
-    public fullLabel?: string;
     public uuid?: Uint8Array;
     public sourceBox: JUMBF.SuperBox | undefined;
+
+    public get fullLabel() {
+        return this.labelSuffix !== undefined ? `${this.label}__${this.labelSuffix}` : this.label;
+    }
 
     /**
      * the label in the JUMBF box contains both the actual assertion type identifier
@@ -37,7 +40,6 @@ export abstract class Assertion implements ManifestComponent {
 
         this.sourceBox = box;
         this.uuid = box.descriptionBox.uuid;
-        this.fullLabel = box.descriptionBox.label;
         this.label = label.label;
         this.labelSuffix = label.index;
 
