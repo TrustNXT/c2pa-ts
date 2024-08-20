@@ -49,7 +49,7 @@ export abstract class Assertion implements ManifestComponent {
 
     public abstract readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void;
 
-    public generateJUMBFBox(claim: Claim): JUMBF.SuperBox {
+    public generateJUMBFBox(claim?: Claim): JUMBF.SuperBox {
         const box = new JUMBF.SuperBox();
 
         box.descriptionBox = new JUMBF.DescriptionBox();
@@ -62,9 +62,14 @@ export abstract class Assertion implements ManifestComponent {
         return box;
     }
 
-    public abstract generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox;
+    public abstract generateJUMBFBoxForContent(claim?: Claim): JUMBF.IBox;
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         return new ValidationResult();
+    }
+
+    public getBytes(claim: Claim, rebuild = false) {
+        if (rebuild) this.generateJUMBFBox(claim);
+        return this.sourceBox?.toBuffer();
     }
 }

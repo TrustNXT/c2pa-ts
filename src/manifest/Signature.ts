@@ -2,6 +2,7 @@ import { X509Certificate } from '@peculiar/x509';
 import * as COSE from '../cose';
 import * as JUMBF from '../jumbf';
 import { MalformedContentError } from '../util';
+import { Claim } from './Claim';
 import * as raw from './rawTypes';
 import { ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
@@ -115,5 +116,10 @@ export class Signature implements ManifestComponent {
         const adjust = schema.measure(this.generateJUMBFBox()).size - previousLength;
         if (adjust > this.signatureData.paddingLength) throw new Error('Not enough padding for signature');
         this.signatureData.paddingLength -= adjust;
+    }
+
+    public getBytes(claim: Claim, rebuild = false): Uint8Array | undefined {
+        if (rebuild) this.generateJUMBFBox();
+        return this.sourceBox?.toBuffer();
     }
 }

@@ -1,5 +1,6 @@
 import { HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
+import { Claim } from './Claim';
 
 export enum ManifestType {
     Standard,
@@ -15,6 +16,7 @@ export interface ManifestComponent {
     label?: string;
     sourceBox?: JUMBF.SuperBox;
     readonly componentType?: ManifestComponentType;
+    getBytes(claim?: Claim | undefined, rebuild?: boolean | undefined): Uint8Array | undefined;
 }
 
 export enum ClaimVersion {

@@ -36,7 +36,7 @@ export abstract class SchemaOrgAssertion<T extends Thing> extends Assertion {
         this.item = content;
     }
 
-    public generateJUMBFBoxForContent(claim: Claim): IBox {
+    public generateJUMBFBoxForContent(): IBox {
         if (!this.item) throw new Error('Assertion has no item');
 
         const box = new JSONBox();

@@ -152,8 +152,8 @@ export class Claim implements ManifestComponent {
         }
     }
 
-    public getBytes(rebuild = false): Uint8Array {
+    public getBytes(claim: Claim, rebuild = false): Uint8Array | undefined {
         if (rebuild) this.generateJUMBFBox();
-        return (this.sourceBox!.contentBoxes[0] as JUMBF.CBORBox).rawContent!;
+        return (this.sourceBox?.contentBoxes[0] as JUMBF.CBORBox | undefined)?.rawContent;
     }
 }
