@@ -95,8 +95,8 @@ export class SuperBox extends Box {
 
     public toBuffer(): Uint8Array {
         const length = this.schema.measure(this).size;
-        const buffer = Buffer.alloc(length);
-        const writer = new bin.BufferWriter(buffer, { endianness: 'big' });
+        const buffer = new Uint8Array(length);
+        const writer = new bin.BufferWriter(buffer.buffer, { endianness: 'big' });
         this.schema.write(writer, this);
 
         this.rawContent = buffer.subarray(8);
