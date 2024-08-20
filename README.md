@@ -137,6 +137,8 @@ Usage with JavaScript engines that lack WebCrypto and other browser APIs (such a
 
 For more information or a reference iOS implementation, <a href="mailto:mail@trustnxt.com">contact us</a>.
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Contributing
 
 Contributions are welcome!
