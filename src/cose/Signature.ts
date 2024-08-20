@@ -18,7 +18,7 @@ import { ValidationError, ValidationResult, ValidationStatusCode } from '../mani
 import { BinaryHelper, MalformedContentError } from '../util';
 import { Algorithms, CoseAlgorithm } from './Algorithms';
 import { SigStructure } from './SigStructure';
-import { AdditionalEKU, CoseSignature, ProtectedBucket } from './types';
+import { AdditionalEKU, CoseSignature, ProtectedBucket, UnprotectedBucket } from './types';
 
 export class Signature {
     public algorithm?: CoseAlgorithm;
@@ -27,6 +27,7 @@ export class Signature {
     public rawProtectedBucket?: Uint8Array;
     public signature?: Uint8Array;
     public timeStampResponses: TimeStampResp[] = [];
+    public paddingLength = 0;
 
     public static readFromJUMBFData(content: unknown) {
         const signature = new Signature();
@@ -43,6 +44,11 @@ export class Signature {
 
         const unprotectedBucket = rawContent[1];
         if (!unprotectedBucket) throw new MalformedContentError('Malformed unprotected bucket');
+
+        if (unprotectedBucket.pad) {
+            if (unprotectedBucket.pad.some(e => e !== 0)) throw new MalformedContentError('Malformed padding');
+            signature.paddingLength = unprotectedBucket.pad.length;
+        }
 
         const algorithm = protectedBucket['1'] ? Algorithms.getAlgorithm(protectedBucket['1']) : undefined;
         if (!algorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported);
@@ -84,6 +90,39 @@ export class Signature {
         }
 
         return signature;
+    }
+
+    public writeJUMBFData(): CoseSignature {
+        if (!this.certificate) throw new Error('Signature is missing certificate');
+        if (!this.algorithm) throw new Error('Signature is missing algorithm');
+
+        const protectedBucket: ProtectedBucket = {
+            '1': this.algorithm.coseIdentifier,
+            '33': [
+                new Uint8Array(this.certificate.rawData),
+                ...this.chainCertificates.map(cert => new Uint8Array(cert.rawData)),
+            ],
+        };
+        this.rawProtectedBucket = JUMBF.CBORBox.encoder.encode(protectedBucket);
+
+        const unprotectedBucket: UnprotectedBucket = {
+            pad: new Uint8Array(this.paddingLength),
+        };
+
+        return [
+            this.rawProtectedBucket,
+            unprotectedBucket,
+            null, // External data
+            this.signature ?? new Uint8Array(), // Signature
+        ];
+    }
+
+    public async sign(privateKey: Uint8Array, payload: Uint8Array): Promise<void> {
+        if (!this.rawProtectedBucket) throw new Error('Signature is missing protected bucket');
+        if (!this.algorithm || !this.certificate) throw new Error('Signature is missing algorithm');
+
+        const toBeSigned = new SigStructure('Signature1', this.rawProtectedBucket, payload).encode();
+        this.signature = await Crypto.sign(toBeSigned, privateKey, this.getSigningAlgorithm()!);
     }
 
     private async getTimestamp(payload: Uint8Array): Promise<Date | undefined> {
@@ -166,22 +205,12 @@ export class Signature {
         try {
             const toBeSigned = new SigStructure('Signature1', this.rawProtectedBucket, payload).encode();
 
-            let algorithm: SigningAlgorithm;
-            if (this.algorithm.alg.name === 'ECDSA') {
-                algorithm = {
-                    ...this.algorithm.alg,
-                    namedCurve: (this.certificate.publicKey.algorithm as EcKeyAlgorithm).namedCurve as ECDSANamedCurve,
-                };
-            } else {
-                algorithm = this.algorithm.alg;
-            }
-
             if (
                 await Crypto.verifySignature(
                     toBeSigned,
                     this.signature,
                     new Uint8Array(this.certificate.publicKey.rawData),
-                    algorithm,
+                    this.getSigningAlgorithm()!,
                 )
             ) {
                 result.addInformational(ValidationStatusCode.ClaimSignatureValidated, sourceBox);
@@ -193,6 +222,18 @@ export class Signature {
         }
 
         return result;
+    }
+
+    private getSigningAlgorithm(): SigningAlgorithm | undefined {
+        if (!this.algorithm || !this.certificate) return undefined;
+
+        if (this.algorithm.alg.name === 'ECDSA') {
+            return {
+                ...this.algorithm.alg,
+                namedCurve: (this.certificate.publicKey.algorithm as EcKeyAlgorithm).namedCurve as ECDSANamedCurve,
+            };
+        }
+        return this.algorithm.alg;
     }
 
     private static validateCertificate(

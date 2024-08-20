@@ -93,6 +93,8 @@ export class Claim implements ManifestComponent {
                 break;
         }
 
+        // Rebuild the CBOR encoding so we can later get the claim bytes for the signature
+        contentBox.generateRawContent();
         this.sourceBox = box;
         return this.sourceBox;
     }
@@ -150,7 +152,8 @@ export class Claim implements ManifestComponent {
         }
     }
 
-    public getBytes(): Uint8Array {
+    public getBytes(rebuild = false): Uint8Array {
+        if (rebuild) this.generateJUMBFBox();
         return (this.sourceBox!.contentBoxes[0] as JUMBF.CBORBox).rawContent!;
     }
 }
