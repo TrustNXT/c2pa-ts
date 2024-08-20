@@ -215,10 +215,8 @@ describe('Functional Signing Tests', function () {
         });
     }
 
-    /*
     after(async function () {
         // delete test file, ignore the case it doesn't exist
         await fs.unlink(targetFile).catch(() => undefined);
     });
-    */
 });
