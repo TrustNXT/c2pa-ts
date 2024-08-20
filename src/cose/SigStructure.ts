@@ -1,4 +1,4 @@
-import * as cbor from 'cbor-x';
+import { CBORBox } from '../jumbf';
 
 export class SigStructure {
     public readonly externalAAD: Uint8Array = new Uint8Array(0);
@@ -10,11 +10,6 @@ export class SigStructure {
     ) {}
 
     public encode(): Uint8Array {
-        return new cbor.Encoder({ tagUint8Array: false }).encode([
-            this.context,
-            this.protectedBucket,
-            this.externalAAD,
-            this.payload,
-        ]);
+        return CBORBox.encoder.encode([this.context, this.protectedBucket, this.externalAAD, this.payload]);
     }
 }
