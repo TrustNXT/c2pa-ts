@@ -175,7 +175,6 @@ export class BMFF extends BaseAsset implements Asset {
 }
 
 class BoxReader {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     private constructor() {}
 
     public static *read(buf: Uint8Array, offset: number, length: number) {

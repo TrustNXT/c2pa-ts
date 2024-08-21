@@ -45,7 +45,7 @@ export class JPEG extends BaseAsset implements Asset {
 
     private *readSegments() {
         let pos = 2;
-        // eslint-disable-next-line no-constant-condition
+
         while (true) {
             if (pos + 2 > this.data.length) {
                 throw new Error('Malformed JPEG (buffer underrun before end marker)');
