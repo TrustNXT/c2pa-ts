@@ -1,5 +1,6 @@
 import { HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
+import { Version } from '../util';
 import * as raw from './rawTypes';
 import { ClaimVersion, HashedURI, ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
@@ -13,6 +14,8 @@ export class Claim implements ManifestComponent {
     public redactedAssertions: HashedURI[] = [];
     public sourceBox?: JUMBF.SuperBox;
     public signatureRef?: string;
+    public claimGeneratorName = Version.productName;
+    public claimGeneratorVersion? = Version.productVersion;
 
     public get label(): string {
         return this.version === ClaimVersion.V2 ? 'c2pa.claim.v2' : 'c2pa.claim';
@@ -39,12 +42,20 @@ export class Claim implements ManifestComponent {
             claim.version = ClaimVersion.V2;
             const fullContent = claimContent as raw.ClaimV2;
             claim.instanceID = fullContent.instanceID;
+            claim.claimGeneratorName = fullContent.claim_generator_info?.name;
+            claim.claimGeneratorVersion = fullContent.claim_generator_info?.version;
             claim.assertions = fullContent.created_assertions.map(a => claim.mapHashedURI(a));
         } else if (box.descriptionBox.label === 'c2pa.claim') {
             claim.version = ClaimVersion.V1;
             const fullContent = claimContent as raw.ClaimV1;
             claim.instanceID = fullContent.instanceID;
             claim.format = fullContent['dc:format'];
+            if (fullContent.claim_generator_info?.length) {
+                claim.claimGeneratorName = fullContent.claim_generator_info[0].name;
+                claim.claimGeneratorVersion = fullContent.claim_generator_info[0].version;
+            } else {
+                claim.claimGeneratorName = fullContent.claim_generator;
+            }
             claim.assertions = fullContent.assertions.map(a => claim.mapHashedURI(a));
         } else {
             throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Claim has invalid label');
@@ -73,9 +84,7 @@ export class Claim implements ManifestComponent {
                     alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
                     instanceID: this.instanceID,
                     signature: this.signatureRef,
-                    // TODO: we should define our own generator name including a version,
-                    // like 'make_test_images/0.16.1 c2pa-rs/0.16.1'
-                    claim_generator: 'c2pa-ts',
+                    claim_generator: this.claimGeneratorName,
                     'dc:format': this.format,
                     assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
                 } as raw.ClaimV1;
@@ -86,7 +95,8 @@ export class Claim implements ManifestComponent {
                     instanceID: this.instanceID,
                     signature: this.signatureRef,
                     claim_generator_info: {
-                        name: 'c2pa-ts',
+                        name: this.claimGeneratorName,
+                        version: this.claimGeneratorVersion,
                     } as raw.ClaimGeneratorInfo,
                     created_assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
                 } as raw.ClaimV2;
