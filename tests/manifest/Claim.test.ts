@@ -205,7 +205,7 @@ describe('Claim Tests', function () {
             assert.deepEqual(box.contentBoxes[0].content, {
                 'dc:format': 'image/jpeg',
                 instanceID: 'xmp:iid:f7ba134b-8dec-4334-911d-a30409e32d8e',
-                claim_generator: 'c2pa-ts',
+                claim_generator: 'make_test_images/0.16.1 c2pa-rs/0.16.1',
                 signature: 'self#jumbf=c2pa.signature',
                 assertions: [
                     {
