@@ -41,7 +41,7 @@
     "eslint": "^9.9.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
-    "github-actions-ctrf": "^0.0.24",
+    "github-actions-ctrf": "^0.0.25",
     "mocha": "^10.7.3",
     "mocha-ctrf-json-reporter": "^0.0.6",
     "prettier": "3.3.3",
