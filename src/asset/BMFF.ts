@@ -9,6 +9,8 @@ export class BMFF extends BaseAsset implements Asset {
     /** Non-exhaustive list of boxes that may not appear before a FileType box, otherwise it's not a valid file */
     private static mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
 
+    public readonly mimeType = 'image/heic'; // Could technically also be image/heif if the brand is mif1
+
     private boxes: Box<object>[] = [];
 
     public constructor(data: Uint8Array) {

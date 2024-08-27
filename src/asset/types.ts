@@ -25,6 +25,11 @@ export interface Asset {
     dumpInfo(): string;
 
     /**
+     * The asset's MIME type
+     */
+    readonly mimeType: string;
+
+    /**
      * Ensures there is enough space in the asset to hold a JUMBF manifest of the given length.
      * Note that this leaves the asset's manifest data in an undefined state and must be followed
      * by a call to `writeManifestJUMBF`.

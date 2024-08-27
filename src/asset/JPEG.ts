@@ -22,6 +22,8 @@ class Segment {
 }
 
 export class JPEG extends BaseAsset implements Asset {
+    public readonly mimeType = 'image/jpeg';
+
     private segments: Segment[];
     private manifestSegments?: { segmentIndex: number; skipBytes: number }[];
 
