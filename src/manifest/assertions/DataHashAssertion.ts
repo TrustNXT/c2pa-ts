@@ -21,6 +21,9 @@ interface RawDataHashMap {
 }
 
 export class DataHashAssertion extends Assertion {
+    public label = AssertionLabels.dataHash;
+    public uuid = raw.UUIDs.cborAssertion;
+
     public algorithm?: HashAlgorithm;
     public name?: string;
     public hash?: Uint8Array;
@@ -159,8 +162,6 @@ export class DataHashAssertion extends Assertion {
 
     public static create(algorithm: HashAlgorithm, initialPaddingLength = 100) {
         const dataHashAssertion = new DataHashAssertion();
-        dataHashAssertion.uuid = raw.UUIDs.cborAssertion;
-        dataHashAssertion.label = AssertionLabels.dataHash;
         dataHashAssertion.algorithm = algorithm;
         dataHashAssertion.paddingLength = initialPaddingLength;
         return dataHashAssertion;

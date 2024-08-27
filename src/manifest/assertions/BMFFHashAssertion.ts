@@ -8,6 +8,7 @@ import { HashExclusionRange, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
+import { AssertionLabels } from './AssertionLabels';
 import { AssertionUtils } from './AssertionUtils';
 
 interface Exclusion {
@@ -44,6 +45,9 @@ interface RawDataHashMap {
 }
 
 export class BMFFHashAssertion extends Assertion {
+    public label = AssertionLabels.bmffV2Hash;
+    public uuid = raw.UUIDs.cborAssertion;
+
     public exclusions: Exclusion[] = [];
     public algorithm?: HashAlgorithm;
     public hash?: Uint8Array;

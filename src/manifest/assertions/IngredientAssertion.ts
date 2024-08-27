@@ -5,6 +5,7 @@ import * as raw from '../rawTypes';
 import { HashedURI, RelationshipType, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { Assertion } from './Assertion';
+import { AssertionLabels } from './AssertionLabels';
 
 interface RawIngredientMapV2 {
     'dc:title': string;
@@ -27,6 +28,9 @@ interface RawIngredientMapV2 {
 }
 
 export class IngredientAssertion extends Assertion {
+    public label = AssertionLabels.ingredient;
+    public uuid = raw.UUIDs.cborAssertion;
+
     public title?: string;
     public format?: string;
     public documentID?: string;

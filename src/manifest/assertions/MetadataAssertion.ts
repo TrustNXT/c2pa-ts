@@ -5,6 +5,7 @@ import * as raw from '../rawTypes';
 import { MetadataEntry, MetadataNamespace, MetadataValue, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { Assertion } from './Assertion';
+import { AssertionLabels } from './AssertionLabels';
 
 type JsonLDItem =
     | string
@@ -26,6 +27,9 @@ type JsonLDMetadata = JsonLDContext & Record<string, JsonLDItem>;
  * might be better but also introduces more complexity; for now this seems to do well enough.
  */
 export class MetadataAssertion extends Assertion {
+    public label = AssertionLabels.metadata;
+    public uuid = raw.UUIDs.jsonAssertion;
+
     /**
      * List of metadata entries. If a namespace is used that's not part of the
      * `MetadataNamespace` enum, it should also be added to `namespaceMappings`.

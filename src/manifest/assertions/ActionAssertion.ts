@@ -61,6 +61,9 @@ interface RawActionsMapV2 {
 }
 
 export class ActionAssertion extends Assertion {
+    public label = AssertionLabels.actionsV2;
+    public uuid = raw.UUIDs.cborAssertion;
+
     public actions: Action[] = [];
 
     public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {

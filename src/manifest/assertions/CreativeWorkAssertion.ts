@@ -3,6 +3,7 @@ import { IBox } from '../../jumbf';
 import { Claim } from '../Claim';
 import { ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
+import { AssertionLabels } from './AssertionLabels';
 import { SchemaOrgAssertion } from './SchemaOrgAssertion';
 
 /**
@@ -10,6 +11,8 @@ import { SchemaOrgAssertion } from './SchemaOrgAssertion';
  * (Deprecated as of C2PA 2.0)
  */
 export class CreativeWorkAssertion extends SchemaOrgAssertion<CreativeWork> {
+    public label = AssertionLabels.creativeWork;
+
     public creativeWork: CreativeWork = {
         '@type': 'CreativeWork',
     };

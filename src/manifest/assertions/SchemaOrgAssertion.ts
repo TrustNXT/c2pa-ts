@@ -14,6 +14,8 @@ import { Assertion } from './Assertion';
  * `generateJUMBFBoxForContent()` and process/set the protected `item` property.
  */
 export abstract class SchemaOrgAssertion<T extends Thing> extends Assertion {
+    public uuid = raw.UUIDs.jsonAssertion;
+
     protected item?: T;
 
     public readContentFromJUMBF(box: IBox, claim: Claim): void {
