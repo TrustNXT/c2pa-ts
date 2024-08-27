@@ -24,6 +24,8 @@ Anything that's not listed below is not currently planned to be implemented.
 - :construction: Validating manifests (mostly implemented except chain of trust validation)
 - :white_check_mark: Creating manifests
 
+:information_source: On C2PA versions: The library is targeted at C2PA specification 2.0, however data structures from older versions of the specification are also supported for backwards compatibility.
+
 ### Asset file formats
 
 - :white_check_mark: JPEG
@@ -39,7 +41,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :white_check_mark: BMFF-Based Hash (except Merkle tree hashing)
 - :x: General Boxes Hash
 - :x: Thumbnail
-- :white_check_mark: Actions
+- :white_check_mark: Actions (except action templates and metadata)
 - :white_check_mark: Ingredient
 - :white_check_mark: Metadata
 - :white_check_mark: Creative Work
