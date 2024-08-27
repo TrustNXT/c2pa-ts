@@ -72,6 +72,7 @@ export class Claim implements ManifestComponent {
 
     public generateJUMBFBox(): JUMBF.SuperBox {
         if (!this.instanceID) throw new Error('Claim: missing instanceID');
+        if (!this.signatureRef) throw new Error('Claim: missing signature');
 
         const box = new JUMBF.SuperBox();
         box.descriptionBox = new JUMBF.DescriptionBox();
@@ -79,11 +80,15 @@ export class Claim implements ManifestComponent {
         box.descriptionBox.uuid = raw.UUIDs.claim;
         const contentBox = new JUMBF.CBORBox();
         box.contentBoxes.push(contentBox);
+
+        const claimGenerator: raw.ClaimGeneratorInfo = { name: this.claimGeneratorName };
+        if (this.claimGeneratorVersion) claimGenerator.version = this.claimGeneratorVersion;
+
         switch (this.version) {
-            case ClaimVersion.V1:
+            case ClaimVersion.V1: {
                 if (!this.format) throw new Error('Claim: missing format');
 
-                contentBox.content = {
+                const content: raw.ClaimV1 = {
                     alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
                     instanceID: this.instanceID,
                     signature: this.signatureRef,
@@ -91,24 +96,30 @@ export class Claim implements ManifestComponent {
                         this.claimGeneratorVersion ?
                             `${this.claimGeneratorName}/${this.claimGeneratorVersion}`
                         :   this.claimGeneratorName,
+                    claim_generator_info: [claimGenerator],
                     'dc:format': this.format,
-                    'dc:title': this.title,
                     assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
-                } as raw.ClaimV1;
+                };
+
+                if (this.title) content['dc:title'] = this.title;
+
+                contentBox.content = content;
                 break;
-            case ClaimVersion.V2:
-                contentBox.content = {
+            }
+            case ClaimVersion.V2: {
+                const content: raw.ClaimV2 = {
                     alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
                     instanceID: this.instanceID,
                     signature: this.signatureRef,
-                    claim_generator_info: {
-                        name: this.claimGeneratorName,
-                        version: this.claimGeneratorVersion,
-                    } as raw.ClaimGeneratorInfo,
-                    'dc:title': this.title,
+                    claim_generator_info: claimGenerator,
                     created_assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
-                } as raw.ClaimV2;
+                };
+
+                if (this.title) content['dc:title'] = this.title;
+
+                contentBox.content = content;
                 break;
+            }
         }
 
         // Rebuild the CBOR encoding so we can later get the claim bytes for the signature
