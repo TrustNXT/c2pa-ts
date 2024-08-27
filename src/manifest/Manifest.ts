@@ -30,6 +30,7 @@ export class Manifest implements ManifestComponent {
     public claim?: Claim;
     public signature?: Signature;
     private readonly componentStore = new Map<string, ManifestComponent>();
+    private readonly hashedReferences: HashedURI[] = [];
 
     public constructor(public readonly parentStore: ManifestStore) {}
 
@@ -445,21 +446,50 @@ export class Manifest implements ManifestComponent {
 
     /**
      * Appends an assertion to the manifest's assertion store and adds a reference to the claim.
-     * The hash is left empty and will be calculated during sign().
      */
     public addAssertion(assertion: Assertion, hashAlgorithm: HashAlgorithm | undefined = undefined): void {
         if (!this.claim) throw new Error('Manifest does not have claim');
         if (!this.assertions) throw new Error('Manifest does not have an assertion store');
 
+        this.assertions.assertions.push(assertion);
+        this.claim.assertions.push(this.createAssertionReference(assertion, hashAlgorithm));
+    }
+
+    /**
+     * Creates a hashed reference to an assertion. The hash is left empty and will be calculated
+     * during sign().
+     */
+    public createAssertionReference(
+        assertion: Assertion,
+        hashAlgorithm: HashAlgorithm | undefined = undefined,
+    ): HashedURI {
+        if (!this.assertions) throw new Error('Manifest does not have an assertion store');
+        return this.createHashedReference(`${this.assertions.label}/${assertion.fullLabel}`, hashAlgorithm);
+    }
+
+    /**
+     * Creates a hashed reference to a ManifestComponent. The hash is left empty and will be calculated
+     * during sign().
+     */
+    public createHashedReference(label: string, hashAlgorithm: HashAlgorithm | undefined = undefined): HashedURI {
+        // TODO: It would be better to pass in a ManifestComponent here instead of the label and have the
+        // ManifestComponent know its own URL. (We already do some of that during JUMBF box generation but
+        // not in the component itself before a JUMBF box has been created.)
+
+        if (!this.claim) throw new Error('Manifest does not have claim');
+
         if (!hashAlgorithm && !this.claim.defaultAlgorithm) throw new Error('Missing algorithm');
         const algorithm = hashAlgorithm ?? this.claim.defaultAlgorithm!;
 
-        this.assertions.assertions.push(assertion);
-        this.claim.assertions.push({
-            uri: `self#jumbf=${this.assertions.label}/${assertion.fullLabel}`,
+        const uri = {
+            uri: `self#jumbf=${label}`,
             hash: new Uint8Array(Crypto.getDigestLength(algorithm)),
             algorithm,
-        });
+        };
+
+        this.hashedReferences.push(uri);
+
+        return uri;
     }
 
     /**
@@ -472,8 +502,8 @@ export class Manifest implements ManifestComponent {
 
         this.populateComponentStore();
 
-        for (const assertionReference of [...this.claim.assertions, ...this.claim.redactedAssertions]) {
-            await this.updateHashedReference(assertionReference);
+        for (const refrence of this.hashedReferences) {
+            await this.updateHashedReference(refrence);
         }
 
         await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!);
