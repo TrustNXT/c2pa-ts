@@ -86,7 +86,10 @@ export class Claim implements ManifestComponent {
                     alg: Claim.reverseMapHashAlgorithm(this.defaultAlgorithm),
                     instanceID: this.instanceID,
                     signature: this.signatureRef,
-                    claim_generator: this.claimGeneratorName,
+                    claim_generator:
+                        this.claimGeneratorVersion ?
+                            `${this.claimGeneratorName}/${this.claimGeneratorVersion}`
+                        :   this.claimGeneratorName,
                     'dc:format': this.format,
                     'dc:title': this.title,
                     assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
