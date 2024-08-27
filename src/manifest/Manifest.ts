@@ -100,6 +100,11 @@ export class Manifest implements ManifestComponent {
     }
 
     public generateJUMBFBox(): JUMBF.SuperBox {
+        // TODO: Here, we never assign this.sourceBox and leave it as is, to ensure we read back unmodified bytes when
+        // re-signing an existing manifest. But in other classes, we do assign this.sourceBox within generateJUMBFBox().
+        // Look into that discrepancy.
+        if (this.sourceBox) return this.sourceBox;
+
         if (!this.label) throw new Error('Manifest must have a label');
         if (!this.assertions) throw new Error('Manifest must have assertions');
         if (!this.claim) throw new Error('Manifest must have a claim');
@@ -115,7 +120,6 @@ export class Manifest implements ManifestComponent {
             this.signature.generateJUMBFBox(),
         ];
 
-        this.sourceBox = box;
         return box;
     }
 
@@ -476,6 +480,6 @@ export class Manifest implements ManifestComponent {
     }
 
     public getBytes(claim: Claim, rebuild?: boolean | undefined): Uint8Array | undefined {
-        throw new Error('Not implemented');
+        return this.sourceBox?.toBuffer();
     }
 }
