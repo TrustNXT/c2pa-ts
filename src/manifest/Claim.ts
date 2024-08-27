@@ -57,6 +57,7 @@ export class Claim implements ManifestComponent {
                 claim.claimGeneratorVersion = fullContent.claim_generator_info[0].version;
             } else {
                 claim.claimGeneratorName = fullContent.claim_generator;
+                claim.claimGeneratorVersion = undefined;
             }
             claim.assertions = fullContent.assertions.map(a => claim.mapHashedURI(a));
         } else {

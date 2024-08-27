@@ -149,6 +149,8 @@ describe('Claim Tests', function () {
             assert.equal(c.instanceID, 'xmp:iid:f7ba134b-8dec-4334-911d-a30409e32d8e');
             assert.equal(c.format, 'image/jpeg');
             assert.equal(c.title, 'C.jpg');
+            assert.equal(c.claimGeneratorName, 'make_test_images/0.16.1 c2pa-rs/0.16.1');
+            assert.equal(c.claimGeneratorVersion, undefined);
             assert.equal(c.assertions.length, 4);
             assert.deepEqual(c.assertions[0], {
                 uri: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.claim.jpeg',
