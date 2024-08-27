@@ -17,6 +17,10 @@
       "types": "./dist/src/asset/index.d.ts",
       "import": "./dist/src/asset/index.js"
     },
+    "./cose": {
+      "types": "./dist/src/cose/index.d.ts",
+      "import": "./dist/src/cose/index.js"
+    },
     "./crypto": {
       "types": "./dist/src/crypto/index.d.ts",
       "import": "./dist/src/crypto/index.js"
