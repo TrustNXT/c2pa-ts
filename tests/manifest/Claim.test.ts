@@ -148,6 +148,7 @@ describe('Claim Tests', function () {
             assert.equal(c.defaultAlgorithm, 'SHA-256');
             assert.equal(c.instanceID, 'xmp:iid:f7ba134b-8dec-4334-911d-a30409e32d8e');
             assert.equal(c.format, 'image/jpeg');
+            assert.equal(c.title, 'C.jpg');
             assert.equal(c.assertions.length, 4);
             assert.deepEqual(c.assertions[0], {
                 uri: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.claim.jpeg',
@@ -203,6 +204,7 @@ describe('Claim Tests', function () {
             assert.equal(box.contentBoxes.length, 1);
             assert.ok(box.contentBoxes[0] instanceof CBORBox);
             assert.deepEqual(box.contentBoxes[0].content, {
+                'dc:title': 'C.jpg',
                 'dc:format': 'image/jpeg',
                 instanceID: 'xmp:iid:f7ba134b-8dec-4334-911d-a30409e32d8e',
                 claim_generator: 'make_test_images/0.16.1 c2pa-rs/0.16.1',

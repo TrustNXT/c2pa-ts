@@ -10,6 +10,7 @@ export class Claim implements ManifestComponent {
     public defaultAlgorithm: HashAlgorithm | undefined;
     public instanceID: string | undefined;
     public format: string | undefined;
+    public title: string | undefined;
     public assertions: HashedURI[] = [];
     public redactedAssertions: HashedURI[] = [];
     public sourceBox?: JUMBF.SuperBox;
@@ -38,17 +39,18 @@ export class Claim implements ManifestComponent {
             if (!claim.defaultAlgorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported, box);
         }
 
+        claim.title = claimContent['dc:title'];
+        claim.instanceID = claimContent.instanceID;
+
         if (box.descriptionBox.label === 'c2pa.claim.v2') {
             claim.version = ClaimVersion.V2;
             const fullContent = claimContent as raw.ClaimV2;
-            claim.instanceID = fullContent.instanceID;
             claim.claimGeneratorName = fullContent.claim_generator_info?.name;
             claim.claimGeneratorVersion = fullContent.claim_generator_info?.version;
             claim.assertions = fullContent.created_assertions.map(a => claim.mapHashedURI(a));
         } else if (box.descriptionBox.label === 'c2pa.claim') {
             claim.version = ClaimVersion.V1;
             const fullContent = claimContent as raw.ClaimV1;
-            claim.instanceID = fullContent.instanceID;
             claim.format = fullContent['dc:format'];
             if (fullContent.claim_generator_info?.length) {
                 claim.claimGeneratorName = fullContent.claim_generator_info[0].name;
@@ -86,6 +88,7 @@ export class Claim implements ManifestComponent {
                     signature: this.signatureRef,
                     claim_generator: this.claimGeneratorName,
                     'dc:format': this.format,
+                    'dc:title': this.title,
                     assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
                 } as raw.ClaimV1;
                 break;
@@ -98,6 +101,7 @@ export class Claim implements ManifestComponent {
                         name: this.claimGeneratorName,
                         version: this.claimGeneratorVersion,
                     } as raw.ClaimGeneratorInfo,
+                    'dc:title': this.title,
                     created_assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
                 } as raw.ClaimV2;
                 break;
