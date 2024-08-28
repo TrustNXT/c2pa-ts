@@ -10,6 +10,7 @@ import {
     UnknownAssertion,
 } from './assertions';
 import { AssertionLabels } from './assertions/AssertionLabels';
+import { ThumbnailAssertion } from './assertions/ThumbnailAssertion';
 import { Claim } from './Claim';
 import * as raw from './rawTypes';
 import { ManifestComponent, ValidationStatusCode } from './types';
@@ -66,6 +67,11 @@ export class AssertionStore implements ManifestComponent {
             assertion = new IngredientAssertion();
         } else if (AssertionLabels.metadataAssertions.includes(label.label)) {
             assertion = new MetadataAssertion();
+        } else if (
+            box.descriptionBox.label.startsWith(AssertionLabels.thumbnailPrefix) ||
+            box.descriptionBox.label.startsWith(AssertionLabels.ingredientThumbnailPrefix)
+        ) {
+            assertion = new ThumbnailAssertion();
         } else {
             assertion = new UnknownAssertion();
         }
