@@ -29,6 +29,11 @@ export class Signature {
     public timeStampResponses: TimeStampResp[] = [];
     public paddingLength = 0;
 
+    private validatedTimestamp: Date | undefined;
+    public get timestamp() {
+        return this.validatedTimestamp;
+    }
+
     public static readFromJUMBFData(content: unknown) {
         const signature = new Signature();
         const rawContent = content as CoseSignature;
@@ -188,8 +193,10 @@ export class Signature {
         let timestamp = await this.getTimestamp(payload);
         if (timestamp) {
             result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
+            this.validatedTimestamp = timestamp;
         } else {
             timestamp = new Date();
+            this.validatedTimestamp = undefined;
         }
 
         let code = Signature.validateCertificate(this.certificate, timestamp, true);
