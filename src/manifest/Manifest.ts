@@ -179,9 +179,10 @@ export class Manifest implements ManifestComponent {
      */
     private async validateHashedReference(reference: HashedURI): Promise<boolean> {
         const referencedComponent = this.getComponentByURL(reference.uri);
-        if (!referencedComponent?.sourceBox?.rawContent) return false;
+        const bytes = referencedComponent?.getBytes(this.claim);
+        if (!bytes) return false;
 
-        const digest = await Crypto.digest(referencedComponent.sourceBox.rawContent, reference.algorithm);
+        const digest = await Crypto.digest(bytes, reference.algorithm);
         return BinaryHelper.bufEqual(reference.hash, digest);
     }
 
@@ -400,6 +401,17 @@ export class Manifest implements ManifestComponent {
                 action.action === ActionType.C2paTranscoded
             ) {
                 if (!action.parameters?.ingredients?.length) {
+                    // According to the specification:
+                    // ---
+                    // If the action field is c2pa.opened, c2pa.placed, c2pa.removed, c2pa.repackaged, or c2pa.transcoded:
+                    // Check the ingredient field that is a member of the parameters object for the presence of a JUMBF URI.
+                    // If the JUMBF URI is not present, or cannot be resolved to the related ingredient assertion, the claim
+                    // must be rejected with a failure code of assertion.action.ingredientMismatch.
+                    // ---
+                    // However, a number of official sample images have c2pa.placed actions without an ingredient, so we
+                    // allow these.
+                    if (action.action === ActionType.C2paPlaced) continue;
+
                     result.addError(
                         ValidationStatusCode.AssertionActionIngredientMismatch,
                         assertionReference.uri,

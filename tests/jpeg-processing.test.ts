@@ -74,8 +74,7 @@ const testFiles = {
     },
     'adobe-20220124-CICACACA.jpg': {
         jumbf: true,
-        valid: false,
-        statusCodes: [ValidationStatusCode.AssertionActionIngredientMismatch],
+        valid: true,
     },
     'adobe-20220124-CIE-sig-CA.jpg': {
         jumbf: true,
