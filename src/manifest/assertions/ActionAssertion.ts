@@ -75,59 +75,82 @@ export class ActionAssertion extends Assertion {
             );
 
         if (this.label === AssertionLabels.actionsV2) {
-            const rawContent = box.content as RawActionsMapV2;
-            if (!rawContent.actions?.length)
-                throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
-
-            for (const rawAction of rawContent.actions) {
-                const action: Action = {
-                    action: rawAction.action as ActionType,
-                    reason: rawAction.reason,
-                    instanceID: rawAction.instanceID,
-                    parameters:
-                        rawAction.parameters ?
-                            {
-                                ...rawAction.parameters,
-                                ingredients: rawAction.parameters.ingredients?.map(ingredient =>
-                                    claim.mapHashedURI(ingredient),
-                                ),
-                            }
-                        :   undefined,
-                    digitalSourceType: rawAction.digitalSourceType,
-                };
-
-                const template = rawContent.templates?.find(t => t.action === rawAction.action);
-                if (template) {
-                    action.description = action.description ?? template.description;
-                    action.digitalSourceType = action.digitalSourceType ?? template.digitalSourceType;
-                }
-
-                this.actions.push(action);
-            }
+            this.mapActionsV2FromCBORData(box, claim);
         } else {
-            const rawContent = box.content as RawActionsMap;
-            if (!rawContent.actions?.length)
-                throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
+            this.mapActionsV1FromCBORData(box, claim);
+        }
+    }
 
-            for (const rawAction of rawContent.actions) {
-                this.actions.push({
-                    action: rawAction.action as ActionType,
-                    reason: rawAction.reason,
-                    instanceID: rawAction.instanceID,
-                    parameters:
-                        rawAction.parameters ?
-                            {
-                                ...rawAction.parameters,
-                                ingredients:
-                                    rawAction.parameters.ingredient ?
-                                        [claim.mapHashedURI(rawAction.parameters.ingredient)]
-                                    :   [],
-                                ingredient: undefined,
-                            }
-                        :   undefined,
-                    digitalSourceType: rawAction.digitalSourceType,
-                });
+    private mapActionsV1FromCBORData(box: JUMBF.CBORBox, claim: Claim) {
+        const rawContent = box.content as RawActionsMap;
+        if (!rawContent.actions?.length)
+            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
+
+        for (const rawAction of rawContent.actions) {
+            const action: Action = {
+                action: rawAction.action as ActionType,
+                reason: rawAction.reason,
+                instanceID: rawAction.instanceID,
+                parameters:
+                    rawAction.parameters ?
+                        {
+                            ...rawAction.parameters,
+                            ingredients:
+                                rawAction.parameters.ingredient ?
+                                    [claim.mapHashedURI(rawAction.parameters.ingredient)]
+                                :   [],
+                            ingredient: undefined,
+                        }
+                    :   undefined,
+                digitalSourceType: this.fixDigitalSourceType(rawAction.digitalSourceType),
+            };
+
+            if (rawAction.softwareAgent) action.softwareAgent = { name: rawAction.softwareAgent };
+
+            this.actions.push(action);
+        }
+    }
+
+    private mapActionsV2FromCBORData(box: JUMBF.CBORBox, claim: Claim) {
+        const rawContent = box.content as RawActionsMapV2;
+        if (!rawContent.actions?.length)
+            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
+
+        for (const rawAction of rawContent.actions) {
+            const action: Action = {
+                action: rawAction.action as ActionType,
+                reason: rawAction.reason,
+                instanceID: rawAction.instanceID,
+                parameters:
+                    rawAction.parameters ?
+                        {
+                            ...rawAction.parameters,
+                            ingredients: rawAction.parameters.ingredients?.map(ingredient =>
+                                claim.mapHashedURI(ingredient),
+                            ),
+                        }
+                    :   undefined,
+                digitalSourceType: rawAction.digitalSourceType,
+            };
+
+            if (rawAction.softwareAgent) {
+                action.softwareAgent = {
+                    name: rawAction.softwareAgent.name,
+                    version: rawAction.softwareAgent.version,
+                    icon: rawAction.softwareAgent.icon ? claim.mapHashedURI(rawAction.softwareAgent.icon) : undefined,
+                    operatingSystem: rawAction.softwareAgent.operating_system,
+                };
             }
+
+            const template = rawContent.templates?.find(t => t.action === rawAction.action);
+            if (template) {
+                action.description = action.description ?? template.description;
+                action.digitalSourceType = action.digitalSourceType ?? template.digitalSourceType;
+            }
+
+            action.digitalSourceType = this.fixDigitalSourceType(action.digitalSourceType);
+
+            this.actions.push(action);
         }
     }
 
@@ -135,7 +158,7 @@ export class ActionAssertion extends Assertion {
         const box = new JUMBF.CBORBox();
         switch (this.label) {
             case AssertionLabels.actions:
-                box.content = this.mapActionsToCBORData(claim);
+                box.content = this.mapActionsV1ToCBORData(claim);
                 break;
             case AssertionLabels.actionsV2:
                 box.content = this.mapActionsV2ToCBORData(claim);
@@ -146,7 +169,7 @@ export class ActionAssertion extends Assertion {
         return box;
     }
 
-    private mapActionsToCBORData(claim: Claim): RawActionsMap {
+    private mapActionsV1ToCBORData(claim: Claim): RawActionsMap {
         return {
             actions: this.actions.map(action => {
                 const res: RawAction = { action: action.action };
@@ -170,6 +193,12 @@ export class ActionAssertion extends Assertion {
                         if (hashedURI.algorithm !== claim.defaultAlgorithm)
                             res.parameters.ingredient.alg = Claim.reverseMapHashAlgorithm(hashedURI.algorithm);
                     }
+                }
+                if (action.digitalSourceType) res.digitalSourceType = action.digitalSourceType;
+                if (action.instanceID) res.instanceID = action.instanceID;
+                if (action.softwareAgent) {
+                    res.softwareAgent = action.softwareAgent.name;
+                    if (action.softwareAgent.version) res.softwareAgent += ' ' + action.softwareAgent.version;
                 }
                 return res;
             }),
@@ -195,10 +224,33 @@ export class ActionAssertion extends Assertion {
                         );
                     }
                 }
+                if (action.digitalSourceType) res.digitalSourceType = action.digitalSourceType;
+                if (action.instanceID) res.instanceID = action.instanceID;
+                if (action.softwareAgent) {
+                    const softwareAgent: raw.ClaimGeneratorInfo = {
+                        name: action.softwareAgent.name,
+                    };
+                    if (action.softwareAgent.version) softwareAgent.version = action.softwareAgent.version;
+                    if (action.softwareAgent.icon)
+                        softwareAgent.icon = claim.reverseMapHashedURI(action.softwareAgent.icon);
+                    if (action.softwareAgent.operatingSystem)
+                        softwareAgent.operating_system = action.softwareAgent.operatingSystem;
+                    res.softwareAgent = softwareAgent;
+                }
                 return res;
             }),
             // TODO: templates
             // TODO: metadata
         };
+    }
+
+    /**
+     * Some implementations prefix digital source type values with https, convert those to http
+     */
+    private fixDigitalSourceType(digitalSourceType: DigitalSourceType | undefined): DigitalSourceType | undefined {
+        if (digitalSourceType?.startsWith('https://cv.iptc.org/')) {
+            return ('http:' + digitalSourceType.substring('https:'.length)) as DigitalSourceType;
+        }
+        return digitalSourceType;
     }
 }

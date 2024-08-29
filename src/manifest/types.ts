@@ -212,6 +212,12 @@ export interface Action {
     };
     description?: string;
     digitalSourceType?: DigitalSourceType;
+    softwareAgent?: {
+        name: string;
+        version?: string;
+        icon?: HashedURI;
+        operatingSystem?: string;
+    };
 }
 
 export enum MetadataNamespace {
