@@ -31,7 +31,7 @@ export class Signature {
 
     private validatedTimestamp: Date | undefined;
     public get timestamp() {
-        return this.validatedTimestamp;
+        return this.validatedTimestamp ?? this.getTimestampWithoutVerification();
     }
 
     public static readFromJUMBFData(content: unknown) {
@@ -180,6 +180,21 @@ export class Signature {
             }
         }
 
+        return undefined;
+    }
+
+    private getTimestampWithoutVerification(): Date | undefined {
+        for (const timestamp of this.timeStampResponses) {
+            if (timestamp.status.status !== PKIStatus.granted && timestamp.status.status !== PKIStatus.grantedWithMods)
+                continue;
+            try {
+                const signedData = new SignedData({ schema: timestamp.timeStampToken!.content as unknown });
+                const tstInfo = TSTInfo.fromBER(signedData.encapContentInfo.eContent!.valueBlock.valueHexView);
+                return tstInfo.genTime;
+            } catch {
+                return undefined;
+            }
+        }
         return undefined;
     }
 
