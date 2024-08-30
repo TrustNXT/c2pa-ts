@@ -7,4 +7,5 @@ export * from './DataHashAssertion';
 export * from './IngredientAssertion';
 export * from './MetadataAssertion';
 export * from './SchemaOrgAssertion';
+export * from './ThumbnailAssertion';
 export * from './UnknownAssertion';
