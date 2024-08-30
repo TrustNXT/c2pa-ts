@@ -37,6 +37,7 @@ export class IngredientAssertion extends Assertion {
     public instanceID?: string;
     public relationship?: RelationshipType;
     public manifestReference?: HashedURI;
+    public thumbnailReference?: HashedURI;
 
     public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
@@ -57,6 +58,7 @@ export class IngredientAssertion extends Assertion {
 
         this.relationship = content.relationship;
         if (content.c2pa_manifest) this.manifestReference = claim.mapHashedURI(content.c2pa_manifest);
+        if (content.thumbnail) this.thumbnailReference = claim.mapHashedURI(content.thumbnail);
     }
 
     public generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox {
@@ -72,6 +74,7 @@ export class IngredientAssertion extends Assertion {
             relationship: this.relationship,
         };
         if (this.manifestReference) content.c2pa_manifest = claim.reverseMapHashedURI(this.manifestReference);
+        if (this.thumbnailReference) content.thumbnail = claim.reverseMapHashedURI(this.thumbnailReference);
 
         const box = new JUMBF.CBORBox();
         box.content = content;

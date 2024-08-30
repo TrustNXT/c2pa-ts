@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import * as bin from 'typed-binary';
 import { CBORBox, SuperBox } from '../../../src/jumbf';
-import { Assertion, Claim, IngredientAssertion } from '../../../src/manifest';
+import { Assertion, Claim, HashedURI, IngredientAssertion } from '../../../src/manifest';
 import * as raw from '../../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../../src/util';
 
@@ -9,10 +9,16 @@ describe('IngredientAssertion Tests', function () {
     this.timeout(0);
 
     const claim = new Claim();
+    claim.defaultAlgorithm = 'SHA-256';
 
     // taken from adobe-20220124-CA.jpg.jumbf.text
     const serializedString =
         '000001576a756d62000000296a756d6463626f7200110010800000aa00389b7103633270612e696e6772656469656e74000000012663626f72a66864633a7469746c6565412e6a70676964633a666f726d61746a696d6167652f6a7065676a646f63756d656e744944782c786d702e6469643a38313365653432322d393733362d346364632d396265362d3465333565643865343163626a696e7374616e63654944782c786d702e6969643a38313365653432322d393733362d346364632d396265362d3465333565643865343163626c72656c6174696f6e7368697068706172656e744f66697468756d626e61696ca26375726c783973656c66236a756d62663d633270612e617373657274696f6e732f633270612e7468756d626e61696c2e696e6772656469656e742e6a70656764686173685820cf9e5b46a152bff1dd42516953de8050fc039c73168bf5d555a9de74a13b9317';
+
+    const thumbnailHash = new Uint8Array([
+        207, 158, 91, 70, 161, 82, 191, 241, 221, 66, 81, 105, 83, 222, 128, 80, 252, 3, 156, 115, 22, 139, 245, 213,
+        85, 169, 222, 116, 161, 59, 147, 23,
+    ]);
 
     let superBox: SuperBox;
     it('read a JUMBF box', function () {
@@ -40,10 +46,7 @@ describe('IngredientAssertion Tests', function () {
             relationship: 'parentOf',
             thumbnail: {
                 url: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg',
-                hash: new Uint8Array([
-                    207, 158, 91, 70, 161, 82, 191, 241, 221, 66, 81, 105, 83, 222, 128, 80, 252, 3, 156, 115, 22, 139,
-                    245, 213, 85, 169, 222, 116, 161, 59, 147, 23,
-                ]),
+                hash: thumbnailHash,
             },
         });
         superBox = box;
@@ -66,6 +69,11 @@ describe('IngredientAssertion Tests', function () {
         assert.equal(ingredientAssertion.instanceID, 'xmp.iid:813ee422-9736-4cdc-9be6-4e35ed8e41cb');
         assert.equal(ingredientAssertion.relationship, 'parentOf');
         assert.equal(ingredientAssertion.manifestReference, undefined);
+        assert.deepEqual(ingredientAssertion.thumbnailReference, {
+            uri: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg',
+            hash: thumbnailHash,
+            algorithm: 'SHA-256',
+        } as HashedURI);
 
         assertion = ingredientAssertion;
     });
@@ -91,13 +99,10 @@ describe('IngredientAssertion Tests', function () {
             documentID: 'xmp.did:813ee422-9736-4cdc-9be6-4e35ed8e41cb',
             instanceID: 'xmp.iid:813ee422-9736-4cdc-9be6-4e35ed8e41cb',
             relationship: 'parentOf',
-            // TODO: thumbnail: {
-            //     url: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg',
-            //     hash: new Uint8Array([
-            //         207, 158, 91, 70, 161, 82, 191, 241, 221, 66, 81, 105, 83, 222, 128, 80, 252, 3, 156, 115, 22, 139,
-            //         245, 213, 85, 169, 222, 116, 161, 59, 147, 23,
-            //     ]),
-            // },
+            thumbnail: {
+                url: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg',
+                hash: thumbnailHash,
+            },
         });
     });
 });
