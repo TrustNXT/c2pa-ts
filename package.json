@@ -36,6 +36,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
+    "@changesets/cli": "^2.17.0",
+    "@changesets/get-github-info": "^0.5.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
     "@types/eslint__js": "^8.42.3",
     "@types/mocha": "^10.0.7",
@@ -76,6 +78,8 @@
     "lint": "eslint src tests",
     "format": "prettier --write src tests",
     "test": "mocha 'tests/**/*test.ts'",
-    "build": "rimraf dist && node prebuild.js && tsc -p tsconfig.json; node postbuild.js"
+    "build": "rimraf dist && node prebuild.js && tsc -p tsconfig.json; node postbuild.js",
+    "changeset": "changeset",
+    "release": "npm run build && changeset publish"
   }
 }

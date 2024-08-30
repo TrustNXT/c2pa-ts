@@ -149,6 +149,8 @@ Contributions are welcome!
 - [Fork this repository](https://github.com/TrustNXT/c2pa-ts/fork)
 - [Open a pull request](https://github.com/TrustNXT/c2pa-ts/pulls)
 
+When you're done with your changes, we use [changesets](https://github.com/changesets/changesets) to manage release notes. Run `npm run changeset` to autogenerate notes to be appended to your pull request.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## License
