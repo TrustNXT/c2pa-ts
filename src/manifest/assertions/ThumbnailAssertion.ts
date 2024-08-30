@@ -78,6 +78,33 @@ export class ThumbnailAssertion extends Assertion {
         return box;
     }
 
+    /**
+     * Creates a new thumbnail assertion
+     * @param imageType Image format type (without `image/`)
+     * @param content Binary thumbnail content
+     * @param thumbnailType Thumbnail type (claim or ingredient)
+     * @param suffix Optional suffix for ingredient thumbnails
+     */
+    public static create(
+        imageType: string,
+        content: Uint8Array,
+        thumbnailType: ThumbnailType,
+        suffix?: string,
+    ): ThumbnailAssertion {
+        const assertion = new ThumbnailAssertion();
+        assertion.mimeType = `image/${imageType}`;
+        assertion.content = content;
+        assertion.thumbnailType = thumbnailType;
+        if (thumbnailType === ThumbnailType.Claim) {
+            if (suffix) throw new Error('Suffix is not allowed for claim thumbnails');
+            assertion.label = AssertionLabels.thumbnailPrefix + imageType;
+        } else {
+            assertion.label =
+                AssertionLabels.ingredientThumbnailPrefix + (suffix ? '_' + suffix : '') + '.' + imageType;
+        }
+        return assertion;
+    }
+
     // These are not used because we override readFromJUMBF() and generateJUMBFBox()
     public readContentFromJUMBF(): void {
         throw new Error('Method not implemented.');
