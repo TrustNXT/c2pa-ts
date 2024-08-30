@@ -5,7 +5,7 @@ import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended'
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-    { ignores: ['dist/*', 'eslint.config.js'] },
+    { ignores: ['dist/*', 'eslint.config.js', 'prebuild.js', 'postbuild.js'] },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
     ...tseslint.configs.stylisticTypeChecked,
