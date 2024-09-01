@@ -5,6 +5,10 @@
   "author": "TrustNXT GmbH <mail@trustnxt.com>",
   "license": "Apache-2.0",
   "description": "Pure TypeScript implementation of C2PA manifest reading, validation, and creation",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TrustNXT/c2pa-ts.git"
+  },
   "main": "./dist/src/index.js",
   "module": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
