@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.2.0
+
+### Minor Changes
+
+-   25908af: Implement thumbnail assertion
+
 ## 0.1.2
 
 ### Patch Changes
