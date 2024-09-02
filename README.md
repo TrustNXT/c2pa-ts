@@ -40,7 +40,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :white_check_mark: Data Hash
 - :white_check_mark: BMFF-Based Hash (except Merkle tree hashing)
 - :x: General Boxes Hash
-- :x: Thumbnail
+- :white_check_mark: Thumbnail
 - :white_check_mark: Actions (except action templates and metadata)
 - :white_check_mark: Ingredient
 - :white_check_mark: Metadata

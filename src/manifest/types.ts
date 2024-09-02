@@ -245,3 +245,8 @@ export interface MetadataEntry {
     name: string;
     value: MetadataValue;
 }
+
+export enum ThumbnailType {
+    Claim,
+    Ingredient,
+}

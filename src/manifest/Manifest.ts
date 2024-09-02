@@ -313,7 +313,6 @@ export class Manifest implements ManifestComponent {
         if (assertion.label === AssertionLabels.actions || assertion.label === AssertionLabels.actionsV2) {
             result.merge(await this.validateActionAssertion(assertionReference, assertion as ActionAssertion));
         }
-        // TODO Validate references of thumbnail assertions
 
         // Validate the hash reference to the assertion
         if (await this.validateHashedReference(assertionReference)) {
@@ -385,6 +384,10 @@ export class Manifest implements ManifestComponent {
             if (referencedIngredient.manifestReference) {
                 //Skipping hash validation of ingredient claims for now as they seem to be invalid in public test files
                 //if (!await this.validateHashedReference(referencedIngredient.manifestReference)) return false;
+            }
+
+            if (referencedIngredient.thumbnailReference) {
+                if (!(await this.validateHashedReference(referencedIngredient.thumbnailReference))) return false;
             }
 
             return true;
