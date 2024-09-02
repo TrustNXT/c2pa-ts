@@ -84,6 +84,7 @@
     "test": "mocha 'tests/**/*test.ts'",
     "build": "rimraf dist && node prebuild.js && tsc -p tsconfig.json; node postbuild.js",
     "changeset": "changeset",
+    "version": "changeset version && npm install --package-lock-only",
     "release": "npm run build && changeset publish"
   }
 }
