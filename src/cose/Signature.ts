@@ -15,6 +15,7 @@ import { PKIStatus, SignedData, TimeStampResp, TSTInfo } from 'pkijs';
 import { Crypto, ECDSANamedCurve, HashAlgorithm, SigningAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
+import { Timestamp, TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
 import { Algorithms, CoseAlgorithm } from './Algorithms';
 import { SigStructure } from './SigStructure';
@@ -113,6 +114,13 @@ export class Signature {
         const unprotectedBucket: UnprotectedBucket = {
             pad: new Uint8Array(this.paddingLength),
         };
+        if (this.timeStampResponses.length) {
+            unprotectedBucket.sigTst = {
+                tstTokens: this.timeStampResponses.map(tst => ({
+                    val: new Uint8Array(tst.toSchema().toBER()),
+                })),
+            };
+        }
 
         return [
             this.rawProtectedBucket,
@@ -122,12 +130,25 @@ export class Signature {
         ];
     }
 
-    public async sign(privateKey: Uint8Array, payload: Uint8Array): Promise<void> {
+    public async sign(
+        privateKey: Uint8Array,
+        payload: Uint8Array,
+        timestampProvider?: TimestampProvider,
+    ): Promise<void> {
         if (!this.rawProtectedBucket) throw new Error('Signature is missing protected bucket');
         if (!this.algorithm || !this.certificate) throw new Error('Signature is missing algorithm');
 
         const toBeSigned = new SigStructure('Signature1', this.rawProtectedBucket, payload).encode();
         this.signature = await Crypto.sign(toBeSigned, privateKey, this.getSigningAlgorithm()!);
+
+        this.timeStampResponses = [];
+        if (timestampProvider) {
+            const timestampResponse = await Timestamp.getTimestamp(
+                timestampProvider,
+                new SigStructure('CounterSignature', this.rawProtectedBucket, payload).encode(),
+            );
+            if (timestampResponse) this.timeStampResponses.push(timestampResponse);
+        }
     }
 
     private async getTimestamp(payload: Uint8Array): Promise<Date | undefined> {
