@@ -517,8 +517,8 @@ export class Manifest implements ManifestComponent {
 
         this.populateComponentStore();
 
-        for (const refrence of this.hashedReferences) {
-            await this.updateHashedReference(refrence);
+        for (const reference of this.hashedReferences) {
+            await this.updateHashedReference(reference);
         }
 
         await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!);
