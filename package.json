@@ -48,7 +48,7 @@
     "@types/node": "^22.5.2",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/parser": "^8.1.0",
-    "eslint": "^9.9.0",
+    "eslint": "^9.9.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "github-actions-ctrf": "^0.0.25",
