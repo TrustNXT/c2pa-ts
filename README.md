@@ -69,10 +69,10 @@ Example usage in a Node.js environment:
 
 ```typescript
 import * as fs from 'node:fs/promises';
-import { MalformedContentError } from 'c2pa-ts';
-import { Asset, BMFF, JPEG, PNG } from 'c2pa-ts/asset';
-import { SuperBox } from 'c2pa-ts/jumbf';
-import { ManifestStore, ValidationResult, ValidationStatusCode } from 'c2pa-ts/manifest';
+import { MalformedContentError } from '@trustnxt/c2pa-ts';
+import { Asset, BMFF, JPEG, PNG } from '@trustnxt/c2pa-ts/asset';
+import { SuperBox } from '@trustnxt/c2pa-ts/jumbf';
+import { ManifestStore, ValidationResult, ValidationStatusCode } from '@trustnxt/c2pa-ts/manifest';
 
 if (process.argv.length < 3) {
     console.error('Missing filename');
