@@ -7,7 +7,7 @@
   "description": "Pure TypeScript implementation of C2PA manifest reading, validation, and creation",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TrustNXT/c2pa-ts.git"
+    "url": "git+https://github.com/TrustNXT/c2pa-ts.git"
   },
   "main": "./dist/src/index.js",
   "module": "./dist/src/index.js",
@@ -38,6 +38,7 @@
       "import": "./dist/src/manifest/index.js"
     }
   },
+  "files": ["dist/src"],
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@changesets/cli": "^2.17.0",
