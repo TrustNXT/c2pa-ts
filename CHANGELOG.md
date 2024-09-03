@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.2.1
+
+### Patch Changes
+
+-   add npmignore
+
 ## 0.2.0
 
 ### Minor Changes
