@@ -1,0 +1,9 @@
+node_modules
+.DS_Store
+/.vscode
+/.github
+/.changeset
+tests
+src
+tsconfig.json
+.prettierrc
