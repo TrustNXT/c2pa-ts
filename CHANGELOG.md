@@ -1,10 +1,12 @@
 # c2pa-ts
 
+## 0.2.2
+
+No changes, build script fixes only
+
 ## 0.2.1
 
-### Patch Changes
-
--   add npmignore
+No changes, build script fixes only
 
 ## 0.2.0
 
