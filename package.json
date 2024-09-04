@@ -36,6 +36,10 @@
     "./manifest": {
       "types": "./dist/src/manifest/index.d.ts",
       "import": "./dist/src/manifest/index.js"
+    },
+    "./rfc3161": {
+      "types": "./dist/src/rfc3161/index.d.ts",
+      "import": "./dist/src/rfc3161/index.js"
     }
   },
   "files": [

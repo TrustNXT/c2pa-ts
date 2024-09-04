@@ -14,11 +14,20 @@ export interface RSASigningAlgorithm {
     hash: HashAlgorithm;
 }
 
+export interface PKCSV1_5SigningAlgorithm {
+    name: 'RSASSA-PKCS1-v1_5';
+    hash: HashAlgorithm;
+}
+
 export interface Ed25519SigningAlgorithm {
     name: 'Ed25519';
 }
 
-export type SigningAlgorithm = ECDSASigningAlgorithm | RSASigningAlgorithm | Ed25519SigningAlgorithm;
+export type SigningAlgorithm =
+    | ECDSASigningAlgorithm
+    | RSASigningAlgorithm
+    | PKCSV1_5SigningAlgorithm
+    | Ed25519SigningAlgorithm;
 
 export interface StreamingDigest {
     update(data: Uint8Array): void;

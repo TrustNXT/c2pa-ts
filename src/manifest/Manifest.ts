@@ -2,6 +2,7 @@ import { Asset } from '../asset';
 import { HashAlgorithm } from '../crypto';
 import { Crypto } from '../crypto/Crypto';
 import * as JUMBF from '../jumbf';
+import { TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
 import { ActionAssertion, Assertion, AssertionLabels, IngredientAssertion } from './assertions';
 import { AssertionStore } from './AssertionStore';
@@ -510,8 +511,9 @@ export class Manifest implements ManifestComponent {
     /**
      * Prepares the manifest for signing and fills in the signature using the provided private key
      * @param privateKey Private key in PKCS#8 format
+     * @param timestampProvider An optional timestamp provider to add an RFC3161 timestamp
      */
-    public async sign(privateKey: Uint8Array): Promise<void> {
+    public async sign(privateKey: Uint8Array, timestampProvider?: TimestampProvider): Promise<void> {
         if (!this.claim) throw new Error('Manifest does not have claim');
         if (!this.signature) throw new Error('Manifest does not have signature');
 
@@ -521,7 +523,7 @@ export class Manifest implements ManifestComponent {
             await this.updateHashedReference(reference);
         }
 
-        await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!);
+        await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!, timestampProvider);
     }
 
     public getBytes(claim: Claim, rebuild?: boolean | undefined): Uint8Array | undefined {
