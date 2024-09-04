@@ -1,4 +1,3 @@
-import * as asn1RSA from '@peculiar/asn1-rsa';
 import { AsnConvert } from '@peculiar/asn1-schema';
 import { Certificate as ASN1Certificate, Version as ASN1Version } from '@peculiar/asn1-x509';
 import {
@@ -11,8 +10,9 @@ import {
     SubjectKeyIdentifierExtension,
     X509Certificate,
 } from '@peculiar/x509';
-import { PKIStatus, SignedData, TimeStampResp, TSTInfo } from 'pkijs';
-import { Crypto, ECDSANamedCurve, HashAlgorithm, SigningAlgorithm } from '../crypto';
+import * as asn1js from 'asn1js';
+import * as pkijs from 'pkijs';
+import { Crypto, ECDSANamedCurve, SigningAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
 import { Timestamp, TimestampProvider } from '../rfc3161';
@@ -27,7 +27,7 @@ export class Signature {
     public chainCertificates: X509Certificate[] = [];
     public rawProtectedBucket?: Uint8Array;
     public signature?: Uint8Array;
-    public timeStampResponses: TimeStampResp[] = [];
+    public timeStampResponses: pkijs.TimeStampResp[] = [];
     public paddingLength = 0;
 
     private validatedTimestamp: Date | undefined;
@@ -88,7 +88,7 @@ export class Signature {
         if (sigTst?.tstTokens?.length) {
             for (const timestampToken of sigTst.tstTokens) {
                 try {
-                    signature.timeStampResponses.push(TimeStampResp.fromBER(timestampToken.val));
+                    signature.timeStampResponses.push(pkijs.TimeStampResp.fromBER(timestampToken.val));
                 } catch {
                     throw new MalformedContentError('Malformed timestamp');
                 }
@@ -157,37 +157,36 @@ export class Signature {
         const toBeSigned = new SigStructure('CounterSignature', this.rawProtectedBucket, payload).encode();
 
         for (const timestamp of this.timeStampResponses) {
-            if (timestamp.status.status !== PKIStatus.granted && timestamp.status.status !== PKIStatus.grantedWithMods)
+            if (
+                timestamp.status.status !== pkijs.PKIStatus.granted &&
+                timestamp.status.status !== pkijs.PKIStatus.grantedWithMods
+            )
                 continue;
 
             try {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                const signedData = new SignedData({ schema: timestamp.timeStampToken!.content });
-                const tstInfo = TSTInfo.fromBER(signedData.encapContentInfo.eContent!.valueBlock.valueHexView);
+                const signedData = new pkijs.SignedData({ schema: timestamp.timeStampToken!.content });
+                const rawTstInfo = signedData.encapContentInfo.eContent!.getValue();
+                const tstInfo = pkijs.TSTInfo.fromBER(rawTstInfo);
 
-                let hashAlgorithm: HashAlgorithm;
-                switch (tstInfo.messageImprint.hashAlgorithm.algorithmId) {
-                    case asn1RSA.id_sha256:
-                        hashAlgorithm = 'SHA-256';
-                        break;
-                    case asn1RSA.id_sha384:
-                        hashAlgorithm = 'SHA-384';
-                        break;
-                    case asn1RSA.id_sha512:
-                        hashAlgorithm = 'SHA-512';
-                        break;
-                    default:
-                        // algorithm.unsupported
-                        continue;
+                const hashAlgorithm = Crypto.getHashAlgorithmByOID(tstInfo.messageImprint.hashAlgorithm.algorithmId);
+                if (!hashAlgorithm) {
+                    // algorithm.unsupported
+                    continue;
                 }
 
                 if (
                     !BinaryHelper.bufEqual(
                         await Crypto.digest(toBeSigned, hashAlgorithm),
-                        tstInfo.messageImprint.hashedMessage.valueBlock.valueHexView,
+                        new Uint8Array(tstInfo.messageImprint.hashedMessage.getValue()),
                     )
                 ) {
-                    // timeStamp.untrusted
+                    // timeStamp.mismatch
+                    continue;
+                }
+
+                if (!(await this.verifySignedDataSignature(signedData))) {
+                    // timeStamp.mismatch
                     continue;
                 }
 
@@ -204,13 +203,75 @@ export class Signature {
         return undefined;
     }
 
+    private async verifySignedDataSignature(signedData: pkijs.SignedData): Promise<boolean> {
+        if (!signedData.signerInfos.length) return false;
+        const signerInfo = signedData.signerInfos[0];
+
+        // Find the certificate referenced by sid
+        let certificate = signedData.certificates?.[0];
+        if (signerInfo.sid instanceof pkijs.IssuerAndSerialNumber) {
+            const sid = signerInfo.sid;
+            certificate = signedData.certificates?.find(
+                cert =>
+                    cert instanceof pkijs.Certificate &&
+                    cert.issuer.isEqual(sid.issuer) &&
+                    cert.serialNumber.isEqual(sid.serialNumber),
+            );
+        }
+        if (!(certificate instanceof pkijs.Certificate)) return false;
+
+        const signerHashAlgorithm = Crypto.getHashAlgorithmByOID(signerInfo.digestAlgorithm.algorithmId);
+        if (!signerHashAlgorithm) return false;
+
+        let payload = signedData.encapContentInfo.eContent?.getValue();
+        if (!payload) return false;
+
+        // If there are signedAttrs, they are signed and not the payload itself...
+        if (signerInfo.signedAttrs) {
+            // ...but the messageDigest attribute in the signedAttrs needs to match the payload
+            const messageDigest = signerInfo.signedAttrs.attributes.find(attr => attr.type === '1.2.840.113549.1.9.4')
+                ?.values?.[0] as asn1js.OctetString;
+
+            if (
+                !messageDigest?.valueBlock?.valueHexView?.length ||
+                !BinaryHelper.bufEqual(
+                    new Uint8Array(messageDigest.getValue()),
+                    await Crypto.digest(new Uint8Array(payload), signerHashAlgorithm),
+                )
+            ) {
+                return false;
+            }
+
+            payload = signerInfo.signedAttrs.encodedValue;
+        }
+
+        const signingAlgorithm = Crypto.getSigningAlgorithmByOID(
+            certificate.subjectPublicKeyInfo.algorithm.algorithmId,
+            signerHashAlgorithm,
+            certificate.subjectPublicKeyInfo.algorithm.algorithmParams instanceof asn1js.ObjectIdentifier ?
+                certificate.subjectPublicKeyInfo.algorithm.algorithmParams.getValue()
+            :   undefined,
+        );
+        if (!signingAlgorithm) return false;
+
+        return Crypto.verifySignature(
+            new Uint8Array(payload),
+            new Uint8Array(signerInfo.signature.getValue()),
+            new Uint8Array(certificate.subjectPublicKeyInfo.toSchema().toBER()),
+            signingAlgorithm,
+        );
+    }
+
     private getTimestampWithoutVerification(): Date | undefined {
         for (const timestamp of this.timeStampResponses) {
-            if (timestamp.status.status !== PKIStatus.granted && timestamp.status.status !== PKIStatus.grantedWithMods)
+            if (
+                timestamp.status.status !== pkijs.PKIStatus.granted &&
+                timestamp.status.status !== pkijs.PKIStatus.grantedWithMods
+            )
                 continue;
             try {
-                const signedData = new SignedData({ schema: timestamp.timeStampToken!.content as unknown });
-                const tstInfo = TSTInfo.fromBER(signedData.encapContentInfo.eContent!.valueBlock.valueHexView);
+                const signedData = new pkijs.SignedData({ schema: timestamp.timeStampToken!.content as unknown });
+                const tstInfo = pkijs.TSTInfo.fromBER(signedData.encapContentInfo.eContent!.getValue());
                 return tstInfo.genTime;
             } catch {
                 return undefined;
