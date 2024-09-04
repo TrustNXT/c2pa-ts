@@ -6,6 +6,7 @@ import { JPEG } from '../src/asset';
 import { CoseAlgorithmIdentifier } from '../src/cose';
 import { SuperBox } from '../src/jumbf';
 import { DataHashAssertion, Manifest, ManifestStore, ValidationStatusCode } from '../src/manifest';
+import { LocalTimestampProvider } from '../src/rfc3161';
 
 // location of the image to sign
 const sourceFile = 'tests/fixtures/trustnxt-icon.jpg';
@@ -35,6 +36,9 @@ describe('Functional Signing Tests', function () {
             let manifest: Manifest | undefined;
 
             it('add a manifest to a JPEG test file', async function () {
+                // load the certificate
+                const x509Certificate = new X509Certificate(await fs.readFile(certificate.certificateFile));
+
                 // load the private key
                 const privateKeyData = await fs.readFile(certificate.privateKeyFile);
                 const base64 = privateKeyData
@@ -42,6 +46,9 @@ describe('Functional Signing Tests', function () {
                     .replace(/-{5}(BEGIN|END) .*-{5}/gm, '')
                     .replace(/\s/gm, '');
                 const privateKey = Buffer.from(base64, 'base64');
+
+                // initialize a local timestamp provider using the same certificate
+                const timestampProvider = new LocalTimestampProvider(x509Certificate, privateKey);
 
                 // load the file into a buffer
                 const buf = await fs.readFile(sourceFile);
@@ -59,7 +66,7 @@ describe('Functional Signing Tests', function () {
                     assetFormat: 'image/jpeg',
                     instanceID: 'xyzxyz',
                     defaultHashAlgorithm: 'SHA-256',
-                    certificate: new X509Certificate(await fs.readFile(certificate.certificateFile)),
+                    certificate: x509Certificate,
                     signingAlgorithm: certificate.algorithm,
                 });
 
@@ -74,7 +81,7 @@ describe('Functional Signing Tests', function () {
                 await dataHashAssertion.updateWithAsset(asset);
 
                 // create the signature
-                await manifest.sign(privateKey);
+                await manifest.sign(privateKey, timestampProvider);
 
                 // write the JUMBF box to the asset
                 await asset.writeManifestJUMBF(manifestStore.getBytes());
@@ -111,6 +118,11 @@ describe('Functional Signing Tests', function () {
 
                 // check individual codes
                 assert.deepEqual(validationResult.statusEntries, [
+                    {
+                        code: ValidationStatusCode.TimeStampTrusted,
+                        explanation: undefined,
+                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
+                    },
                     {
                         code: ValidationStatusCode.SigningCredentialTrusted,
                         explanation: undefined,
