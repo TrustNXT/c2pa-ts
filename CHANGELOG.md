@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.3.0
+
+### Minor Changes
+
+-   3b5dbfd: Add RFC3161 timestamping support
+
 ## 0.2.2
 
 No changes, build script fixes only
