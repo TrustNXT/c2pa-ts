@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.3.1
+
+### Patch Changes
+
+-   3464be0: BMFF: Fix adjustment of extents in iloc box
+
 ## 0.3.0
 
 ### Minor Changes
