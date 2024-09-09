@@ -528,7 +528,7 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
 
         for (const item of this.payload.items) {
             pos += this.payload.version === 2 ? 4 : 2; // item_ID
-            if (this.payload.version > 0) pos++; // reserved, construction_method
+            if (this.payload.version > 0) pos += 2; // reserved, construction_method
             pos += 2; // data_reference_index
             if (this.payload.baseOffsetSize === 8) {
                 item.baseOffset = (item.baseOffset as bigint) + BigInt(amount);
@@ -543,8 +543,8 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
             for (const extent of item.extents) {
                 if (this.payload.indexSize) pos += this.payload.indexSize;
                 if (
-                    (item.constructionMethod ??
-                        ItemLocationConstructionMethod.file === ItemLocationConstructionMethod.file) &&
+                    (item.constructionMethod ?? ItemLocationConstructionMethod.file) ===
+                        ItemLocationConstructionMethod.file &&
                     item.baseOffset === 0 &&
                     extent.offset !== 0
                 ) {
