@@ -8,7 +8,7 @@ export abstract class BaseAsset {
         return this.data.length;
     }
 
-    public async getDataRange(start?: number | undefined, length?: number | undefined): Promise<Uint8Array> {
+    public async getDataRange(start?: number, length?: number): Promise<Uint8Array> {
         if (start === undefined) {
             return this.data;
         }
