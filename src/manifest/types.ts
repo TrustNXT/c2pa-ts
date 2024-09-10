@@ -16,7 +16,7 @@ export interface ManifestComponent {
     label?: string;
     sourceBox?: JUMBF.SuperBox;
     readonly componentType?: ManifestComponentType;
-    getBytes(claim?: Claim | undefined, rebuild?: boolean | undefined): Uint8Array | undefined;
+    getBytes(claim?: Claim, rebuild?: boolean): Uint8Array | undefined;
 }
 
 export enum ClaimVersion {

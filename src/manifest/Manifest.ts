@@ -526,7 +526,7 @@ export class Manifest implements ManifestComponent {
         await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!, timestampProvider);
     }
 
-    public getBytes(claim: Claim, rebuild?: boolean | undefined): Uint8Array | undefined {
+    public getBytes(claim: Claim, rebuild?: boolean): Uint8Array | undefined {
         return this.sourceBox?.toBuffer();
     }
 }
