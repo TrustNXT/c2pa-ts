@@ -10,25 +10,20 @@ class EmbeddedFileBoxSchema extends BoxSchema<EmbeddedFileBox> {
     readContent(input: bin.ISerialInput, type: string, length: number): EmbeddedFileBox {
         if (type != EmbeddedFileBox.typeCode) throw new Error(`EmbeddedFileBox: Unexpected type ${type}`);
 
-        const data = [];
-        for (let i = 0; i < length - 8; i++) {
-            data.push(input.readByte());
-        }
+        const data = bin.u8Array(length - 8).read(input);
 
         const box = new EmbeddedFileBox();
-        box.content = new Uint8Array(data);
+        box.content = data;
 
         return box;
     }
 
     writeContent(output: bin.ISerialOutput, value: EmbeddedFileBox): void {
-        if (value.content) {
-            value.content.forEach(byte => output.writeByte(byte));
-        }
+        if (value.content) output.writeSlice(value.content);
     }
 
     measureContent(value: EmbeddedFileBox, measurer: bin.IMeasurer): bin.IMeasurer {
-        return measurer.add(value.content ? value.content.length : 0);
+        return measurer.add(value.content?.length ?? 0);
     }
 }
 

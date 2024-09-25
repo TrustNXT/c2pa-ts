@@ -32,17 +32,15 @@ export const type = new JUMBFTypeCodeSchema();
 
 // type field for UUIDs
 class JUMBFUUIDSchema extends bin.Schema<Uint8Array> {
+    private uuid = bin.u8Array(16);
+
     read(input: bin.ISerialInput): Uint8Array {
-        const uuid = [];
-        for (let i = 0; i != 16; i++) {
-            uuid.push(input.readByte());
-        }
-        return new Uint8Array(uuid);
+        return this.uuid.read(input);
     }
 
     write(output: bin.ISerialOutput, value: Uint8Array): void {
         if (value.length != 16) throw new Error('JUMBFUUID: Invalid length');
-        value.forEach(byte => output.writeByte(byte));
+        output.writeSlice(value);
     }
 
     measure(_: Uint8Array, measurer: bin.IMeasurer = new bin.Measurer()): bin.IMeasurer {

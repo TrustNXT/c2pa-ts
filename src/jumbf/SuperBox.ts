@@ -16,9 +16,8 @@ class SuperBoxSchema extends BoxSchema<SuperBox> {
         const box = new SuperBox();
 
         // read raw content excluding (length, type) header
-        const rawContentSchema = bin.arrayOf(bin.byte, length - 8);
-        const buf = rawContentSchema.read(input);
-        box.rawContent = new Uint8Array(buf);
+        const rawContentSchema = bin.u8Array(length - 8);
+        box.rawContent = rawContentSchema.read(input);
         input.skipBytes(-(length - 8));
 
         const end = input.currentByteOffset + length - 8;

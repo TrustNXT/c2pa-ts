@@ -11,25 +11,23 @@ class UUIDBoxSchema extends BoxSchema<UUIDBox> {
         if (type != UUIDBox.typeCode) throw new Error(`UUIDBox: Unexpected type ${type}`);
 
         const uuid = this.uuid.read(input);
-        const content = [];
-        for (let i = 0; i != length - 4 - 4 - 16; i++) {
-            content.push(input.readByte());
-        }
+        const content = bin.u8Array(length - 4 - 4 - 16).read(input);
+
         const box = new UUIDBox();
 
         box.uuid = uuid;
-        box.content = new Uint8Array(content);
+        box.content = content;
 
         return box;
     }
 
     writeContent(output: bin.ISerialOutput, value: UUIDBox): void {
         this.uuid.write(output, value.uuid);
-        value.content?.forEach(byte => output.writeByte(byte));
+        if (value.content) output.writeSlice(value.content);
     }
 
     measureContent(value: UUIDBox, measurer: bin.IMeasurer): bin.IMeasurer {
-        return measurer.add(this.uuid.measure(value.uuid).size + (value.content ? value.content.length : 0));
+        return measurer.add(this.uuid.measure(value.uuid).size + (value.content?.length ?? 0));
     }
 }
 

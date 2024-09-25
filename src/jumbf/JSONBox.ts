@@ -10,12 +10,7 @@ class JSONBoxSchema extends BoxSchema<JSONBox> {
     readContent(input: bin.ISerialInput, type: string, length: number): JSONBox {
         if (type != JSONBox.typeCode) throw new Error(`JSONBox: Unexpected type ${type}`);
 
-        const payloadLength = length - 8;
-        const jsonBuffer = new Uint8Array(payloadLength);
-        for (let i = 0; i < payloadLength; i++) {
-            jsonBuffer[i] = input.readByte();
-        }
-        const json = new TextDecoder().decode(jsonBuffer);
+        const json = new TextDecoder().decode(bin.u8Array(length - 8).read(input));
 
         const box = new JSONBox();
         try {
@@ -34,8 +29,7 @@ class JSONBoxSchema extends BoxSchema<JSONBox> {
     }
 
     writeContent(output: bin.ISerialOutput, value: JSONBox): void {
-        const jsonBuffer = this.encodeContent(value);
-        for (let i = 0; i != jsonBuffer.length; i++) output.writeByte(jsonBuffer[i]);
+        output.writeSlice(this.encodeContent(value));
     }
 
     measureContent(value: JSONBox, measurer: bin.IMeasurer): bin.IMeasurer {

@@ -16,13 +16,10 @@ class CBORBoxSchema extends BoxSchema<CBORBox> {
     readContent(input: bin.ISerialInput, type: string, length: number): CBORBox {
         if (type != CBORBox.typeCode) throw new Error(`CBORBox: Unexpected type ${type}`);
 
-        const data = [];
-        for (let i = 0; i < length - 8; i++) {
-            data.push(input.readByte());
-        }
+        const data = bin.u8Array(length - 8).read(input);
 
         const box = new CBORBox();
-        box.rawContent = new Uint8Array(data);
+        box.rawContent = data;
         try {
             // If the data is tagged, store content and tag separately,
             // but ignore the tag otherwise.
@@ -45,7 +42,7 @@ class CBORBoxSchema extends BoxSchema<CBORBox> {
     writeContent(output: bin.ISerialOutput, value: CBORBox): void {
         if (!value.rawContent) value.generateRawContent();
 
-        value.rawContent!.forEach(byte => output.writeByte(byte));
+        output.writeSlice(value.rawContent!);
     }
 
     measureContent(value: CBORBox, measurer: bin.IMeasurer): bin.IMeasurer {
