@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.3.2
+
+### Patch Changes
+
+-   dfe157b: Don't check signature algorithm allow list for chain certificates
+
 ## 0.3.1
 
 ### Patch Changes
