@@ -1,91 +1,108 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
-import { Asset, JPEG } from '../src/asset';
+import { Asset, AssetType, BMFF, JPEG, PNG } from '../src/asset';
 import { SuperBox } from '../src/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
 import { BinaryHelper } from '../src/util';
 
-// location of the JPEG images within the checked out test files repo
-const baseDir = 'tests/fixtures/public-testfiles/image/jpeg';
+const baseDir = 'tests/fixtures';
 
-class TestExpectations {
+interface TestExpectations {
+    /**
+     * Asset class to read the file
+     */
+    assetType: AssetType;
+
     /**
      * whether the file contains a JUMBF with a C2PA Manifest
      */
-    jumbf = false;
+    jumbf: boolean;
 
     /**
      * whether the file is valid according to the C2PA Manifest
      */
-    valid: boolean | undefined = undefined;
+    valid?: boolean;
 
     /**
      * status codes expected in the status entries
      */
-    statusCodes: ValidationStatusCode[] = [];
+    statusCodes?: ValidationStatusCode[];
 }
 
 // test data sets with file names and expected outcomes
-const testFiles = {
-    'adobe-20220124-A.jpg': {
+const testFiles: Record<string, TestExpectations> = {
+    'public-testfiles/image/jpeg/adobe-20220124-A.jpg': {
+        assetType: JPEG,
         jumbf: false,
-        valid: undefined,
     },
-    'adobe-20220124-C.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-C.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CACA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CACA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CACAICAICICA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CACAICAICICA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CAI.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CAI.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CAICA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CAICA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CAICAI.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CAICAI.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CAIAIIICAICIICAIICICA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CAIAIIICAICIICAIICICA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionActionIngredientMismatch],
     },
-    'adobe-20220124-CI.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CI.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CICA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CICA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CICACACA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CICACACA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CIE-sig-CA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CIE-sig-CA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-CII.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-CII.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-
-    'adobe-20220124-E-clm-CAICAI.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-E-clm-CAICAI.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [
@@ -93,67 +110,94 @@ const testFiles = {
             ValidationStatusCode.AssertionActionIngredientMismatch,
         ],
     },
-    'adobe-20220124-E-dat-CA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-E-dat-CA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionDataHashMismatch],
     },
-    'adobe-20220124-E-sig-CA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-E-sig-CA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.ClaimSignatureMismatch],
     },
-    'adobe-20220124-E-uri-CA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-E-uri-CA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionHashedURIMismatch],
     },
-    'adobe-20220124-E-uri-CIE-sig-CA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-E-uri-CIE-sig-CA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'adobe-20220124-I.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-I.jpg': {
+        assetType: JPEG,
         jumbf: false,
-        valid: undefined,
     },
-    'adobe-20220124-XCA.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-XCA.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionDataHashMismatch],
     },
-    'adobe-20220124-XCI.jpg': {
+    'public-testfiles/image/jpeg/adobe-20220124-XCI.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionDataHashMismatch],
     },
-    'adobe-20221004-ukraine_building.jpeg': {
+    'public-testfiles/image/jpeg/adobe-20221004-ukraine_building.jpeg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'nikon-20221019-building.jpeg': {
+    'public-testfiles/image/jpeg/nikon-20221019-building.jpeg': {
+        assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.SigningCredentialExpired],
     },
-    'truepic-20230212-camera.jpg': {
+    'public-testfiles/image/jpeg/truepic-20230212-camera.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'truepic-20230212-landscape.jpg': {
+    'public-testfiles/image/jpeg/truepic-20230212-landscape.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'truepic-20230212-library.jpg': {
+    'public-testfiles/image/jpeg/truepic-20230212-library.jpg': {
+        assetType: JPEG,
         jumbf: true,
         valid: true,
+    },
+    'amazon-titan-g1.png': {
+        assetType: PNG,
+        jumbf: true,
+        valid: true,
+    },
+    'trustnxt-icon.jpg': {
+        assetType: JPEG,
+        jumbf: false,
+    },
+    'trustnxt-icon.png': {
+        assetType: PNG,
+        jumbf: false,
+    },
+    'trustnxt-icon.heic': {
+        assetType: BMFF,
+        jumbf: false,
     },
 };
 
-describe('Functional JPEG Reading Tests', function () {
+describe('Functional Asset Reading Tests', function () {
     this.timeout(0);
 
-    for (const [filename, test] of Object.entries(testFiles)) {
-        const data = Object.assign(new TestExpectations(), test);
+    for (const [filename, data] of Object.entries(testFiles)) {
         describe(`test file ${filename}`, () => {
             let buf: Buffer | undefined = undefined;
             it(`loading test file`, async () => {
@@ -167,10 +211,10 @@ describe('Functional JPEG Reading Tests', function () {
                 if (!buf) this.skip();
 
                 // ensure it's a JPEG
-                assert.ok(JPEG.canRead(buf));
+                assert.ok(data.assetType.canRead(buf));
 
                 // construct the asset
-                asset = new JPEG(buf);
+                asset = new data.assetType(buf);
             });
 
             let jumbf: Uint8Array | undefined = undefined;
@@ -211,7 +255,7 @@ describe('Functional JPEG Reading Tests', function () {
                     assert.equal(validationResult.isValid, data.valid);
                 });
 
-                data.statusCodes.forEach(value => {
+                data.statusCodes?.forEach(value => {
                     it(`check status code ${value}`, async function () {
                         if (validationResult === undefined) this.skip();
 

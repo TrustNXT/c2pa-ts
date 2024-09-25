@@ -33,6 +33,8 @@ export class BMFF extends BaseAsset implements Asset {
                 }
                 if (this.mustBePrecededByFtyp.has(box.type)) return false;
             }
+
+            return false;
         } catch {
             return false;
         }

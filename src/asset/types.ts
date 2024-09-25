@@ -50,3 +50,8 @@ export interface Asset {
      */
     writeManifestJUMBF(jumbf: Uint8Array): Promise<void>;
 }
+
+export interface AssetType {
+    new (data: Uint8Array): Asset;
+    canRead(data: Uint8Array): boolean;
+}
