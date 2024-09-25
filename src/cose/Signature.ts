@@ -369,9 +369,11 @@ export class Signature {
         const keyUsageError = this.validateCertificateKeyUsage(certificate, isUsedForManifestSigning);
         if (keyUsageError) return keyUsageError;
 
-        // Check for allowed signature algorithm
-        const algorithmError = this.validateCertificateAlgorithm(certificate);
-        if (algorithmError) return algorithmError;
+        if (isUsedForManifestSigning) {
+            // Check for allowed signature algorithm
+            const algorithmError = this.validateCertificateAlgorithm(certificate);
+            if (algorithmError) return algorithmError;
+        }
 
         // Check timestamp
         if (certificate.notBefore >= validityTimestamp || certificate.notAfter <= validityTimestamp)
