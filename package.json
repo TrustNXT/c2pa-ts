@@ -75,7 +75,7 @@
     "crc-32": "^1.2.2",
     "pkijs": "^3.2.4",
     "schema-dts": "^1.1.2",
-    "typed-binary": "^4.1.0",
+    "typed-binary": "^4.1.1",
     "uuid": "^10.0.0"
   },
   "mocha": {
