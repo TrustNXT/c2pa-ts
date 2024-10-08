@@ -8,23 +8,20 @@ class C2PASaltBoxSchema extends BoxSchema<C2PASaltBox> {
         if (type != C2PASaltBox.typeCode) throw new Error(`C2PASaltBox: Unexpected type ${type}`);
         if (length !== 8 + 16 && length !== 8 + 32) throw new Error(`C2PASaltBox: Unexpected length ${length}`);
 
-        const salt = [];
-        for (let i = 8; i != length; i++) {
-            salt.push(input.readByte());
-        }
+        const salt = bin.u8Array(length - 8).read(input);
 
         const box = new C2PASaltBox();
-        box.salt = new Uint8Array(salt);
+        box.salt = salt;
 
         return box;
     }
 
     writeContent(output: bin.ISerialOutput, value: C2PASaltBox): void {
-        value.salt?.forEach(byte => output.writeByte(byte));
+        if (value.salt) output.writeSlice(value.salt);
     }
 
     measureContent(value: C2PASaltBox, measurer: bin.IMeasurer): bin.IMeasurer {
-        return measurer.add(value.salt ? value.salt.length : 0);
+        return measurer.add(value.salt?.length ?? 0);
     }
 }
 
