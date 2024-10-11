@@ -46,7 +46,11 @@ jobs:
 
       - name: Publish to npm registry
         if: steps.changesets.outputs.hasChangesets == 'false'
-        run: npm publish --registry=https://registry.npmjs.org/ --access public
+        run: |
+          cat << EOF > "$HOME/.npmrc"
+            //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+          EOF
+          npm publish --registry=https://registry.npmjs.org/ --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   
