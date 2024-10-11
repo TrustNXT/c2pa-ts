@@ -32,7 +32,7 @@ export const type = new JUMBFTypeCodeSchema();
 
 // type field for UUIDs
 class JUMBFUUIDSchema extends bin.Schema<Uint8Array> {
-    private uuid = bin.u8Array(16);
+    readonly uuid = bin.u8Array(16);
 
     read(input: bin.ISerialInput): Uint8Array {
         return this.uuid.read(input);
