@@ -47,10 +47,9 @@ jobs:
       - name: Publish to npm registry
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
-          cat << EOF > "$HOME/.npmrc"
-            //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
-          EOF
-          npm publish --registry=https://registry.npmjs.org/ --access public
+          npm config delete @trustnxt:registry --location project
+          npm config set @trustnxt:registry 'https://registry.npmjs.org' --location project
+          npm config set //registry.npmjs.org/:_authToken '${NODE_AUTH_TOKEN}' --location project
+          npm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-  
