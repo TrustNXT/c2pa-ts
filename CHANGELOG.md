@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.4.0
+
+### Minor Changes
+
+-   67def7a: Use TypedArray support in typed-binary for better performance
+
 ## 0.3.2
 
 ### Patch Changes
