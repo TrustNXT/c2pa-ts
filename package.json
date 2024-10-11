@@ -89,7 +89,7 @@
     "lint": "eslint src tests",
     "format": "prettier --write src tests",
     "test": "mocha 'tests/**/*test.ts'",
-    "build": "rimraf dist && node prebuild.js && tsc -p tsconfig.json; node postbuild.js",
+    "build": "rimraf dist && node prebuild.js && tsc -p tsconfig.json; exit_code=$?; node postbuild.js; exit $exit_code",
     "changeset": "changeset",
     "version": "changeset version && npm install --package-lock-only",
     "release": "npm run build && changeset publish"
