@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.4.1
+
+### Patch Changes
+
+-   4a9fc91: Fix build errors
+
 ## 0.4.0
 
 ### Minor Changes
