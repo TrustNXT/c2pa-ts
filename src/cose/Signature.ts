@@ -432,7 +432,7 @@ export class Signature {
             )
                 return ValidationStatusCode.SigningCredentialInvalid;
         } else {
-            // Non-CA certificates must have the Subject Key Identifier extension
+            // CA certificates must have the Subject Key Identifier extension
             if (!certificate.getExtension(SubjectKeyIdentifierExtension))
                 return ValidationStatusCode.SigningCredentialInvalid;
         }
