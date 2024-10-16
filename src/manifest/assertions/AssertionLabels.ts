@@ -20,6 +20,8 @@ export class AssertionLabels {
 
     /** Generic JSON-LD based metadata assertion (C2PA 2.0) */
     public static readonly metadata = 'c2pa.metadata';
+    /** CAWG JSON-LD based metadata assertion */
+    public static readonly cawgMetadata = 'cawg.metadata';
     /** Common metadata assertion (deprecated as of C2PA 2.0) */
     public static readonly commonMetadata = 'stds.metadata';
     /** EXIF metadata assertion (deprecated as of C2PA 1.4) */
@@ -31,6 +33,7 @@ export class AssertionLabels {
     /** All JSON-LD based metadata assertions */
     public static readonly metadataAssertions = [
         AssertionLabels.metadata,
+        AssertionLabels.cawgMetadata,
         AssertionLabels.commonMetadata,
         AssertionLabels.exifMetadata,
         AssertionLabels.iptcMetadata,
