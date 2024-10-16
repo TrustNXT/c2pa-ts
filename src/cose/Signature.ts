@@ -71,7 +71,8 @@ export class Signature {
 
         if (x5chainCandidates.length !== 1) throw new MalformedContentError('Malformed credentials');
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        const x5chain = x5chainCandidates[0]!;
+        let x5chain = x5chainCandidates[0]!;
+        if (!Array.isArray(x5chain)) x5chain = [x5chain];
 
         try {
             signature.certificate = new X509Certificate(x5chain[0]);

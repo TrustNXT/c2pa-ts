@@ -1,8 +1,8 @@
 export interface HeaderBucket {
     [key: string]: unknown;
     '1'?: number; // alg
-    '33'?: Uint8Array[]; // x5chain
-    x5chain?: Uint8Array[]; // legacy named x5chain
+    '33'?: Uint8Array[] | Uint8Array; // x5chain
+    x5chain?: Uint8Array[] | Uint8Array; // legacy named x5chain
     sigTst?: {
         tstTokens: {
             val: Uint8Array;
