@@ -45,7 +45,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
 
       - name: Publish to npm registry
-        if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs.published == 'true'
         run: |
           npm config delete @trustnxt:registry --location project
           npm config set @trustnxt:registry 'https://registry.npmjs.org' --location project
