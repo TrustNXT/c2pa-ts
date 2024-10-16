@@ -47,7 +47,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :white_check_mark: Ingredient
 - :white_check_mark: Metadata (specialized, common, generic, and CAWG variants)
 - :white_check_mark: Creative Work
-- :x: Training and Data Mining (C2PA and CAWG variants)
+- :white_check_mark: Training and Data Mining (C2PA and CAWG variants)
 - :x: CAWG Identity
 
 ### JUMBF boxes

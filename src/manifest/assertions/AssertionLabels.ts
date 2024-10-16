@@ -43,6 +43,11 @@ export class AssertionLabels {
     /** Schema.org based Creative Work assertion (deprecated as of C2PA 2.0) */
     public static readonly creativeWork = 'stds.schema-org.CreativeWork';
 
+    /** Training and Data Mining assertion (deprecated as of C2PA 2.0) */
+    public static readonly trainingAndDataMining = 'c2pa.training-mining';
+    /** CAWG Training and Data Mining assertion */
+    public static readonly cawgTrainingAndDataMining = 'cawg.training-mining';
+
     public static readonly thumbnailPrefix = 'c2pa.thumbnail.claim.';
     public static readonly ingredientThumbnailPrefix = 'c2pa.thumbnail.ingredient';
 }

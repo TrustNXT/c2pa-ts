@@ -8,4 +8,5 @@ export * from './IngredientAssertion';
 export * from './MetadataAssertion';
 export * from './SchemaOrgAssertion';
 export * from './ThumbnailAssertion';
+export * from './TrainingAndDataMiningAssertion';
 export * from './UnknownAssertion';
