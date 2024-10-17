@@ -250,3 +250,28 @@ export enum ThumbnailType {
     Claim,
     Ingredient,
 }
+
+export enum TrainingAndDataMiningChoice {
+    Allowed = 'allowed',
+    NotAllowed = 'notAllowed',
+    Constrained = 'constrained',
+}
+
+export interface TrainingAndDataMiningEntry {
+    choice: TrainingAndDataMiningChoice;
+    constraintInfo?: string;
+}
+
+export enum TrainingAndDataMiningKey {
+    DataMining = 'c2pa.data_mining',
+    AIInference = 'c2pa.ai_inference',
+    AIGenerativeTraining = 'c2pa.ai_generative_training',
+    AITraining = 'c2pa.ai_training',
+}
+
+export enum CAWGTrainingAndDataMiningKey {
+    DataMining = 'cawg.data_mining',
+    AIInference = 'cawg.ai_inference',
+    AIGenerativeTraining = 'cawg.ai_generative_training',
+    AITraining = 'cawg.ai_training',
+}

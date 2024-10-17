@@ -7,6 +7,7 @@ import {
     DataHashAssertion,
     IngredientAssertion,
     MetadataAssertion,
+    TrainingAndDataMiningAssertion,
     UnknownAssertion,
 } from './assertions';
 import { AssertionLabels } from './assertions/AssertionLabels';
@@ -67,6 +68,10 @@ export class AssertionStore implements ManifestComponent {
             assertion = new IngredientAssertion();
         } else if (AssertionLabels.metadataAssertions.includes(label.label)) {
             assertion = new MetadataAssertion();
+        } else if (label.label === AssertionLabels.trainingAndDataMining) {
+            assertion = new TrainingAndDataMiningAssertion(false);
+        } else if (label.label === AssertionLabels.cawgTrainingAndDataMining) {
+            assertion = new TrainingAndDataMiningAssertion(true);
         } else if (
             box.descriptionBox.label.startsWith(AssertionLabels.thumbnailPrefix) ||
             box.descriptionBox.label.startsWith(AssertionLabels.ingredientThumbnailPrefix)

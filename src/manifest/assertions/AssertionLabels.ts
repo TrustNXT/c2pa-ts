@@ -20,6 +20,8 @@ export class AssertionLabels {
 
     /** Generic JSON-LD based metadata assertion (C2PA 2.0) */
     public static readonly metadata = 'c2pa.metadata';
+    /** CAWG JSON-LD based metadata assertion */
+    public static readonly cawgMetadata = 'cawg.metadata';
     /** Common metadata assertion (deprecated as of C2PA 2.0) */
     public static readonly commonMetadata = 'stds.metadata';
     /** EXIF metadata assertion (deprecated as of C2PA 1.4) */
@@ -31,6 +33,7 @@ export class AssertionLabels {
     /** All JSON-LD based metadata assertions */
     public static readonly metadataAssertions = [
         AssertionLabels.metadata,
+        AssertionLabels.cawgMetadata,
         AssertionLabels.commonMetadata,
         AssertionLabels.exifMetadata,
         AssertionLabels.iptcMetadata,
@@ -39,6 +42,11 @@ export class AssertionLabels {
 
     /** Schema.org based Creative Work assertion (deprecated as of C2PA 2.0) */
     public static readonly creativeWork = 'stds.schema-org.CreativeWork';
+
+    /** Training and Data Mining assertion (deprecated as of C2PA 2.0) */
+    public static readonly trainingAndDataMining = 'c2pa.training-mining';
+    /** CAWG Training and Data Mining assertion */
+    public static readonly cawgTrainingAndDataMining = 'cawg.training-mining';
 
     public static readonly thumbnailPrefix = 'c2pa.thumbnail.claim.';
     public static readonly ingredientThumbnailPrefix = 'c2pa.thumbnail.ingredient';

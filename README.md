@@ -26,6 +26,8 @@ Anything that's not listed below is not currently planned to be implemented.
 
 :information_source: On C2PA versions: The library is targeted at C2PA specification 2.0, however data structures from older versions of the specification are also supported for backwards compatibility.
 
+:information_source: Although it is a separate project from C2PA, the library also includes support for several [CAWG](https://github.com/creator-assertions/) assertions.
+
 ### Asset file formats
 
 - :white_check_mark: JPEG
@@ -43,9 +45,10 @@ Anything that's not listed below is not currently planned to be implemented.
 - :white_check_mark: Thumbnail
 - :white_check_mark: Actions (except action templates and metadata)
 - :white_check_mark: Ingredient
-- :white_check_mark: Metadata
+- :white_check_mark: Metadata (specialized, common, generic, and CAWG variants)
 - :white_check_mark: Creative Work
-- :x: [CAWG](https://github.com/creator-assertions/) assertions
+- :white_check_mark: Training and Data Mining (C2PA and CAWG variants)
+- :x: CAWG Identity
 
 ### JUMBF boxes
 
