@@ -1,5 +1,12 @@
 # c2pa-ts
 
+## 0.5.0
+
+### Minor Changes
+
+-   0fb414c: Support additional assertions (Training and Data Mining, CAWG Metadata)
+-   33e0541: Fix COSE deserilization failing for single-certificate chains
+
 ## 0.4.1
 
 ### Patch Changes
