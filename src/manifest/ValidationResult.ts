@@ -18,11 +18,12 @@ export class ValidationResult {
      */
     public isValid = true;
 
-    private add(code: ValidationStatusCode, uri?: JUMBF.IBox | string, explanation?: string) {
+    private add(code: ValidationStatusCode, uri?: JUMBF.IBox | string, explanation?: string, success = false) {
         this.statusEntries.push({
             code,
             url: typeof uri === 'string' ? uri : this.getURIFromBox(uri),
             explanation,
+            success,
         });
     }
 
@@ -38,7 +39,7 @@ export class ValidationResult {
      * @param explanation Optional further human-readable explanation of the status
      */
     public addInformational(code: ValidationStatusCode, uri?: JUMBF.IBox | string, explanation?: string) {
-        this.add(code, uri, explanation);
+        this.add(code, uri, explanation, true);
     }
 
     /**
