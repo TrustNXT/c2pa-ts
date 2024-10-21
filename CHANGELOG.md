@@ -1,5 +1,12 @@
 # c2pa-ts
 
+## 0.5.1
+
+### Patch Changes
+
+-   df61eb6: Populate success field of ValidationResult entries
+-   5c6e74e: Handle edge cases during string measuring
+
 ## 0.5.0
 
 ### Minor Changes
