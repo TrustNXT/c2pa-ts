@@ -32,7 +32,7 @@ class EmbeddedFileDescriptionBoxSchema extends BoxSchema<EmbeddedFileDescription
     measureContent(value: EmbeddedFileDescriptionBox, measurer: bin.IMeasurer): bin.IMeasurer {
         return measurer.add(
             1 + // flags
-                this.mediaType.measure(value.mediaType ?? '').size +
+                (value.mediaType ? this.mediaType.measure(value.mediaType).size : 0) +
                 (value.fileName ? this.fileName.measure(value.fileName).size : 0),
         );
     }

@@ -68,7 +68,7 @@ class DescriptionBoxSchema extends BoxSchema<DescriptionBox> {
         return measurer.add(
             this.uuid.measure(value.uuid).size +
                 1 + // toggles
-                (value.label ? value.label.length + 1 : 0) +
+                (value.label ? this.label.measure(value.label).size : 0) +
                 (value.id ? 4 : 0) +
                 (value.hash ? 32 : 0) +
                 value.privateBoxes.reduce((acc, box) => acc + box.schema.measure(box).size, 0),
