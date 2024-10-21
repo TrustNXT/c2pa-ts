@@ -122,26 +122,31 @@ describe('Functional Signing Tests', function () {
                         code: ValidationStatusCode.TimeStampTrusted,
                         explanation: undefined,
                         url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
+                        success: true,
                     },
                     {
                         code: ValidationStatusCode.SigningCredentialTrusted,
                         explanation: undefined,
                         url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
+                        success: true,
                     },
                     {
                         code: ValidationStatusCode.ClaimSignatureValidated,
                         explanation: undefined,
                         url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
+                        success: true,
                     },
                     {
                         code: ValidationStatusCode.AssertionHashedURIMatch,
                         explanation: undefined,
                         url: 'self#jumbf=c2pa.assertions/c2pa.hash.data',
+                        success: true,
                     },
                     {
                         code: ValidationStatusCode.AssertionDataHashMatch,
                         explanation: undefined,
                         url: `self#jumbf=/c2pa/${manifest.label}/c2pa.assertions/c2pa.hash.data`,
+                        success: true,
                     },
                 ]);
 
