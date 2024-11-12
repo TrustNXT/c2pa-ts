@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.5.2
+
+### Patch Changes
+
+-   4a45454: Update Training and Data Mining assertion according to CAWG spec update
+
 ## 0.5.1
 
 ### Patch Changes
