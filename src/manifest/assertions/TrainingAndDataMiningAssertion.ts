@@ -62,8 +62,8 @@ export class TrainingAndDataMiningAssertion extends Assertion {
         for (const [key, entry] of Object.entries(this.entries)) {
             rawEntries[key] = {
                 use: entry.choice,
-                constraint_info: entry.constraintInfo,
             };
+            if (entry.constraintInfo) rawEntries[key].constraint_info = entry.constraintInfo;
         }
 
         const box = new CBORBox();
