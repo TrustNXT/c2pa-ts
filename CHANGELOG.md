@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.5.3
+
+### Patch Changes
+
+-   cf0a06a: Training and Data Mining assertion: Do not write empty constraint_info fields
+
 ## 0.5.2
 
 ### Patch Changes
