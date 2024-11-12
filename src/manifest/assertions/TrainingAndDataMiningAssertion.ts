@@ -6,9 +6,8 @@ import { ValidationError } from '../ValidationError';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 
-// The specification is unclear about whether the individual entries should go into the `entries` field or
-// directly into the top level of the payload content. Thus we support reading both. When writing, we include
-// the `entries` field for the C2PA 1.x version of the assertion and omit it for the CAWG version.
+// Early versions of the specification were unclear about whether the individual entries should go into
+// the `entries` field or directly into the top level of the payload content. Thus we support reading both.
 // See also: https://github.com/creator-assertions/training-and-data-mining-assertion/issues/3
 type RawTrainingMiningMap = Record<string, RawEntry> & {
     entries?: Record<string, RawEntry>;
@@ -59,16 +58,16 @@ export class TrainingAndDataMiningAssertion extends Assertion {
     public generateJUMBFBoxForContent(): IBox {
         if (!Object.keys(this.entries).length) throw new Error('Assertion has no entries');
 
-        const content: Record<string, RawEntry> = {};
+        const rawEntries: Record<string, RawEntry> = {};
         for (const [key, entry] of Object.entries(this.entries)) {
-            content[key] = {
+            rawEntries[key] = {
                 use: entry.choice,
                 constraint_info: entry.constraintInfo,
             };
         }
 
         const box = new CBORBox();
-        box.content = this.isCAWG ? content : { entries: content };
+        box.content = { entries: rawEntries };
         return box;
     }
 }
