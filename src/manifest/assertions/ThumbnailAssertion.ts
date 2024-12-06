@@ -100,7 +100,7 @@ export class ThumbnailAssertion extends Assertion {
             assertion.label = AssertionLabels.thumbnailPrefix + imageType;
         } else {
             assertion.label =
-                AssertionLabels.ingredientThumbnailPrefix + (suffix ? '_' + suffix : '') + '.' + imageType;
+                AssertionLabels.ingredientThumbnailPrefix + (suffix ? '__' + suffix : '') + '.' + imageType;
         }
         return assertion;
     }
