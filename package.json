@@ -61,7 +61,7 @@
     "github-actions-ctrf": "^0.0.50",
     "mocha": "^10.7.3",
     "mocha-ctrf-json-reporter": "^0.0.6",
-    "prettier": "3.4.1",
+    "prettier": "3.4.2",
     "replace-in-file": "^8.2.0",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
