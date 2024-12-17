@@ -32,9 +32,9 @@ interface RawActionV2 {
     softwareAgent?: raw.ClaimGeneratorInfo;
     description?: string;
     digitalSourceType?: DigitalSourceType;
-    // `when` currently not implemented
-    // `changed` currently not implemented
-    // `related` currently not implemented
+    when?: string;
+    changed?: string[];
+    related?: { relationship: string; uri: string }[];
     reason?: ActionReason | string;
     instanceID?: string;
     parameters?: {
@@ -42,6 +42,11 @@ interface RawActionV2 {
         instanceID?: string;
         redacted?: string;
         ingredients?: raw.HashedURI[];
+        regionOfInterest?: {
+            start?: string;
+            end?: string;
+            coordinates?: number[];
+        };
     };
 }
 
@@ -111,6 +116,17 @@ export class ActionAssertion extends Assertion {
         }
     }
 
+    private validateRFC3339Timestamp(timestamp: string): boolean {
+        // RFC 3339 regex pattern
+        const pattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+        return pattern.test(timestamp);
+    }
+
+    private validateROICoordinates(coordinates: number[]): boolean {
+        // Coordinates should be pairs of x,y values
+        return coordinates.length % 2 === 0 && coordinates.every(coord => typeof coord === 'number');
+    }
+
     private mapActionsV2FromCBORData(box: JUMBF.CBORBox, claim: Claim) {
         const rawContent = box.content as RawActionsMapV2;
         if (!rawContent.actions?.length)
@@ -149,6 +165,35 @@ export class ActionAssertion extends Assertion {
             }
 
             action.digitalSourceType = this.fixDigitalSourceType(action.digitalSourceType);
+
+            // Validate ROI timestamps if present
+            if (rawAction.parameters?.regionOfInterest) {
+                const roi = rawAction.parameters.regionOfInterest;
+                if (roi.start && !this.validateRFC3339Timestamp(roi.start)) {
+                    throw new ValidationError(
+                        ValidationStatusCode.AssertionCBORInvalid,
+                        this.sourceBox,
+                        'Invalid ROI start timestamp',
+                    );
+                }
+                if (roi.end && !this.validateRFC3339Timestamp(roi.end)) {
+                    throw new ValidationError(
+                        ValidationStatusCode.AssertionCBORInvalid,
+                        this.sourceBox,
+                        'Invalid ROI end timestamp',
+                    );
+                }
+            }
+
+            if (rawAction.parameters?.regionOfInterest?.coordinates) {
+                if (!this.validateROICoordinates(rawAction.parameters.regionOfInterest.coordinates)) {
+                    throw new ValidationError(
+                        ValidationStatusCode.AssertionCBORInvalid,
+                        this.sourceBox,
+                        'Invalid ROI coordinates',
+                    );
+                }
+            }
 
             this.actions.push(action);
         }
@@ -237,6 +282,11 @@ export class ActionAssertion extends Assertion {
                         softwareAgent.operating_system = action.softwareAgent.operatingSystem;
                     res.softwareAgent = softwareAgent;
                 }
+
+                if (action.when) res.when = action.when;
+                if (action.changed?.length) res.changed = action.changed;
+                if (action.related?.length) res.related = action.related;
+
                 return res;
             }),
             // TODO: templates

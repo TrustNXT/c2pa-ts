@@ -137,6 +137,12 @@ describe('Functional Signing Tests', function () {
                         success: true,
                     },
                     {
+                        code: ValidationStatusCode.TimeStampTrusted,
+                        explanation: undefined,
+                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
+                        success: true,
+                    },
+                    {
                         code: ValidationStatusCode.AssertionHashedURIMatch,
                         explanation: undefined,
                         url: 'self#jumbf=c2pa.assertions/c2pa.hash.data',

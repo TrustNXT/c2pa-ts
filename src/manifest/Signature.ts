@@ -2,6 +2,7 @@ import { X509Certificate } from '@peculiar/x509';
 import * as COSE from '../cose';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
+import { TimestampValidator } from '../rfc3161/TimestampValidator';
 import { MalformedContentError } from '../util';
 import { Claim } from './Claim';
 import * as raw from './rawTypes';
@@ -81,7 +82,13 @@ export class Signature implements ManifestComponent {
 
     public async validate(payload: Uint8Array): Promise<ValidationResult> {
         try {
-            return this.signatureData.validate(payload, this.sourceBox);
+            const result = await this.signatureData.validate(payload, this.sourceBox);
+
+            if (this.signatureData.timestamp) {
+                result.merge(await this.validateTimestamp(this.signatureData.timestamp));
+            }
+
+            return result;
         } catch (e) {
             if (e instanceof MalformedContentError) {
                 return ValidationResult.error(ValidationStatusCode.SigningCredentialInvalid, this.sourceBox);
@@ -126,5 +133,9 @@ export class Signature implements ManifestComponent {
     public getBytes(claim: Claim, rebuild = false): Uint8Array | undefined {
         if (rebuild) this.generateJUMBFBox();
         return this.sourceBox?.toBuffer();
+    }
+
+    private async validateTimestamp(timestamp: Date): Promise<ValidationResult> {
+        return TimestampValidator.validate(timestamp, this.sourceBox);
     }
 }

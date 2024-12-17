@@ -204,11 +204,22 @@ export interface Action {
     action: ActionType;
     reason?: ActionReason | string;
     instanceID?: string;
+    when?: string; // RFC 3339 timestamp
+    changed?: string[]; // Array of changed properties
+    related?: {
+        relationship: string;
+        uri: string;
+    }[];
     parameters?: {
         [key: string]: unknown;
         ingredients?: HashedURI[];
         description?: string;
         redacted?: string;
+        regionOfInterest?: {
+            start?: string; // RFC 3339 timestamp
+            end?: string; // RFC 3339 timestamp
+            coordinates?: number[];
+        };
     };
     description?: string;
     digitalSourceType?: DigitalSourceType;
