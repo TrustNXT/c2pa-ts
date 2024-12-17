@@ -84,6 +84,15 @@ export class ManifestStore {
     }
 
     /**
+     * Retrieves manifests by instance ID
+     * @param instanceId
+     */
+    public getManifestsByInstanceId(instanceId?: string): Manifest[] {
+        if (!instanceId) return [];
+        return this.manifests.filter(m => m.claim?.instanceID === instanceId);
+    }
+
+    /**
      * Reads a manifest store from a JUMBF structure
      * @param superBox The outer JUMBF super box
      */

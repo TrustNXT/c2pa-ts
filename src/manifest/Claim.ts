@@ -2,11 +2,13 @@ import { HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { Version } from '../util';
 import * as raw from './rawTypes';
-import { ClaimVersion, HashedURI, ManifestComponent, ValidationStatusCode } from './types';
+import { C2PA_URN_PREFIX, ClaimVersion, HashedURI, ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 
 export class Claim implements ManifestComponent {
-    public version: ClaimVersion = ClaimVersion.V2;
+    private _version: ClaimVersion = ClaimVersion.V2;
+    private _label = 'c2pa.claim.v2';
+
     public defaultAlgorithm: HashAlgorithm | undefined;
     public instanceID: string | undefined;
     public format: string | undefined;
@@ -18,8 +20,17 @@ export class Claim implements ManifestComponent {
     public claimGeneratorName = Version.productName;
     public claimGeneratorVersion? = Version.productVersion;
 
+    public get version(): ClaimVersion {
+        return this._version;
+    }
+
+    public set version(value: ClaimVersion) {
+        this._version = value;
+        this._label = this.version === ClaimVersion.V2 ? 'c2pa.claim.v2' : 'c2pa.claim';
+    }
+
     public get label(): string {
-        return this.version === ClaimVersion.V2 ? 'c2pa.claim.v2' : 'c2pa.claim';
+        return this._label;
     }
 
     public static read(box: JUMBF.SuperBox) {
@@ -113,6 +124,7 @@ export class Claim implements ManifestComponent {
                     signature: this.signatureRef,
                     claim_generator_info: claimGenerator,
                     created_assertions: this.assertions.map(assertion => this.reverseMapHashedURI(assertion)),
+                    urn: this.getURN(),
                 };
 
                 if (this.title) content['dc:title'] = this.title;
@@ -184,5 +196,12 @@ export class Claim implements ManifestComponent {
     public getBytes(claim: Claim, rebuild = false): Uint8Array | undefined {
         if (rebuild) this.generateJUMBFBox();
         return (this.sourceBox?.contentBoxes[0] as JUMBF.CBORBox | undefined)?.rawContent;
+    }
+
+    public getURN(): string {
+        if (!this.instanceID) {
+            throw new Error('Instance ID is required for URN generation');
+        }
+        return `${C2PA_URN_PREFIX}${this.instanceID}`;
     }
 }

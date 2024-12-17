@@ -1,6 +1,7 @@
 import { Asset } from '../../asset';
 import * as JUMBF from '../../jumbf';
 import { Claim } from '../Claim';
+import { Manifest } from '../Manifest';
 import { ManifestComponent, ManifestComponentType, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { ValidationResult } from '../ValidationResult';
@@ -71,5 +72,16 @@ export abstract class Assertion implements ManifestComponent {
     public getBytes(claim: Claim, rebuild = false) {
         if (rebuild) this.generateJUMBFBox(claim);
         return this.sourceBox?.toBuffer();
+    }
+
+    protected static readAssertionData(box: JUMBF.IBox): unknown {
+        if (!(box instanceof JUMBF.CBORBox)) {
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, box, 'Expected CBOR box');
+        }
+        return box.content;
+    }
+
+    public async validate(manifest: Manifest): Promise<ValidationResult> {
+        return new ValidationResult();
     }
 }

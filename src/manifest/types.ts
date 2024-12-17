@@ -88,6 +88,7 @@ export enum ValidationStatusCode {
     AssertionActionIngredientMismatch = 'assertion.action.ingredientMismatch',
     AssertionActionRedactionMismatch = 'assertion.action.redactionMismatch',
     AssertionActionRedacted = 'assertion.action.redacted',
+    AssertionActionMissingMandatory = 'assertion.action.missingMandatory',
     AssertionDataHashMismatch = 'assertion.dataHash.mismatch',
     AssertionBMFFHashMismatch = 'assertion.bmffHash.mismatch',
     AssertionBoxesHashMismatch = 'assertion.boxesHash.mismatch',
@@ -99,6 +100,13 @@ export enum ValidationStatusCode {
     AssertionCollectionHashInvalidURI = 'assertion.collectionHash.invalidURI',
     AlgorithmUnsupported = 'algorithm.unsupported',
     GeneralError = 'general.error',
+    ManifestOrphaned = 'manifest.orphaned',
+    ManifestDuplicate = 'manifest.duplicate',
+    IngredientValidationSkipped = 'ingredient.validation.skipped',
+    ManifestDuplicateConflict = 'manifest.duplicate.conflict',
+    IngredientValidationRequired = 'ingredient.validation.required',
+    AssertionRedactedIngredient = 'assertion.redacted.ingredient',
+    AssertionMultipleNotAllowed = 'assertion.multiple.notAllowed',
 }
 
 export interface ValidationStatusEntry {
@@ -275,3 +283,5 @@ export enum CAWGTrainingAndDataMiningKey {
     AIGenerativeTraining = 'cawg.ai_generative_training',
     AITraining = 'cawg.ai_training',
 }
+
+export const C2PA_URN_PREFIX = 'urn:c2pa:';

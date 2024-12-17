@@ -148,6 +148,12 @@ describe('Functional Signing Tests', function () {
                         url: `self#jumbf=/c2pa/${manifest.label}/c2pa.assertions/c2pa.hash.data`,
                         success: true,
                     },
+                    {
+                        code: ValidationStatusCode.ManifestOrphaned,
+                        explanation: undefined,
+                        url: `self#jumbf=/c2pa/${manifest.label}`,
+                        success: true,
+                    },
                 ]);
 
                 // check overall validity

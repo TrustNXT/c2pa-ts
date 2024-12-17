@@ -13,6 +13,7 @@ import { Signature } from './Signature';
 import {
     Action,
     ActionType,
+    ClaimVersion,
     HashedURI,
     ManifestComponent,
     ManifestComponentType,
@@ -184,7 +185,19 @@ export class Manifest implements ManifestComponent {
         if (!bytes) return false;
 
         const digest = await Crypto.digest(bytes, reference.algorithm);
-        return BinaryHelper.bufEqual(reference.hash, digest);
+        if (BinaryHelper.bufEqual(reference.hash, digest)) {
+            return true;
+        }
+
+        if (reference.uri.includes('/c2pa.databoxes/')) {
+            const box = this.getComponentByURL(reference.uri);
+            if (!box) return false;
+
+            const hash = await Crypto.digest(box.getBytes(this.claim)!, reference.algorithm);
+            return BinaryHelper.bufEqual(hash, reference.hash);
+        }
+
+        return false;
     }
 
     /**
@@ -253,6 +266,9 @@ export class Manifest implements ManifestComponent {
         for (const assertion of referencedAssertions) {
             result.merge(await assertion.validateAgainstAsset(asset));
         }
+
+        result.merge(await this.validateManifestRelationships());
+        result.merge(await this.validateIngredients());
 
         return result;
     }
@@ -361,6 +377,10 @@ export class Manifest implements ManifestComponent {
         assertionReference: HashedURI,
         assertion: ActionAssertion,
     ): Promise<ValidationResult> {
+        // First check mandatory actions
+        const result = await this.validateMandatoryActions(assertionReference, assertion);
+        if (!result.isValid) return result;
+
         // Validate a referenced ingredient assertion
         const validateActionIngredient = async (
             action: Action,
@@ -382,19 +402,19 @@ export class Manifest implements ManifestComponent {
                 return false;
             }
 
-            if (referencedIngredient.manifestReference) {
-                //Skipping hash validation of ingredient claims for now as they seem to be invalid in public test files
-                //if (!await this.validateHashedReference(referencedIngredient.manifestReference)) return false;
+            if (referencedIngredient.activeManifest) {
+                // Enable hash validation of ingredient claims
+                if (!(await this.validateHashedReference(referencedIngredient.activeManifest))) {
+                    return false;
+                }
             }
 
-            if (referencedIngredient.thumbnailReference) {
-                if (!(await this.validateHashedReference(referencedIngredient.thumbnailReference))) return false;
+            if (referencedIngredient.thumbnail) {
+                if (!(await this.validateHashedReference(referencedIngredient.thumbnail))) return false;
             }
 
             return true;
         };
-
-        const result = new ValidationResult();
 
         for (const action of assertion.actions) {
             if (
@@ -455,6 +475,60 @@ export class Manifest implements ManifestComponent {
                     break;
                 }
             }
+        }
+
+        return result;
+    }
+
+    private async validateMandatoryActions(
+        assertionReference: HashedURI,
+        assertion: ActionAssertion,
+    ): Promise<ValidationResult> {
+        const result = new ValidationResult();
+
+        // For standard manifests, either c2pa.created or c2pa.opened must be present
+        if (this.type === ManifestType.Standard) {
+            const hasCreated = assertion.actions.some(a => a.action === ActionType.C2paCreated);
+            const hasOpened = assertion.actions.some(a => a.action === ActionType.C2paOpened);
+
+            if (!hasCreated && !hasOpened) {
+                result.addError(
+                    ValidationStatusCode.AssertionActionMissingMandatory,
+                    assertionReference.uri,
+                    'Standard manifest must contain either c2pa.created or c2pa.opened action',
+                );
+            }
+
+            // Check for redacted assertions in ingredients
+            const ingredients = assertion.actions
+                .filter(a => a.parameters?.ingredients)
+                .flatMap(a => a.parameters!.ingredients!);
+
+            for (const ingredient of ingredients) {
+                const ingredientAssertion = this.getAssertion(ingredient, true);
+                if (
+                    ingredientAssertion instanceof IngredientAssertion &&
+                    ingredientAssertion.validationStatus?.includes(ValidationStatusCode.AssertionRedactedIngredient)
+                ) {
+                    result.addError(ValidationStatusCode.AssertionRedactedIngredient, assertionReference.uri);
+                    break;
+                }
+            }
+        }
+
+        // Allow multiple action assertions in 2.1+
+        if (this.claim?.version && this.claim?.version >= ClaimVersion.V2) {
+            return result;
+        }
+
+        // For older versions, maintain the single action assertion requirement
+        const actionAssertions = this.assertions?.getAssertionsByLabel(AssertionLabels.actions) ?? [];
+        if (actionAssertions.length > 1) {
+            result.addError(
+                ValidationStatusCode.AssertionMultipleNotAllowed,
+                assertionReference.uri,
+                'Multiple action assertions are not allowed in pre-2.1 manifests',
+            );
         }
 
         return result;
@@ -526,7 +600,63 @@ export class Manifest implements ManifestComponent {
         await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!, timestampProvider);
     }
 
-    public getBytes(claim: Claim, rebuild?: boolean): Uint8Array | undefined {
+    public getBytes(claim?: Claim): Uint8Array | undefined {
+        if (!claim && !this.claim) {
+            return undefined;
+        }
         return this.sourceBox?.toBuffer();
+    }
+
+    private async validateManifestRelationships(): Promise<ValidationResult> {
+        const result = new ValidationResult();
+
+        // Check for duplicate manifests
+        const manifestsWithSameId = this.parentStore.getManifestsByInstanceId(this.claim?.instanceID);
+        if (manifestsWithSameId.length > 1) {
+            if (manifestsWithSameId.some(m => m !== this && !this.isCompatibleWith(m))) {
+                result.addError(ValidationStatusCode.ManifestDuplicateConflict, this.sourceBox);
+            } else {
+                result.addInformational(ValidationStatusCode.ManifestDuplicate, this.sourceBox);
+            }
+        }
+
+        // Check for orphaned manifests
+        const parentIngredients = this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
+        if (parentIngredients.length === 0) {
+            result.addInformational(ValidationStatusCode.ManifestOrphaned, this.sourceBox);
+        }
+
+        return result;
+    }
+
+    private isCompatibleWith(otherManifest: Manifest): boolean {
+        // Check if manifests have compatible assertions
+        if (!this.assertions || !otherManifest.assertions) return false;
+
+        // Check for conflicting hard bindings
+        const thisBindings = this.assertions.getHardBindings();
+        const otherBindings = otherManifest.assertions.getHardBindings();
+
+        if (thisBindings.length !== otherBindings.length) return false;
+
+        // Compare each hard binding
+        for (let i = 0; i < thisBindings.length; i++) {
+            if (thisBindings[i].label !== otherBindings[i].label) return false;
+        }
+
+        return true;
+    }
+
+    private async validateIngredients(): Promise<ValidationResult> {
+        const result = new ValidationResult();
+        const ingredients = this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ?? [];
+
+        for (const ingredient of ingredients) {
+            if (ingredient instanceof IngredientAssertion) {
+                result.merge(await ingredient.validate(this));
+            }
+        }
+
+        return result;
     }
 }

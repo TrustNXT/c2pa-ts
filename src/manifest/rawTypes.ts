@@ -24,6 +24,7 @@ export interface Claim {
     'dc:title'?: string;
     signature: string;
     metadata?: AssertionMetadataMap;
+    urn?: string;
 }
 
 export type ClaimV1 = Claim & {

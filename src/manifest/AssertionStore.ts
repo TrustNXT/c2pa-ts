@@ -14,7 +14,7 @@ import { AssertionLabels } from './assertions/AssertionLabels';
 import { ThumbnailAssertion } from './assertions/ThumbnailAssertion';
 import { Claim } from './Claim';
 import * as raw from './rawTypes';
-import { ManifestComponent, ValidationStatusCode } from './types';
+import { ManifestComponent, RelationshipType, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 
 export class AssertionStore implements ManifestComponent {
@@ -118,5 +118,11 @@ export class AssertionStore implements ManifestComponent {
     public getBytes(claim: Claim, rebuild = false) {
         if (rebuild) this.generateJUMBFBox(claim);
         return this.sourceBox?.toBuffer();
+    }
+
+    public getIngredientsByRelationship(relationship: RelationshipType): IngredientAssertion[] {
+        return this.assertions.filter(
+            (a): a is IngredientAssertion => a instanceof IngredientAssertion && a.relationship === relationship,
+        );
     }
 }

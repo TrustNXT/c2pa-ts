@@ -1,30 +1,30 @@
+import { Crypto } from '../../crypto';
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
+import { Manifest } from '../Manifest';
 import * as raw from '../rawTypes';
 import { HashedURI, RelationshipType, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
+import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 
 interface RawIngredientMapV2 {
-    'dc:title': string;
-    'dc:format': string;
+    'dc:title'?: string;
+    'dc:format'?: string;
     documentID?: string;
     instanceID?: string;
     relationship: RelationshipType;
     data?: raw.HashedURI;
-    c2pa_manifest?: raw.HashedURI;
+    activeManifest?: raw.HashedURI;
     thumbnail?: raw.HashedURI;
-    validationStatus?: {
-        code: ValidationStatusCode;
-        url?: string;
-        explanation?: string;
-        success?: boolean;
-    }[];
+    validationStatus?: ValidationStatusCode[];
     description?: string;
     informational_URI?: string;
     metadata?: raw.AssertionMetadataMap;
+    dataTypes?: { type: string; value?: string }[];
+    claimSignature?: raw.HashedURI;
 }
 
 export class IngredientAssertion extends Assertion {
@@ -36,8 +36,11 @@ export class IngredientAssertion extends Assertion {
     public documentID?: string;
     public instanceID?: string;
     public relationship?: RelationshipType;
-    public manifestReference?: HashedURI;
-    public thumbnailReference?: HashedURI;
+    public activeManifest?: HashedURI;
+    public thumbnail?: HashedURI;
+    public dataTypes?: { type: string; value?: string }[];
+    public claimSignature?: HashedURI;
+    public validationStatus?: ValidationStatusCode[];
 
     public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
@@ -57,8 +60,11 @@ export class IngredientAssertion extends Assertion {
         this.instanceID = content.instanceID;
 
         this.relationship = content.relationship;
-        if (content.c2pa_manifest) this.manifestReference = claim.mapHashedURI(content.c2pa_manifest);
-        if (content.thumbnail) this.thumbnailReference = claim.mapHashedURI(content.thumbnail);
+        if (content.activeManifest) this.activeManifest = claim.mapHashedURI(content.activeManifest);
+        if (content.thumbnail) this.thumbnail = claim.mapHashedURI(content.thumbnail);
+        if (content.dataTypes) this.dataTypes = content.dataTypes;
+        if (content.claimSignature) this.claimSignature = claim.mapHashedURI(content.claimSignature);
+        if (content.validationStatus) this.validationStatus = content.validationStatus;
     }
 
     public generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox {
@@ -73,12 +79,66 @@ export class IngredientAssertion extends Assertion {
             instanceID: this.instanceID,
             relationship: this.relationship,
         };
-        if (this.manifestReference) content.c2pa_manifest = claim.reverseMapHashedURI(this.manifestReference);
-        if (this.thumbnailReference) content.thumbnail = claim.reverseMapHashedURI(this.thumbnailReference);
+        if (this.activeManifest) content.activeManifest = claim.reverseMapHashedURI(this.activeManifest);
+        if (this.thumbnail) content.thumbnail = claim.reverseMapHashedURI(this.thumbnail);
+        if (this.dataTypes?.length) content.dataTypes = this.dataTypes;
+        if (this.claimSignature) content.claimSignature = claim.reverseMapHashedURI(this.claimSignature);
+        if (this.validationStatus?.length) content.validationStatus = this.validationStatus;
 
         const box = new JUMBF.CBORBox();
         box.content = content;
 
         return box;
+    }
+
+    public override async validate(manifest: Manifest): Promise<ValidationResult> {
+        const result = await super.validate(manifest);
+
+        if (!this.relationship) {
+            result.addError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox, 'Missing relationship');
+        }
+
+        // Validate ingredient assertions
+        if (this.activeManifest) {
+            try {
+                await this.validateIngredient(manifest);
+                result.addInformational(ValidationStatusCode.IngredientValidationSkipped, this.sourceBox);
+            } catch {
+                result.addError(ValidationStatusCode.IngredientValidationRequired, this.sourceBox);
+            }
+        }
+
+        // Check for redacted assertions
+        if (this.validationStatus?.includes(ValidationStatusCode.AssertionRedactedIngredient)) {
+            result.addError(ValidationStatusCode.AssertionRedactedIngredient, this.sourceBox);
+        }
+
+        return result;
+    }
+
+    private async validateIngredient(manifest: Manifest): Promise<void> {
+        if (!this.activeManifest) {
+            throw new Error('No active manifest reference');
+        }
+
+        const store = manifest.parentStore;
+        if (!store) {
+            throw new Error('Cannot access manifest store');
+        }
+
+        const ingredientManifest = store.getManifestByLabel(this.activeManifest.uri);
+        if (!ingredientManifest?.claim) {
+            throw new Error('Referenced manifest not found');
+        }
+
+        const manifestBytes = ingredientManifest.getBytes(ingredientManifest.claim);
+        if (!manifestBytes) {
+            throw new Error('Cannot get manifest bytes');
+        }
+
+        const hash = await Crypto.digest(manifestBytes, this.activeManifest.algorithm);
+        if (!BinaryHelper.bufEqual(hash, this.activeManifest.hash)) {
+            throw new Error('Manifest hash mismatch');
+        }
     }
 }
