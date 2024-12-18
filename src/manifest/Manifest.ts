@@ -267,7 +267,7 @@ export class Manifest implements ManifestComponent {
             result.merge(await assertion.validateAgainstAsset(asset));
         }
 
-        result.merge(await this.validateManifestRelationships());
+        //result.merge(await this.validateManifestRelationships());
         result.merge(await this.validateIngredients());
 
         return result;
@@ -617,24 +617,6 @@ export class Manifest implements ManifestComponent {
         }
 
         return result;
-    }
-
-    private isCompatibleWith(otherManifest: Manifest): boolean {
-        // Check if manifests have compatible assertions
-        if (!this.assertions || !otherManifest.assertions) return false;
-
-        // Check for conflicting hard bindings
-        const thisBindings = this.assertions.getHardBindings();
-        const otherBindings = otherManifest.assertions.getHardBindings();
-
-        if (thisBindings.length !== otherBindings.length) return false;
-
-        // Compare each hard binding
-        for (let i = 0; i < thisBindings.length; i++) {
-            if (thisBindings[i].label !== otherBindings[i].label) return false;
-        }
-
-        return true;
     }
 
     private async validateIngredients(): Promise<ValidationResult> {
