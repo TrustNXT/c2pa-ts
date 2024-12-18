@@ -45,7 +45,7 @@ export class IngredientAssertion extends Assertion {
     public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
-                ValidationStatusCode.AssertionMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
                 'Ingredient assertion has invalid type',
             );
@@ -53,7 +53,7 @@ export class IngredientAssertion extends Assertion {
         const content = box.content as RawIngredientMapV2;
 
         if (!content['dc:title'] || !content['dc:format'] || !content.relationship)
-            throw new ValidationError(ValidationStatusCode.AssertionMissing, this.sourceBox);
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
         this.title = content['dc:title'];
         this.format = content['dc:format'];
         this.documentID = content.documentID;
@@ -95,7 +95,7 @@ export class IngredientAssertion extends Assertion {
         const result = await super.validate(manifest);
 
         if (!this.relationship) {
-            result.addError(ValidationStatusCode.AssertionMissing, this.sourceBox, 'Missing relationship');
+            result.addError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox, 'Missing relationship');
         }
 
         // Validate ingredient assertions

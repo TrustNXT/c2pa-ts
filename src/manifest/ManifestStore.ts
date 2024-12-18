@@ -154,7 +154,7 @@ export class ManifestStore {
         if (activeManifest) {
             return activeManifest.validate(asset);
         } else {
-            return ValidationResult.error(ValidationStatusCode.ClaimMissing, this.sourceBox);
+            return ValidationResult.error(ValidationStatusCode.ClaimCBORInvalid, this.sourceBox);
         }
     }
 

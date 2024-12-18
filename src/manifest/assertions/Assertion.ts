@@ -35,7 +35,7 @@ export abstract class Assertion implements ManifestComponent {
 
     public readFromJUMBF(box: JUMBF.SuperBox, claim: Claim): void {
         if (!box.descriptionBox?.label)
-            throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion is missing label');
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, box, 'Assertion is missing label');
 
         const label = Assertion.splitLabel(box.descriptionBox.label);
 

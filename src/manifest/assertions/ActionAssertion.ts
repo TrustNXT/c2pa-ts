@@ -79,7 +79,7 @@ export class ActionAssertion extends Assertion {
     public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
-                ValidationStatusCode.AssertionMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
                 'Action assertion has invalid type',
             );
@@ -94,7 +94,7 @@ export class ActionAssertion extends Assertion {
     private mapActionsV1FromCBORData(box: JUMBF.CBORBox, claim: Claim) {
         const rawContent = box.content as RawActionsMap;
         if (!rawContent.actions?.length)
-            throw new ValidationError(ValidationStatusCode.AssertionMissing, this.sourceBox);
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
 
         for (const rawAction of rawContent.actions) {
             const action: Action = {
@@ -124,7 +124,7 @@ export class ActionAssertion extends Assertion {
     private mapActionsV2FromCBORData(box: JUMBF.CBORBox, claim: Claim) {
         const rawContent = box.content as RawActionsMapV2;
         if (!rawContent.actions?.length)
-            throw new ValidationError(ValidationStatusCode.AssertionMissing, this.sourceBox);
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
 
         for (const rawAction of rawContent.actions) {
             const action: Action = {

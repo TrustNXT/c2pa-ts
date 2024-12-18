@@ -41,7 +41,7 @@ export class Claim implements ManifestComponent {
         claim.sourceBox = box;
 
         if (!box.descriptionBox?.label)
-            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Claim is missing label');
+            throw new ValidationError(ValidationStatusCode.ClaimCBORInvalid, box, 'Claim is missing label');
 
         const claimContent = box.contentBoxes[0].content as raw.Claim;
 
@@ -72,7 +72,7 @@ export class Claim implements ManifestComponent {
             }
             claim.assertions = fullContent.assertions.map(a => claim.mapHashedURI(a));
         } else {
-            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Claim has invalid label');
+            throw new ValidationError(ValidationStatusCode.ClaimCBORInvalid, box, 'Claim has invalid label');
         }
 
         claim.signatureRef = claimContent.signature;

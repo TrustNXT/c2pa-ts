@@ -61,7 +61,7 @@ export class Manifest implements ManifestComponent {
         }
 
         if (!box.descriptionBox.label)
-            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Manifest box is missing label');
+            throw new ValidationError(ValidationStatusCode.ClaimCBORInvalid, box, 'Manifest box is missing label');
         manifest.label = box.descriptionBox.label;
 
         const claim = box.getByUUID(raw.UUIDs.claim);
@@ -71,7 +71,7 @@ export class Manifest implements ManifestComponent {
 
         const assertionStore = box.getByUUID(raw.UUIDs.assertionStore);
         if (assertionStore.length !== 1)
-            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Expected one assertion store');
+            throw new ValidationError(ValidationStatusCode.ClaimCBORInvalid, box, 'Expected one assertion store');
         manifest.assertions = AssertionStore.read(assertionStore[0], manifest.claim);
 
         const signature = box.getByUUID(raw.UUIDs.signature);
