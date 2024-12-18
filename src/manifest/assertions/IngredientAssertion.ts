@@ -45,7 +45,7 @@ export class IngredientAssertion extends Assertion {
     public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionMissing,
                 this.sourceBox,
                 'Ingredient assertion has invalid type',
             );
@@ -53,7 +53,7 @@ export class IngredientAssertion extends Assertion {
         const content = box.content as RawIngredientMapV2;
 
         if (!content['dc:title'] || !content['dc:format'] || !content.relationship)
-            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
+            throw new ValidationError(ValidationStatusCode.AssertionMissing, this.sourceBox);
         this.title = content['dc:title'];
         this.format = content['dc:format'];
         this.documentID = content.documentID;
@@ -95,22 +95,16 @@ export class IngredientAssertion extends Assertion {
         const result = await super.validate(manifest);
 
         if (!this.relationship) {
-            result.addError(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox, 'Missing relationship');
+            result.addError(ValidationStatusCode.AssertionMissing, this.sourceBox, 'Missing relationship');
         }
 
         // Validate ingredient assertions
         if (this.activeManifest) {
             try {
                 await this.validateIngredient(manifest);
-                result.addInformational(ValidationStatusCode.IngredientValidationSkipped, this.sourceBox);
             } catch {
-                result.addError(ValidationStatusCode.IngredientValidationRequired, this.sourceBox);
+                result.addError(ValidationStatusCode.IngredientManifestMissing, this.sourceBox);
             }
-        }
-
-        // Check for redacted assertions
-        if (this.validationStatus?.includes(ValidationStatusCode.AssertionRedactedIngredient)) {
-            result.addError(ValidationStatusCode.AssertionRedactedIngredient, this.sourceBox);
         }
 
         return result;

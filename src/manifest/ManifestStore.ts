@@ -102,13 +102,13 @@ export class ManifestStore {
 
         if (!superBox.descriptionBox || !BinaryHelper.bufEqual(superBox.descriptionBox.uuid, raw.UUIDs.manifestStore))
             throw new ValidationError(
-                ValidationStatusCode.ClaimRequiredMissing,
+                ValidationStatusCode.ManifestUnreferenced,
                 superBox,
                 'Manifest store has wrong UUID',
             );
         if (!superBox.descriptionBox.label)
             throw new ValidationError(
-                ValidationStatusCode.ClaimRequiredMissing,
+                ValidationStatusCode.ManifestUnreferenced,
                 superBox,
                 'Manifest store box is missing the label',
             );
@@ -126,7 +126,7 @@ export class ManifestStore {
         } catch (err) {
             if (err instanceof ValidationError) throw err;
             const message = err instanceof Error ? err.message : String(err);
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, superBox, message);
+            throw new ValidationError(ValidationStatusCode.ManifestUnreferenced, superBox, message);
         }
 
         return manifestStore;
@@ -154,7 +154,7 @@ export class ManifestStore {
         if (activeManifest) {
             return activeManifest.validate(asset);
         } else {
-            return ValidationResult.error(ValidationStatusCode.ClaimRequiredMissing, this.sourceBox);
+            return ValidationResult.error(ValidationStatusCode.ClaimMissing, this.sourceBox);
         }
     }
 

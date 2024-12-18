@@ -27,11 +27,7 @@ export class AssertionStore implements ManifestComponent {
         assertionStore.sourceBox = box;
 
         if (!box.descriptionBox?.label)
-            throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
-                box,
-                'Assertion store is missing label',
-            );
+            throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion store is missing label');
         if (box.descriptionBox.label !== 'c2pa.assertions')
             throw new ValidationError(ValidationStatusCode.ClaimSignatureMissing, box, 'Assertion has invalid label');
 
@@ -44,13 +40,9 @@ export class AssertionStore implements ManifestComponent {
         if (!(box instanceof JUMBF.SuperBox))
             throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion is not a SuperBox');
         if (!box.descriptionBox?.label)
-            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, box, 'Assertion is missing label');
+            throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion is missing label');
         if (!box.contentBoxes.length)
-            throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
-                box,
-                'Assertion is missing content',
-            );
+            throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion is missing content');
 
         // split the label into the actual label and the index
         const label = Assertion.splitLabel(box.descriptionBox.label);

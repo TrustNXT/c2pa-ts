@@ -61,7 +61,7 @@ export class Manifest implements ManifestComponent {
         }
 
         if (!box.descriptionBox.label)
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Manifest box is missing label');
+            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Manifest box is missing label');
         manifest.label = box.descriptionBox.label;
 
         const claim = box.getByUUID(raw.UUIDs.claim);
@@ -71,7 +71,7 @@ export class Manifest implements ManifestComponent {
 
         const assertionStore = box.getByUUID(raw.UUIDs.assertionStore);
         if (assertionStore.length !== 1)
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Expected one assertion store');
+            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Expected one assertion store');
         manifest.assertions = AssertionStore.read(assertionStore[0], manifest.claim);
 
         const signature = box.getByUUID(raw.UUIDs.signature);
@@ -493,7 +493,7 @@ export class Manifest implements ManifestComponent {
 
             if (!hasCreated && !hasOpened) {
                 result.addError(
-                    ValidationStatusCode.AssertionActionMissingMandatory,
+                    ValidationStatusCode.AssertionActionMalformed,
                     assertionReference.uri,
                     'Standard manifest must contain either c2pa.created or c2pa.opened action',
                 );
@@ -508,9 +508,9 @@ export class Manifest implements ManifestComponent {
                 const ingredientAssertion = this.getAssertion(ingredient, true);
                 if (
                     ingredientAssertion instanceof IngredientAssertion &&
-                    ingredientAssertion.validationStatus?.includes(ValidationStatusCode.AssertionRedactedIngredient)
+                    ingredientAssertion.validationStatus?.includes(ValidationStatusCode.AssertionNotRedacted)
                 ) {
-                    result.addError(ValidationStatusCode.AssertionRedactedIngredient, assertionReference.uri);
+                    result.addError(ValidationStatusCode.AssertionNotRedacted, assertionReference.uri);
                     break;
                 }
             }
@@ -521,13 +521,13 @@ export class Manifest implements ManifestComponent {
             return result;
         }
 
-        // For older versions, maintain the single action assertion requirement
+        // Check for multiple action assertions
         const actionAssertions = this.assertions?.getAssertionsByLabel(AssertionLabels.actions) ?? [];
         if (actionAssertions.length > 1) {
             result.addError(
-                ValidationStatusCode.AssertionMultipleNotAllowed,
+                ValidationStatusCode.AssertionActionMalformed,
                 assertionReference.uri,
-                'Multiple action assertions are not allowed in pre-2.1 manifests',
+                'Multiple action assertions are not allowed in a manifest',
             );
         }
 
@@ -610,20 +610,10 @@ export class Manifest implements ManifestComponent {
     private async validateManifestRelationships(): Promise<ValidationResult> {
         const result = new ValidationResult();
 
-        // Check for duplicate manifests
-        const manifestsWithSameId = this.parentStore.getManifestsByInstanceId(this.claim?.instanceID);
-        if (manifestsWithSameId.length > 1) {
-            if (manifestsWithSameId.some(m => m !== this && !this.isCompatibleWith(m))) {
-                result.addError(ValidationStatusCode.ManifestDuplicateConflict, this.sourceBox);
-            } else {
-                result.addInformational(ValidationStatusCode.ManifestDuplicate, this.sourceBox);
-            }
-        }
-
         // Check for orphaned manifests
         const parentIngredients = this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
         if (parentIngredients.length === 0) {
-            result.addInformational(ValidationStatusCode.ManifestOrphaned, this.sourceBox);
+            result.addError(ValidationStatusCode.ManifestUnknownProvenance, this.sourceBox);
         }
 
         return result;

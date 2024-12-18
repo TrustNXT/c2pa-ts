@@ -35,13 +35,13 @@ export class Claim implements ManifestComponent {
 
     public static read(box: JUMBF.SuperBox) {
         if (!box.contentBoxes.length || !(box.contentBoxes[0] instanceof JUMBF.CBORBox))
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Claim has invalid content box');
+            throw new ValidationError(ValidationStatusCode.ClaimCBORInvalid, box, 'Claim has invalid content box');
 
         const claim = new Claim();
         claim.sourceBox = box;
 
         if (!box.descriptionBox?.label)
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Claim is missing label');
+            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Claim is missing label');
 
         const claimContent = box.contentBoxes[0].content as raw.Claim;
 
@@ -72,7 +72,7 @@ export class Claim implements ManifestComponent {
             }
             claim.assertions = fullContent.assertions.map(a => claim.mapHashedURI(a));
         } else {
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, box, 'Claim has invalid label');
+            throw new ValidationError(ValidationStatusCode.ClaimMissing, box, 'Claim has invalid label');
         }
 
         claim.signatureRef = claimContent.signature;
