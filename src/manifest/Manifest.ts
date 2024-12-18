@@ -613,7 +613,7 @@ export class Manifest implements ManifestComponent {
         // Check for orphaned manifests
         const parentIngredients = this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
         if (parentIngredients.length === 0) {
-            result.addError(ValidationStatusCode.ManifestUnknownProvenance, this.sourceBox);
+            result.addError(ValidationStatusCode.ManifestUnreferenced, this.sourceBox);
         }
 
         return result;
