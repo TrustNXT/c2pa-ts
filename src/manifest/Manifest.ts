@@ -10,19 +10,10 @@ import { Claim } from './Claim';
 import { ManifestStore } from './ManifestStore';
 import * as raw from './rawTypes';
 import { Signature } from './Signature';
-import {
-    Action,
-    ActionType,
-    ClaimVersion,
-    HashedURI,
-    ManifestComponent,
-    ManifestComponentType,
-    ManifestType,
-    RelationshipType,
-    ValidationStatusCode,
-} from './types';
+import { Action, ActionType, ClaimVersion, HashedURI, ManifestComponent, ManifestComponentType, ManifestType, RelationshipType, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 import { ValidationResult } from './ValidationResult';
+
 
 export class Manifest implements ManifestComponent {
     public label?: string;
@@ -185,19 +176,7 @@ export class Manifest implements ManifestComponent {
         if (!bytes) return false;
 
         const digest = await Crypto.digest(bytes, reference.algorithm);
-        if (BinaryHelper.bufEqual(reference.hash, digest)) {
-            return true;
-        }
-
-        if (reference.uri.includes('/c2pa.databoxes/')) {
-            const box = this.getComponentByURL(reference.uri);
-            if (!box) return false;
-
-            const hash = await Crypto.digest(box.getBytes(this.claim)!, reference.algorithm);
-            return BinaryHelper.bufEqual(hash, reference.hash);
-        }
-
-        return false;
+        return BinaryHelper.bufEqual(reference.hash, digest);
     }
 
     /**
