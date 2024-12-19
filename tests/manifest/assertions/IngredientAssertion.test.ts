@@ -68,8 +68,8 @@ describe('IngredientAssertion Tests', function () {
         assert.equal(ingredientAssertion.documentID, 'xmp.did:813ee422-9736-4cdc-9be6-4e35ed8e41cb');
         assert.equal(ingredientAssertion.instanceID, 'xmp.iid:813ee422-9736-4cdc-9be6-4e35ed8e41cb');
         assert.equal(ingredientAssertion.relationship, 'parentOf');
-        assert.equal(ingredientAssertion.manifestReference, undefined);
-        assert.deepEqual(ingredientAssertion.thumbnailReference, {
+        assert.equal(ingredientAssertion.activeManifest, undefined);
+        assert.deepEqual(ingredientAssertion.thumbnail, {
             uri: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg',
             hash: thumbnailHash,
             algorithm: 'SHA-256',

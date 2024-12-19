@@ -14,7 +14,7 @@ import { AssertionLabels } from './assertions/AssertionLabels';
 import { ThumbnailAssertion } from './assertions/ThumbnailAssertion';
 import { Claim } from './Claim';
 import * as raw from './rawTypes';
-import { ManifestComponent, ValidationStatusCode } from './types';
+import { ManifestComponent, RelationshipType, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 
 export class AssertionStore implements ManifestComponent {
@@ -28,7 +28,7 @@ export class AssertionStore implements ManifestComponent {
 
         if (!box.descriptionBox?.label)
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 box,
                 'Assertion store is missing label',
             );
@@ -44,13 +44,9 @@ export class AssertionStore implements ManifestComponent {
         if (!(box instanceof JUMBF.SuperBox))
             throw new ValidationError(ValidationStatusCode.AssertionMissing, box, 'Assertion is not a SuperBox');
         if (!box.descriptionBox?.label)
-            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, box, 'Assertion is missing label');
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, box, 'Assertion is missing label');
         if (!box.contentBoxes.length)
-            throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
-                box,
-                'Assertion is missing content',
-            );
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, box, 'Assertion is missing content');
 
         // split the label into the actual label and the index
         const label = Assertion.splitLabel(box.descriptionBox.label);
@@ -118,5 +114,11 @@ export class AssertionStore implements ManifestComponent {
     public getBytes(claim: Claim, rebuild = false) {
         if (rebuild) this.generateJUMBFBox(claim);
         return this.sourceBox?.toBuffer();
+    }
+
+    public getIngredientsByRelationship(relationship: RelationshipType): IngredientAssertion[] {
+        return this.assertions.filter(
+            (a): a is IngredientAssertion => a instanceof IngredientAssertion && a.relationship === relationship,
+        );
     }
 }

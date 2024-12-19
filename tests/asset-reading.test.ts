@@ -152,7 +152,7 @@ const testFiles: Record<string, TestExpectations> = {
     'public-testfiles/image/jpeg/adobe-20221004-ukraine_building.jpeg': {
         assetType: JPEG,
         jumbf: true,
-        valid: true,
+        valid: false,
     },
     'public-testfiles/image/jpeg/nikon-20221019-building.jpeg': {
         assetType: JPEG,

@@ -34,7 +34,7 @@ export class DataHashAssertion extends Assertion {
     public readContentFromJUMBF(box: JUMBF.IBox): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
                 'Data hash assertion has invalid type',
             );
@@ -82,7 +82,7 @@ export class DataHashAssertion extends Assertion {
                     throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
                 if (exclusion.start < 0 || exclusion.length < 1)
                     throw new ValidationError(
-                        ValidationStatusCode.AssertionRequiredMissing,
+                        ValidationStatusCode.AssertionCBORInvalid,
                         this.sourceBox,
                         'Data hash has invalid exclusions',
                     );
@@ -99,7 +99,7 @@ export class DataHashAssertion extends Assertion {
             for (let i = 1; i < this.exclusions.length; i++) {
                 if (this.exclusions[i - 1].start + this.exclusions[i - 1].length > this.exclusions[i].start)
                     throw new ValidationError(
-                        ValidationStatusCode.AssertionRequiredMissing,
+                        ValidationStatusCode.AssertionCBORInvalid,
                         this.sourceBox,
                         'Data hash has overlapping exclusions',
                     );
@@ -133,7 +133,7 @@ export class DataHashAssertion extends Assertion {
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         if (!this.hash || !this.algorithm) {
-            return ValidationResult.error(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
+            return ValidationResult.error(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
         }
 
         const hash = await AssertionUtils.hashWithExclusions(asset, this.exclusions, this.algorithm);
