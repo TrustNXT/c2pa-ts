@@ -33,7 +33,6 @@ export class Manifest implements ManifestComponent {
     public assertions?: AssertionStore;
     public claim?: Claim;
     public signature?: Signature;
-    public urn?: string;
     private readonly componentStore = new Map<string, ManifestComponent>();
     private readonly hashedReferences: HashedURI[] = [];
 
