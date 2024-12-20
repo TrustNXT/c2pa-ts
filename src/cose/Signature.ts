@@ -292,6 +292,9 @@ export class Signature {
         if (timestamp) {
             result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
             this.validatedTimestamp = timestamp;
+        } else if (this.timeStampResponses.length) {
+            result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
+            return result;
         } else {
             timestamp = new Date();
             this.validatedTimestamp = undefined;

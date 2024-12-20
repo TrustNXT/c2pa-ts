@@ -272,6 +272,21 @@ export class Manifest implements ManifestComponent {
             result.merge(await this.validateAssertion(assertion, referencedAssertion));
         }
 
+        // Validate gathered assertions
+        for (const assertion of this.claim.gatheredAssertions) {
+            const gatheredAssertion = this.getAssertion(assertion);
+            if (!gatheredAssertion) {
+                result.addError(ValidationStatusCode.AssertionMissing, assertion.uri);
+                continue;
+            }
+
+            if (await this.validateHashedReference(assertion)) {
+                result.addInformational(ValidationStatusCode.AssertionHashedURIMatch, assertion.uri);
+            } else {
+                result.addError(ValidationStatusCode.AssertionHashedURIMismatch, assertion.uri);
+            }
+        }
+
         // Only process asset data if everything has been validated so far
         if (!result.isValid) return result;
 
