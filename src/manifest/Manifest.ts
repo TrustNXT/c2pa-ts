@@ -6,7 +6,7 @@ import { Crypto } from '../crypto/Crypto';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
-import { ActionAssertion, Assertion, AssertionLabels, IngredientAssertion } from './assertions';
+import { ActionAssertion, Assertion, AssertionLabels, IngredientAssertion, UnknownAssertion } from './assertions';
 import { AssertionStore } from './AssertionStore';
 import { Claim } from './Claim';
 import { ManifestStore } from './ManifestStore';
@@ -308,38 +308,54 @@ export class Manifest implements ManifestComponent {
         const result = new ValidationResult();
 
         if (this.type === ManifestType.Standard) {
-            // Standard manifests need to have exactly one hard binding
-            const hardBindings = this.assertions?.getHardBindings() ?? [];
-            if (!hardBindings.length) {
-                result.addError(ValidationStatusCode.ClaimHardBindingsMissing, this.sourceBox);
-            } else if (hardBindings.length > 1) {
-                result.addError(ValidationStatusCode.AssertionMultipleHardBindings, this.sourceBox);
-            }
-
-            // There should be a maximum of one parentOf ingredient
-            const parentOfIngredients = (
-                (this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ?? []) as IngredientAssertion[]
-            ).filter(a => a.relationship === RelationshipType.ParentOf);
-            if (parentOfIngredients.length > 1) {
-                result.addError(ValidationStatusCode.ManifestMultipleParents, this.sourceBox);
-            }
+            result.merge(this.validateStandardManifestAssertions());
         } else if (this.type === ManifestType.Update) {
-            // Update manifests should not contain any hard bindings, action assertions, or thumbnail assertions
-            if (
-                this.assertions?.getHardBindings().length ||
-                this.assertions?.getAssertionsByLabel(AssertionLabels.actions).length ||
-                this.assertions?.getAssertionsByLabel(AssertionLabels.actionsV2).length ||
-                this.assertions?.getThumbnailAssertions().length
-            ) {
-                result.addError(ValidationStatusCode.ManifestUpdateInvalid, this.sourceBox);
-            }
+            result.merge(this.validateUpdateManifestAssertions());
+        }
 
-            // There should be exactly one parentOf ingredient
-            const ingredients = (this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ??
-                []) as IngredientAssertion[];
-            if (ingredients.length !== 1 || ingredients[0].relationship !== RelationshipType.ParentOf) {
-                result.addError(ValidationStatusCode.ManifestUpdateWrongParents, this.sourceBox);
-            }
+        return result;
+    }
+
+    private validateStandardManifestAssertions(): ValidationResult {
+        const result = new ValidationResult();
+
+        // Standard manifests need to have exactly one hard binding
+        const hardBindings = this.assertions?.getHardBindings() ?? [];
+        if (!hardBindings.length) {
+            result.addError(ValidationStatusCode.ClaimHardBindingsMissing, this.sourceBox);
+        } else if (hardBindings.length > 1) {
+            result.addError(ValidationStatusCode.AssertionMultipleHardBindings, this.sourceBox);
+        }
+
+        // There should be a maximum of one parentOf ingredient
+        const parentOfIngredients = (
+            (this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ?? []) as IngredientAssertion[]
+        ).filter(a => a.relationship === RelationshipType.ParentOf);
+        if (parentOfIngredients.length > 1) {
+            result.addError(ValidationStatusCode.ManifestMultipleParents, this.sourceBox);
+        }
+
+        return result;
+    }
+
+    private validateUpdateManifestAssertions(): ValidationResult {
+        const result = new ValidationResult();
+
+        // Update manifests should not contain any hard bindings, action assertions, or thumbnail assertions
+        if (
+            this.assertions?.getHardBindings().length ||
+            this.assertions?.getAssertionsByLabel(AssertionLabels.actions).length ||
+            this.assertions?.getAssertionsByLabel(AssertionLabels.actionsV2).length ||
+            this.assertions?.getThumbnailAssertions().length
+        ) {
+            result.addError(ValidationStatusCode.ManifestUpdateInvalid, this.sourceBox);
+        }
+
+        // There should be exactly one parentOf ingredient
+        const ingredients = (this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ??
+            []) as IngredientAssertion[];
+        if (ingredients.length !== 1 || ingredients[0].relationship !== RelationshipType.ParentOf) {
+            result.addError(ValidationStatusCode.ManifestUpdateWrongParents, this.sourceBox);
         }
 
         return result;
@@ -514,36 +530,9 @@ export class Manifest implements ManifestComponent {
     ): Promise<ValidationResult> {
         const result = new ValidationResult();
 
-        // For standard manifests, either c2pa.created or c2pa.opened must be present
         if (this.type === ManifestType.Standard) {
-            const hasCreated = assertion.actions.some(a => a.action === ActionType.C2paCreated);
-            const hasOpened = assertion.actions.some(a => a.action === ActionType.C2paOpened);
-
-            if (!hasCreated && !hasOpened) {
-                result.addError(
-                    ValidationStatusCode.AssertionActionMalformed,
-                    assertionReference.uri,
-                    'Standard manifest must contain either c2pa.created or c2pa.opened action',
-                );
-            }
-
-            // Check for redacted assertions in ingredients
-            const ingredients = assertion.actions
-                .filter(a => a.parameters?.ingredients)
-                .flatMap(a => a.parameters!.ingredients!);
-
-            for (const ingredient of ingredients) {
-                const ingredientAssertion = this.getAssertion(ingredient, true);
-                if (
-                    ingredientAssertion instanceof IngredientAssertion &&
-                    ingredientAssertion.validationResults?.activeManifest.failure.some(
-                        status => status.code === ValidationStatusCode.AssertionNotRedacted,
-                    )
-                ) {
-                    result.addError(ValidationStatusCode.AssertionNotRedacted, ingredient.uri); // Use ingredient.uri here
-                    break;
-                }
-            }
+            result.merge(this.validateStandardMandatoryActions(assertionReference, assertion));
+            result.merge(await this.validateIngredientRedactions(assertion));
         }
 
         // Allow multiple action assertions in 2.1+
@@ -561,6 +550,50 @@ export class Manifest implements ManifestComponent {
             );
         }
 
+        return result;
+    }
+
+    private validateStandardMandatoryActions(
+        assertionReference: HashedURI,
+        assertion: ActionAssertion,
+    ): ValidationResult {
+        const result = new ValidationResult();
+        const hasCreated = assertion.actions.some(a => a.action === ActionType.C2paCreated);
+        const hasOpened = assertion.actions.some(a => a.action === ActionType.C2paOpened);
+
+        if (!hasCreated && !hasOpened) {
+            result.addError(
+                ValidationStatusCode.AssertionActionMalformed,
+                assertionReference.uri,
+                'Standard manifest must contain either c2pa.created or c2pa.opened action',
+            );
+        }
+        return result;
+    }
+
+    private async validateIngredientRedactions(assertion: ActionAssertion): Promise<ValidationResult> {
+        const result = new ValidationResult();
+        const ingredients = assertion.actions
+            .filter(a => a.parameters?.ingredients)
+            .flatMap(a => a.parameters!.ingredients!);
+
+        for (const ingredientRef of ingredients) {
+            const ingredientAssertion = this.getAssertion(ingredientRef, true);
+            if (ingredientAssertion instanceof IngredientAssertion && ingredientAssertion.activeManifest) {
+                const ingredientManifest = this.parentStore.getManifestByLabel(ingredientAssertion.activeManifest.uri);
+                if (ingredientManifest?.claim?.redactedAssertions) {
+                    for (const redactedAssertionRef of ingredientManifest.claim.redactedAssertions) {
+                        const redactedAssertion = ingredientManifest.getAssertion(redactedAssertionRef.uri, true);
+                        if (redactedAssertion && !(redactedAssertion instanceof UnknownAssertion)) {
+                            const bytes = redactedAssertion.getBytes(ingredientManifest.claim);
+                            if (bytes && !BinaryHelper.isAllZeros(bytes)) {
+                                result.addError(ValidationStatusCode.AssertionNotRedacted, redactedAssertionRef.uri);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         return result;
     }
 
@@ -641,9 +674,22 @@ export class Manifest implements ManifestComponent {
         const result = new ValidationResult();
 
         // Check for orphaned manifests
-        const parentIngredients = this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
-        if (parentIngredients.length === 0) {
-            result.addError(ValidationStatusCode.ManifestUnreferenced, this.sourceBox);
+        for (const manifest of this.parentStore.manifests) {
+            if (manifest === this.parentStore.getActiveManifest()) continue;
+
+            let isReferenced = false;
+            for (const otherManifest of this.parentStore.manifests) {
+                const ingredients =
+                    otherManifest.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
+                if (ingredients.some(i => i.activeManifest?.uri === manifest.label)) {
+                    isReferenced = true;
+                    break;
+                }
+            }
+
+            if (!isReferenced) {
+                result.addError(ValidationStatusCode.ManifestUnreferenced, manifest.sourceBox);
+            }
         }
 
         return result;
@@ -654,9 +700,92 @@ export class Manifest implements ManifestComponent {
         const ingredients = this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ?? [];
 
         for (const ingredient of ingredients) {
-            if (ingredient instanceof IngredientAssertion) {
-                result.merge(await ingredient.validate(this));
+            if (!(ingredient instanceof IngredientAssertion)) continue;
+            result.merge(await this.validateSingleIngredient(ingredient));
+        }
+
+        return result;
+    }
+
+    private async validateSingleIngredient(ingredient: IngredientAssertion): Promise<ValidationResult> {
+        const result = new ValidationResult();
+        result.merge(await ingredient.validate(this));
+
+        if (!ingredient.activeManifest) {
+            result.addInformational(ValidationStatusCode.IngredientUnknownProvenance, ingredient.sourceBox);
+            return result;
+        }
+
+        const ingredientManifest = this.parentStore.getManifestByLabel(ingredient.activeManifest.uri);
+        if (!ingredientManifest) {
+            result.addError(ValidationStatusCode.IngredientManifestMissing, ingredient.sourceBox);
+            return result;
+        }
+
+        // Validate ingredient manifest hash
+        const manifestBytes = ingredientManifest.getBytes(ingredientManifest.claim);
+        if (!manifestBytes) {
+            result.addError(ValidationStatusCode.GeneralError, ingredient.sourceBox, 'Cannot get manifest bytes');
+            return result;
+        }
+        const expectedHash = await Crypto.digest(manifestBytes, ingredient.activeManifest.algorithm);
+        if (!BinaryHelper.bufEqual(expectedHash, ingredient.activeManifest.hash)) {
+            result.addError(ValidationStatusCode.IngredientManifestMismatch, ingredient.sourceBox);
+            return result;
+        }
+        result.addInformational(ValidationStatusCode.IngredientManifestValidated, ingredient.sourceBox);
+
+        // Validate ingredient claim signature
+        if (ingredient.claimSignature) {
+            result.merge(await this.validateIngredientClaimSignature(ingredient, ingredientManifest));
+        }
+
+        // Check for redacted assertions within the ingredient manifest
+        if (ingredientManifest.claim?.redactedAssertions) {
+            for (const redactedAssertionRef of ingredientManifest.claim.redactedAssertions) {
+                const redactedAssertion = ingredientManifest.getAssertion(redactedAssertionRef.uri, true);
+                if (redactedAssertion && !(redactedAssertion instanceof UnknownAssertion)) {
+                    const bytes = redactedAssertion.getBytes(ingredientManifest.claim);
+                    if (bytes && !BinaryHelper.isAllZeros(bytes)) {
+                        result.addError(ValidationStatusCode.AssertionNotRedacted, redactedAssertionRef.uri);
+                    }
+                }
             }
+        }
+
+        return result;
+    }
+
+    private async validateIngredientClaimSignature(
+        ingredient: IngredientAssertion,
+        ingredientManifest: Manifest,
+    ): Promise<ValidationResult> {
+        const result = new ValidationResult();
+
+        if (!ingredientManifest.claim) {
+            result.addError(ValidationStatusCode.IngredientClaimSignatureMissing, ingredient.sourceBox);
+            return result;
+        }
+
+        const claimBytes = ingredientManifest.claim.getBytes(ingredientManifest.claim);
+        if (!claimBytes) {
+            result.addError(ValidationStatusCode.GeneralError, ingredient.sourceBox, 'Cannot get claim bytes');
+            return result;
+        }
+
+        const signatureComponent = ingredientManifest.getComponentByURL(ingredientManifest.claim.signatureRef);
+        if (!(signatureComponent instanceof Signature)) {
+            result.addError(ValidationStatusCode.IngredientClaimSignatureMissing, ingredient.sourceBox);
+            return result;
+        }
+
+        const signatureResult = await signatureComponent.validate(claimBytes);
+        result.merge(signatureResult);
+
+        if (signatureResult.isValid) {
+            result.addInformational(ValidationStatusCode.IngredientClaimSignatureValidated, ingredient.sourceBox);
+        } else {
+            result.addError(ValidationStatusCode.IngredientClaimSignatureMismatch, ingredient.sourceBox);
         }
 
         return result;
