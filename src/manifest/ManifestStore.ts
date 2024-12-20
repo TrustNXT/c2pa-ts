@@ -126,6 +126,7 @@ export class ManifestStore {
 
     public generateJUMBFBox(): JUMBF.SuperBox {
         this.verifyUniqueLabels();
+        this.verifyUniqueInstanceIds();
 
         const box = new JUMBF.SuperBox();
         box.descriptionBox = new JUMBF.DescriptionBox();
@@ -161,5 +162,24 @@ export class ManifestStore {
                 if (labels.has(label)) throw new Error(`Duplicate label ${label} in manifest ${index}`);
                 return labels.add(label);
             }, new Set<string>());
+    }
+
+    /**
+     * verify that all manifest instance IDs are set and unique
+     */
+    private verifyUniqueInstanceIds(): void {
+        const instanceIds = new Set<string>();
+        for (const manifest of this.manifests) {
+            if (manifest.claim?.instanceID) {
+                if (instanceIds.has(manifest.claim.instanceID)) {
+                    throw new ValidationError(
+                        ValidationStatusCode.ClaimMultiple,
+                        manifest.sourceBox,
+                        `Duplicate instance ID: ${manifest.claim.instanceID}`,
+                    );
+                }
+                instanceIds.add(manifest.claim.instanceID);
+            }
+        }
     }
 }
