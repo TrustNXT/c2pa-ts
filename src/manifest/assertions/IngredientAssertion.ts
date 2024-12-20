@@ -1,3 +1,4 @@
+import { Signature } from '../../cose/Signature';
 import { Crypto } from '../../crypto';
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
@@ -137,9 +138,53 @@ export class IngredientAssertion extends Assertion {
         if (this.activeManifest) {
             try {
                 await this.validateIngredient(manifest);
-            } catch {
-                result.addError(ValidationStatusCode.IngredientManifestMissing, this.sourceBox);
+                result.addInformational(ValidationStatusCode.IngredientManifestValidated, this.sourceBox);
+
+                if (this.claimSignature) {
+                    const ingredientManifest = manifest.parentStore.getManifestByLabel(this.activeManifest.uri);
+                    if (ingredientManifest?.claim) {
+                        const claimBytes = ingredientManifest.claim.getBytes(ingredientManifest.claim);
+                        if (claimBytes) {
+                            const signatureComponent = ingredientManifest.getComponentByURL(
+                                ingredientManifest.claim.signatureRef,
+                            );
+                            if (signatureComponent instanceof Signature) {
+                                const signatureResult = await signatureComponent.validate(claimBytes);
+                                if (signatureResult.isValid) {
+                                    result.addInformational(
+                                        ValidationStatusCode.IngredientClaimSignatureValidated,
+                                        this.sourceBox,
+                                    );
+                                } else {
+                                    result.addError(
+                                        ValidationStatusCode.IngredientClaimSignatureMismatch,
+                                        this.sourceBox,
+                                    );
+                                    for (const entry of signatureResult.statusEntries) {
+                                        result.addError(entry.code, this.sourceBox, entry.explanation);
+                                    }
+                                }
+                            } else {
+                                result.addError(ValidationStatusCode.IngredientClaimSignatureMissing, this.sourceBox);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                if (error instanceof Error) {
+                    if (error.message === 'Manifest hash mismatch') {
+                        result.addError(ValidationStatusCode.IngredientManifestMismatch, this.sourceBox);
+                    } else if (error.message === 'Referenced manifest not found') {
+                        result.addError(ValidationStatusCode.IngredientManifestMissing, this.sourceBox);
+                    } else {
+                        result.addError(ValidationStatusCode.GeneralError, this.sourceBox, error.message);
+                    }
+                } else {
+                    result.addError(ValidationStatusCode.GeneralError, this.sourceBox, String(error));
+                }
             }
+        } else {
+            result.addInformational(ValidationStatusCode.IngredientUnknownProvenance, this.sourceBox);
         }
 
         return result;
