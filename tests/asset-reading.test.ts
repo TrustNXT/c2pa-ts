@@ -153,6 +153,7 @@ const testFiles: Record<string, TestExpectations> = {
         assetType: JPEG,
         jumbf: true,
         valid: false,
+        statusCodes: [ValidationStatusCode.AssertionActionMalformed],
     },
     'public-testfiles/image/jpeg/nikon-20221019-building.jpeg': {
         assetType: JPEG,
