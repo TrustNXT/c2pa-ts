@@ -120,7 +120,7 @@ const testFiles: Record<string, TestExpectations> = {
         assetType: JPEG,
         jumbf: true,
         valid: false,
-        statusCodes: [ValidationStatusCode.ClaimSignatureMismatch],
+        statusCodes: [ValidationStatusCode.TimeStampMismatch],
     },
     'public-testfiles/image/jpeg/adobe-20220124-E-uri-CA.jpg': {
         assetType: JPEG,

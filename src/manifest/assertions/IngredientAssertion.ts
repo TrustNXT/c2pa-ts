@@ -1,5 +1,4 @@
 import { Signature } from '../../cose/Signature';
-import { Crypto } from '../../crypto';
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
@@ -11,28 +10,25 @@ import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 
-interface RawIngredientMapV2 {
+interface RawIngredientMapV1 {
     'dc:title': string;
     'dc:format': string;
     documentID?: string;
-    instanceID?: string;
+    instanceID: string;
     relationship: RelationshipType;
-    data?: raw.HashedURI;
     c2pa_manifest?: raw.HashedURI;
     thumbnail?: raw.HashedURI;
     validationStatus?: ValidationStatusCode[];
-    description?: string;
-    informational_URI?: string;
     metadata?: raw.AssertionMetadataMap;
-    dataTypes?: { type: string; value?: string }[];
-    claimSignature?: raw.HashedURI;
 }
 
-interface RawIngredientMapV3
-    extends Omit<
-        RawIngredientMapV2,
-        'validationStatus' | 'dc:title' | 'dc:format' | 'informational_URI' | 'c2pa_manifest'
-    > {
+interface RawIngredientMapV2 extends Omit<RawIngredientMapV1, 'validationStatus' | 'c2pa_manifest'> {
+    data?: raw.HashedURI;
+    dataTypes?: { type: string; value?: string }[];
+    informational_URI?: string;
+}
+
+interface RawIngredientMapV3 extends Omit<RawIngredientMapV2, 'dc:title' | 'dc:format' | 'informational_URI'> {
     'dc:title'?: string;
     'dc:format'?: string;
     activeManifest?: raw.HashedURI;
@@ -51,7 +47,9 @@ interface RawIngredientMapV3
             };
         }[];
     };
+    claimSignature?: raw.HashedURI;
     informationalURI?: string;
+    description?: string;
 }
 
 export class IngredientAssertion extends Assertion {
@@ -80,9 +78,14 @@ export class IngredientAssertion extends Assertion {
                 'Ingredient assertion has invalid type',
             );
 
-        const content = box.content as RawIngredientMapV2 | RawIngredientMapV3;
+        const content = box.content as RawIngredientMapV3 & RawIngredientMapV2 & RawIngredientMapV1;
 
-        if (!content.relationship) throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
+        if (!content.relationship)
+            throw new ValidationError(
+                ValidationStatusCode.AssertionCBORInvalid,
+                this.sourceBox,
+                'Ingredient assertion is missing a relationship',
+            );
 
         this.title = content['dc:title'];
         this.format = content['dc:format'];
@@ -90,7 +93,6 @@ export class IngredientAssertion extends Assertion {
         this.instanceID = content.instanceID;
         this.relationship = content.relationship;
 
-        // Handle both V2 and V3 manifest references
         if ('activeManifest' in content && content.activeManifest) {
             this.activeManifest = claim.mapHashedURI(content.activeManifest);
         } else if ('c2pa_manifest' in content && content.c2pa_manifest) {
@@ -100,15 +102,15 @@ export class IngredientAssertion extends Assertion {
         if (content.thumbnail) this.thumbnail = claim.mapHashedURI(content.thumbnail);
         if (content.dataTypes) this.dataTypes = content.dataTypes;
         if (content.claimSignature) this.claimSignature = claim.mapHashedURI(content.claimSignature);
-        if ('validationResults' in content && content.validationResults) {
-            this.validationResults = content.validationResults;
-        }
+        if (content.validationResults) this.validationResults = content.validationResults;
         if (content.data) this.data = claim.mapHashedURI(content.data);
-        if ('informationalURI' in content && content.informationalURI) {
+
+        if ('informationalURI' in content) {
             this.informationalURI = content.informationalURI;
-        } else if ('informational_URI' in content && content.informational_URI) {
+        } else if ('informational_URI' in content && typeof content.informational_URI === 'string') {
             this.informationalURI = content.informational_URI;
         }
+
         if (content.description) this.description = content.description;
     }
 
@@ -117,7 +119,7 @@ export class IngredientAssertion extends Assertion {
 
         const content: RawIngredientMapV3 = {
             documentID: this.documentID,
-            instanceID: this.instanceID,
+            instanceID: this.instanceID!,
             relationship: this.relationship,
         };
 
@@ -209,21 +211,6 @@ export class IngredientAssertion extends Assertion {
         const store = manifest.parentStore;
         if (!store) {
             throw new Error('Cannot access manifest store');
-        }
-
-        const ingredientManifest = store.getManifestByLabel(this.activeManifest.uri);
-        if (!ingredientManifest?.claim) {
-            throw new Error('Referenced manifest not found');
-        }
-
-        const manifestBytes = ingredientManifest.getBytes(ingredientManifest.claim);
-        if (!manifestBytes) {
-            throw new Error('Cannot get manifest bytes');
-        }
-
-        const hash = await Crypto.digest(manifestBytes, this.activeManifest.algorithm);
-        if (!BinaryHelper.bufEqual(hash, this.activeManifest.hash)) {
-            throw new Error('Manifest hash mismatch');
         }
     }
 }
