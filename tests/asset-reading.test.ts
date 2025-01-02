@@ -252,7 +252,15 @@ describe('Functional Asset Reading Tests', function () {
 
                     // Validate the asset with the manifest
                     validationResult = await manifests.validate(asset);
-                    assert.equal(validationResult.isValid, data.valid);
+
+                    const message =
+                        data.valid ?
+                            `Manifest should be valid but is not (status codes: ${validationResult.statusEntries
+                                .filter(e => !e.success)
+                                .map(e => e.code)
+                                .join(', ')})`
+                        :   'Manifst is valid but should not be';
+                    assert.equal(validationResult.isValid, data.valid, message);
                 });
 
                 data.statusCodes?.forEach(value => {
