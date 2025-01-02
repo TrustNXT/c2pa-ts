@@ -80,24 +80,35 @@ export class IngredientAssertion extends Assertion {
                 'Ingredient assertion has invalid type',
             );
 
-        const content = box.content as RawIngredientMapV3;
+        const content = box.content as RawIngredientMapV2 | RawIngredientMapV3;
 
         if (!content.relationship) throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
 
         this.title = content['dc:title'];
         this.format = content['dc:format'];
-
         this.documentID = content.documentID;
         this.instanceID = content.instanceID;
         this.relationship = content.relationship;
 
-        if (content.activeManifest) this.activeManifest = claim.mapHashedURI(content.activeManifest);
+        // Handle both V2 and V3 manifest references
+        if ('activeManifest' in content && content.activeManifest) {
+            this.activeManifest = claim.mapHashedURI(content.activeManifest);
+        } else if ('c2pa_manifest' in content && content.c2pa_manifest) {
+            this.activeManifest = claim.mapHashedURI(content.c2pa_manifest);
+        }
+
         if (content.thumbnail) this.thumbnail = claim.mapHashedURI(content.thumbnail);
         if (content.dataTypes) this.dataTypes = content.dataTypes;
         if (content.claimSignature) this.claimSignature = claim.mapHashedURI(content.claimSignature);
-        if (content.validationResults) this.validationResults = content.validationResults;
+        if ('validationResults' in content && content.validationResults) {
+            this.validationResults = content.validationResults;
+        }
         if (content.data) this.data = claim.mapHashedURI(content.data);
-        if (content.informationalURI) this.informationalURI = content.informationalURI;
+        if ('informationalURI' in content && content.informationalURI) {
+            this.informationalURI = content.informationalURI;
+        } else if ('informational_URI' in content && content.informational_URI) {
+            this.informationalURI = content.informational_URI;
+        }
         if (content.description) this.description = content.description;
     }
 

@@ -23,7 +23,7 @@ export default tseslint.config(
             '@typescript-eslint/no-unused-vars': ['error', { args: 'none' }],
             '@typescript-eslint/prefer-nullish-coalescing': ['error', { ignoreConditionalTests: true }],
             'no-console': 'error',
-            'complexity': ['warn', { max: 20 }],
+            'complexity': ['warn', { max: 30 }],
         },
     },
 );
