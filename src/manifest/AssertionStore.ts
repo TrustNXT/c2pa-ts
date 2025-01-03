@@ -103,6 +103,10 @@ export class AssertionStore implements ManifestComponent {
         return this.assertions.filter(assertion => assertion.label === label);
     }
 
+    public getActionAssertions() {
+        return this.assertions.filter(assertion => assertion instanceof ActionAssertion);
+    }
+
     public getThumbnailAssertions() {
         return this.assertions.filter(
             assertion =>

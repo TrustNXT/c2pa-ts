@@ -339,20 +339,34 @@ export class Manifest implements ManifestComponent {
     private validateUpdateManifestAssertions(): ValidationResult {
         const result = new ValidationResult();
 
-        // Update manifests should not contain any hard bindings, action assertions, or thumbnail assertions
-        if (
-            this.assertions?.getHardBindings().length ||
-            this.assertions?.getAssertionsByLabel(AssertionLabels.actions).length ||
-            this.assertions?.getAssertionsByLabel(AssertionLabels.actionsV2).length ||
-            this.assertions?.getThumbnailAssertions().length
-        ) {
+        // Update manifests should not contain any hard bindings or thumbnail assertions
+        if (this.assertions?.getHardBindings().length || this.assertions?.getThumbnailAssertions().length) {
             result.addError(ValidationStatusCode.ManifestUpdateInvalid, this.sourceBox);
         }
 
-        // There should be exactly one parentOf ingredient
-        const parentOfIngredients = this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
-        if (parentOfIngredients.length !== 1) {
+        // There should be exactly one ingredient and its relationship should be parentOf
+        if (
+            this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient)?.length !== 1 ||
+            this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf)?.length !== 1
+        ) {
             result.addError(ValidationStatusCode.ManifestUpdateWrongParents, this.sourceBox);
+        }
+
+        // Only certain actions are allowed in an action assertion
+        if (
+            this.assertions
+                ?.getActionAssertions()
+                ?.some(assertion =>
+                    assertion.actions.some(
+                        action =>
+                            action.action !== ActionType.C2paEditedMetadata &&
+                            action.action !== ActionType.C2paOpened &&
+                            action.action !== ActionType.C2paPublished &&
+                            action.action !== ActionType.C2paRedacted,
+                    ),
+                )
+        ) {
+            result.addError(ValidationStatusCode.ManifestUpdateInvalid, this.sourceBox);
         }
 
         return result;
@@ -535,7 +549,7 @@ export class Manifest implements ManifestComponent {
         }
 
         // Check for multiple action assertions
-        const actionAssertions = this.assertions?.getAssertionsByLabel(AssertionLabels.actions) ?? [];
+        const actionAssertions = this.assertions?.getActionAssertions() ?? [];
         if (actionAssertions.length > 1) {
             result.addError(
                 ValidationStatusCode.AssertionActionMalformed,
