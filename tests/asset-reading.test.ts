@@ -120,7 +120,7 @@ const testFiles: Record<string, TestExpectations> = {
         assetType: JPEG,
         jumbf: true,
         valid: false,
-        statusCodes: [ValidationStatusCode.TimeStampMismatch],
+        statusCodes: [ValidationStatusCode.ClaimSignatureMismatch, ValidationStatusCode.TimeStampMismatch],
     },
     'public-testfiles/image/jpeg/adobe-20220124-E-uri-CA.jpg': {
         assetType: JPEG,
@@ -260,7 +260,7 @@ describe('Functional Asset Reading Tests', function () {
                                 .filter(e => !e.success)
                                 .map(e => e.code)
                                 .join(', ')})`
-                        :   'Manifst is valid but should not be';
+                        :   'Manifest is valid but should not be';
                     assert.equal(validationResult.isValid, data.valid, message);
                 });
 

@@ -294,7 +294,8 @@ export class Signature {
             this.validatedTimestamp = timestamp;
         } else if (this.timeStampResponses.length) {
             result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
-            return result;
+            timestamp = new Date();
+            this.validatedTimestamp = undefined;
         } else {
             timestamp = new Date();
             this.validatedTimestamp = undefined;
