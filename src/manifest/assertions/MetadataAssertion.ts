@@ -69,7 +69,7 @@ export class MetadataAssertion extends Assertion {
             )
         ) {
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionMissing,
                 this.sourceBox,
                 'Metadata assertion has invalid type',
             );

@@ -21,7 +21,7 @@ export abstract class SchemaOrgAssertion<T extends Thing> extends Assertion {
     public readContentFromJUMBF(box: IBox, claim: Claim): void {
         if (!(box instanceof JSONBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.jsonAssertion))
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
                 'Schema.org assertion has invalid type',
             );
