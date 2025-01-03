@@ -1,19 +1,9 @@
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
-import { Manifest } from '../Manifest';
 import * as raw from '../rawTypes';
-import {
-    Action,
-    ActionReason,
-    ActionType,
-    ClaimVersion,
-    DigitalSourceType,
-    ManifestType,
-    ValidationStatusCode,
-} from '../types';
+import { Action, ActionReason, ActionType, DigitalSourceType, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
-import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 
@@ -262,36 +252,5 @@ export class ActionAssertion extends Assertion {
             return ('http:' + digitalSourceType.substring('https:'.length)) as DigitalSourceType;
         }
         return digitalSourceType;
-    }
-
-    public override async validate(manifest: Manifest): Promise<ValidationResult> {
-        const result = await super.validate(manifest);
-
-        // Check for mandatory actions in standard manifests
-        if (manifest?.type === ManifestType.Standard) {
-            const hasCreated = this.actions.some(a => a.action === ActionType.C2paCreated);
-            const hasOpened = this.actions.some(a => a.action === ActionType.C2paOpened);
-
-            if (!hasCreated && !hasOpened) {
-                result.addError(
-                    ValidationStatusCode.AssertionActionMalformed,
-                    this.sourceBox,
-                    'Standard manifest must contain either c2pa.created or c2pa.opened action',
-                );
-            }
-        }
-
-        // Allow multiple action assertions in 2.1+
-        if (manifest?.claim?.version && manifest.claim.version >= ClaimVersion.V2) {
-            return result;
-        }
-
-        // For older versions, maintain the single action assertion requirement
-        const actionAssertions = manifest?.assertions?.getAssertionsByLabel(AssertionLabels.actions) ?? [];
-        if (actionAssertions.length > 1) {
-            result.addError(ValidationStatusCode.AssertionActionMalformed, this.sourceBox);
-        }
-
-        return result;
     }
 }

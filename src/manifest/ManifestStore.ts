@@ -4,7 +4,6 @@ import { CoseAlgorithmIdentifier } from '../cose';
 import { HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { BinaryHelper } from '../util';
-import { AssertionStore } from './AssertionStore';
 import { Manifest } from './Manifest';
 import * as raw from './rawTypes';
 import { ClaimVersion, ValidationStatusCode } from './types';
@@ -28,7 +27,6 @@ export class ManifestStore {
         chainCertificates?: X509Certificate[];
     }): Manifest {
         const manifest = new Manifest(this);
-        manifest.assertions = new AssertionStore();
         this.manifests.push(manifest);
 
         manifest.initialize(
@@ -93,14 +91,10 @@ export class ManifestStore {
         manifestStore.sourceBox = superBox;
 
         if (!superBox.descriptionBox || !BinaryHelper.bufEqual(superBox.descriptionBox.uuid, raw.UUIDs.manifestStore))
-            throw new ValidationError(
-                ValidationStatusCode.ManifestUnreferenced,
-                superBox,
-                'Manifest store has wrong UUID',
-            );
+            throw new ValidationError(ValidationStatusCode.GeneralError, superBox, 'Manifest store has wrong UUID');
         if (!superBox.descriptionBox.label)
             throw new ValidationError(
-                ValidationStatusCode.ManifestUnreferenced,
+                ValidationStatusCode.GeneralError,
                 superBox,
                 'Manifest store box is missing the label',
             );
@@ -118,7 +112,7 @@ export class ManifestStore {
         } catch (err) {
             if (err instanceof ValidationError) throw err;
             const message = err instanceof Error ? err.message : String(err);
-            throw new ValidationError(ValidationStatusCode.ManifestUnreferenced, superBox, message);
+            throw new ValidationError(ValidationStatusCode.GeneralError, superBox, message);
         }
 
         return manifestStore;

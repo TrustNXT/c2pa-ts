@@ -6,7 +6,7 @@ import { Crypto } from '../crypto/Crypto';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
-import { ActionAssertion, Assertion, AssertionLabels, IngredientAssertion, UnknownAssertion } from './assertions';
+import { ActionAssertion, Assertion, AssertionLabels, IngredientAssertion } from './assertions';
 import { AssertionStore } from './AssertionStore';
 import { Claim } from './Claim';
 import { ManifestStore } from './ManifestStore';
@@ -328,9 +328,7 @@ export class Manifest implements ManifestComponent {
         }
 
         // There should be a maximum of one parentOf ingredient
-        const parentOfIngredients = (
-            (this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ?? []) as IngredientAssertion[]
-        ).filter(a => a.relationship === RelationshipType.ParentOf);
+        const parentOfIngredients = this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
         if (parentOfIngredients.length > 1) {
             result.addError(ValidationStatusCode.ManifestMultipleParents, this.sourceBox);
         }
@@ -352,9 +350,8 @@ export class Manifest implements ManifestComponent {
         }
 
         // There should be exactly one parentOf ingredient
-        const ingredients = (this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ??
-            []) as IngredientAssertion[];
-        if (ingredients.length !== 1 || ingredients[0].relationship !== RelationshipType.ParentOf) {
+        const parentOfIngredients = this.assertions?.getIngredientsByRelationship(RelationshipType.ParentOf) ?? [];
+        if (parentOfIngredients.length !== 1) {
             result.addError(ValidationStatusCode.ManifestUpdateWrongParents, this.sourceBox);
         }
 
@@ -530,7 +527,6 @@ export class Manifest implements ManifestComponent {
 
         if (this.type === ManifestType.Standard) {
             result.merge(this.validateStandardMandatoryActions(assertionReference, assertion));
-            result.merge(await this.validateIngredientRedactions(assertion));
         }
 
         // Allow multiple action assertions in 2.1+
@@ -556,41 +552,16 @@ export class Manifest implements ManifestComponent {
         assertion: ActionAssertion,
     ): ValidationResult {
         const result = new ValidationResult();
-        const hasCreated = assertion.actions.some(a => a.action === ActionType.C2paCreated);
-        const hasOpened = assertion.actions.some(a => a.action === ActionType.C2paOpened);
+        const hasRequiredAction = assertion.actions.some(
+            a => a.action === ActionType.C2paCreated || a.action === ActionType.C2paOpened,
+        );
 
-        if (!hasCreated && !hasOpened) {
+        if (!hasRequiredAction) {
             result.addError(
                 ValidationStatusCode.AssertionActionMalformed,
                 assertionReference.uri,
                 'Standard manifest must contain either c2pa.created or c2pa.opened action',
             );
-        }
-        return result;
-    }
-
-    private async validateIngredientRedactions(assertion: ActionAssertion): Promise<ValidationResult> {
-        const result = new ValidationResult();
-        const ingredients = assertion.actions
-            .filter(a => a.parameters?.ingredients)
-            .flatMap(a => a.parameters!.ingredients!);
-
-        for (const ingredientRef of ingredients) {
-            const ingredientAssertion = this.getAssertion(ingredientRef, true);
-            if (ingredientAssertion instanceof IngredientAssertion && ingredientAssertion.activeManifest) {
-                const ingredientManifest = this.parentStore.getManifestByLabel(ingredientAssertion.activeManifest.uri);
-                if (ingredientManifest?.claim?.redactedAssertions) {
-                    for (const redactedAssertionRef of ingredientManifest.claim.redactedAssertions) {
-                        const redactedAssertion = ingredientManifest.getAssertion(redactedAssertionRef.uri, true);
-                        if (redactedAssertion && !(redactedAssertion instanceof UnknownAssertion)) {
-                            const bytes = redactedAssertion.getBytes(ingredientManifest.claim);
-                            if (bytes && !BinaryHelper.isAllZeros(bytes)) {
-                                result.addError(ValidationStatusCode.AssertionNotRedacted, redactedAssertionRef.uri);
-                            }
-                        }
-                    }
-                }
-            }
         }
         return result;
     }

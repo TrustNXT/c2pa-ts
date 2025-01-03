@@ -97,13 +97,4 @@ export class BinaryHelper {
     public static toArrayBuffer(buf: Uint8Array): ArrayBuffer {
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
     }
-
-    public static isAllZeros(buf: Uint8Array): boolean {
-        for (const byte of buf) {
-            if (byte !== 0) {
-                return false;
-            }
-        }
-        return true;
-    }
 }
