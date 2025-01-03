@@ -152,8 +152,11 @@ export class Signature {
         }
     }
 
-    private async getTimestamp(payload: Uint8Array): Promise<Date | undefined> {
-        if (!this.timeStampResponses.length || !this.rawProtectedBucket) return undefined;
+    private async validateTimestamp(payload: Uint8Array, sourceBox?: JUMBF.IBox): Promise<ValidationResult> {
+        this.validatedTimestamp = undefined;
+
+        const result = new ValidationResult();
+        if (!this.timeStampResponses.length || !this.rawProtectedBucket) return result;
 
         const toBeSigned = new SigStructure('CounterSignature', this.rawProtectedBucket, payload).encode();
 
@@ -165,14 +168,17 @@ export class Signature {
                 continue;
 
             try {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const signedData = new pkijs.SignedData({ schema: timestamp.timeStampToken!.content });
                 const rawTstInfo = signedData.encapContentInfo.eContent!.getValue();
                 const tstInfo = pkijs.TSTInfo.fromBER(rawTstInfo);
 
                 const hashAlgorithm = Crypto.getHashAlgorithmByOID(tstInfo.messageImprint.hashAlgorithm.algorithmId);
                 if (!hashAlgorithm) {
-                    // algorithm.unsupported
+                    result.addError(
+                        ValidationStatusCode.AlgorithmUnsupported,
+                        sourceBox,
+                        'Unsupported timestamp hash algorithm',
+                    );
                     continue;
                 }
 
@@ -182,12 +188,12 @@ export class Signature {
                         new Uint8Array(tstInfo.messageImprint.hashedMessage.getValue()),
                     )
                 ) {
-                    // timeStamp.mismatch
+                    result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
                     continue;
                 }
 
                 if (!(await this.verifySignedDataSignature(signedData))) {
-                    // timeStamp.mismatch
+                    result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
                     continue;
                 }
 
@@ -195,13 +201,16 @@ export class Signature {
                 // - Validate each certificate (otherwise: timeStamp.untrusted)
                 // - Configure trusted list (otherwise: timeStamp.untrusted)
                 // - Check that attested timestamp falls within signer validity (otherwise: timeStamp.outsideValidity)
-                return tstInfo.genTime;
+
+                this.validatedTimestamp = tstInfo.genTime;
+                result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
+                break;
             } catch {
                 continue;
             }
         }
 
-        return undefined;
+        return result;
     }
 
     private async verifySignedDataSignature(signedData: pkijs.SignedData): Promise<boolean> {
@@ -288,18 +297,8 @@ export class Signature {
 
         const result = new ValidationResult();
 
-        let timestamp = await this.getTimestamp(payload);
-        if (timestamp) {
-            result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
-            this.validatedTimestamp = timestamp;
-        } else if (this.timeStampResponses.length) {
-            result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
-            timestamp = new Date();
-            this.validatedTimestamp = undefined;
-        } else {
-            timestamp = new Date();
-            this.validatedTimestamp = undefined;
-        }
+        result.merge(await this.validateTimestamp(payload, sourceBox));
+        const timestamp = this.validatedTimestamp ?? new Date();
 
         let code = Signature.validateCertificate(this.certificate, timestamp, true);
         if (code === ValidationStatusCode.SigningCredentialTrusted) {
