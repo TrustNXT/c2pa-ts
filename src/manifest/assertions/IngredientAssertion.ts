@@ -70,6 +70,12 @@ export class IngredientAssertion extends Assertion {
     public data?: HashedURI;
     public description?: string;
 
+    /**
+     * Reads the content of this assertion from a JUMBF box
+     * @param box - The JUMBF box to read from
+     * @param claim - The claim this assertion belongs to
+     * @throws ValidationError if the box is invalid
+     */
     public readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
@@ -114,6 +120,12 @@ export class IngredientAssertion extends Assertion {
         if (content.description) this.description = content.description;
     }
 
+    /**
+     * Generates a JUMBF box containing this assertion's content
+     * @param claim - The claim this assertion belongs to
+     * @returns The generated JUMBF box
+     * @throws Error if required fields are missing
+     */
     public generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox {
         if (!this.relationship) throw new Error('Assertion has no relationship');
 
@@ -140,6 +152,11 @@ export class IngredientAssertion extends Assertion {
         return box;
     }
 
+    /**
+     * Validates an ingredient assertion against a manifest
+     * @param manifest - The manifest containing this ingredient
+     * @returns Promise resolving to ValidationResult
+     */
     public override async validate(manifest: Manifest): Promise<ValidationResult> {
         const result = await super.validate(manifest);
 
@@ -203,6 +220,11 @@ export class IngredientAssertion extends Assertion {
         return result;
     }
 
+    /**
+     * Validates a single ingredient's manifest reference
+     * @param manifest - The manifest containing this ingredient
+     * @throws Error if validation fails
+     */
     private async validateIngredient(manifest: Manifest): Promise<void> {
         if (!this.activeManifest) {
             throw new Error('No active manifest reference');

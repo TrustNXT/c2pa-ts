@@ -38,6 +38,16 @@ export class Manifest implements ManifestComponent {
 
     public constructor(public readonly parentStore: ManifestStore) {}
 
+    /**
+     * Initializes a new manifest with the specified parameters
+     * @param claimVersion - The version of the claim to create
+     * @param assetFormat - The format of the asset this manifest is for
+     * @param instanceID - Unique identifier for this manifest instance
+     * @param defaultHashAlgorithm - Default hashing algorithm to use
+     * @param certificate - X.509 certificate for signing
+     * @param signingAlgorithm - Algorithm to use for signing
+     * @param chainCertificates - Optional chain of certificates
+     */
     public initialize(
         claimVersion: ClaimVersion,
         assetFormat: string | undefined,
@@ -63,8 +73,11 @@ export class Manifest implements ManifestComponent {
 
     /**
      * Reads a manifest from a JUMBF box
-     * @param box Source JUMBF box
-     * @param parentStore The manifest store this manifest is located in
+     * @param box - Source JUMBF box
+     * @param parentStore - The manifest store this manifest is located in
+     * @returns A new Manifest instance or undefined if box type is not recognized
+     * @throws ValidationError if the box is invalid
+     * @throws MalformedContentError if manifest structure is invalid
      */
     public static read(box: JUMBF.SuperBox, parentStore: ManifestStore): Manifest | undefined {
         if (!box.descriptionBox) throw new MalformedContentError('Manifest box is missing a description box');
@@ -127,6 +140,11 @@ export class Manifest implements ManifestComponent {
         }
     }
 
+    /**
+     * Generates a JUMBF box containing the manifest
+     * @returns The generated JUMBF box
+     * @throws Error if required fields are missing
+     */
     public generateJUMBFBox(): JUMBF.SuperBox {
         // TODO: Here, we never assign this.sourceBox and leave it as is, to ensure we read back unmodified bytes when
         // re-signing an existing manifest. But in other classes, we do assign this.sourceBox within generateJUMBFBox().
@@ -153,8 +171,9 @@ export class Manifest implements ManifestComponent {
 
     /**
      * Resolves a JUMBF URL to a manifest component
-     * @param url JUMBF URL
-     * @param sameManifestOnly Should the component be located in this manifest only?
+     * @param url - JUMBF URL
+     * @param sameManifestOnly - Should the component be located in this manifest only?
+     * @returns The resolved ManifestComponent or undefined if not found
      */
     public getComponentByURL(url?: string, sameManifestOnly = false): ManifestComponent | undefined {
         const m = url?.match(/^self#jumbf=(.+)$/);
@@ -185,8 +204,9 @@ export class Manifest implements ManifestComponent {
 
     /**
      * Retrieves an Assertion from a hashed reference (without validating the hash)
-     * @param assertion Assertion reference
-     * @param sameManifestOnly Should the assertion be located in this manifest only?
+     * @param assertion - Assertion reference as HashedURI or string
+     * @param sameManifestOnly - Should the assertion be located in this manifest only?
+     * @returns The referenced Assertion or undefined if not found
      */
     private getAssertion(assertion: HashedURI | string, sameManifestOnly?: boolean): Assertion | undefined {
         const component = this.getComponentByURL(
@@ -202,7 +222,9 @@ export class Manifest implements ManifestComponent {
     }
 
     /**
-     * Validates that a hashed reference is valid, i.e. the referenced component exists and the hash matches
+     * Validates that a hashed reference is valid
+     * @param reference - The hashed reference to validate
+     * @returns Promise resolving to true if the hash matches, false otherwise
      */
     private async validateHashedReference(reference: HashedURI): Promise<boolean> {
         const referencedComponent = this.getComponentByURL(reference.uri);
@@ -215,6 +237,8 @@ export class Manifest implements ManifestComponent {
 
     /**
      * Calculates the hash for the hashed reference based on the referenced component
+     * @param reference - The hashed reference to update
+     * @throws Error if reference is invalid or manifest has no claim
      */
     public async updateHashedReference(reference: HashedURI): Promise<void> {
         if (!this.claim) throw new Error('Manifest must have a claim');
@@ -226,8 +250,9 @@ export class Manifest implements ManifestComponent {
     }
 
     /**
-     * Verifies a the manifest's claim's validity
-     * @param asset Asset for validation of bindings
+     * Verifies the manifest's claim's validity
+     * @param asset - Asset for validation of bindings
+     * @returns Promise resolving to ValidationResult
      */
     public async validate(asset: Asset): Promise<ValidationResult> {
         const result = new ValidationResult();
@@ -316,6 +341,10 @@ export class Manifest implements ManifestComponent {
         return result;
     }
 
+    /**
+     * Validates assertions in a standard manifest
+     * @returns ValidationResult containing any validation errors or successes
+     */
     private validateStandardManifestAssertions(): ValidationResult {
         const result = new ValidationResult();
 
@@ -336,6 +365,10 @@ export class Manifest implements ManifestComponent {
         return result;
     }
 
+    /**
+     * Validates assertions in an update manifest
+     * @returns ValidationResult containing any validation errors or successes
+     */
     private validateUpdateManifestAssertions(): ValidationResult {
         const result = new ValidationResult();
 
@@ -561,6 +594,12 @@ export class Manifest implements ManifestComponent {
         return result;
     }
 
+    /**
+     * Validates assertions in a standard manifest
+     * @param assertionReference - Reference to the assertion being validated
+     * @param assertion - The assertion to validate
+     * @returns ValidationResult containing validation status
+     */
     private validateStandardMandatoryActions(
         assertionReference: HashedURI,
         assertion: ActionAssertion,
@@ -581,7 +620,10 @@ export class Manifest implements ManifestComponent {
     }
 
     /**
-     * Appends an assertion to the manifest's assertion store and adds a reference to the claim.
+     * Appends an assertion to the manifest's assertion store and adds a reference to the claim
+     * @param assertion - The assertion to add
+     * @param hashAlgorithm - Optional hash algorithm to use for the reference
+     * @throws Error if manifest has no claim or assertion store
      */
     public addAssertion(assertion: Assertion, hashAlgorithm: HashAlgorithm | undefined = undefined): void {
         if (!this.claim) throw new Error('Manifest does not have claim');
@@ -594,6 +636,10 @@ export class Manifest implements ManifestComponent {
     /**
      * Creates a hashed reference to an assertion. The hash is left empty and will be calculated
      * during sign().
+     * @param assertion - The assertion to reference
+     * @param hashAlgorithm - Optional hash algorithm to use
+     * @returns HashedURI reference to the assertion
+     * @throws Error if manifest has no assertion store
      */
     public createAssertionReference(
         assertion: Assertion,
@@ -606,6 +652,10 @@ export class Manifest implements ManifestComponent {
     /**
      * Creates a hashed reference to a ManifestComponent. The hash is left empty and will be calculated
      * during sign().
+     * @param label - The label of the component to reference
+     * @param hashAlgorithm - Optional hash algorithm to use
+     * @returns HashedURI reference to the component
+     * @throws Error if manifest has no claim or missing algorithm
      */
     public createHashedReference(label: string, hashAlgorithm: HashAlgorithm | undefined = undefined): HashedURI {
         // TODO: It would be better to pass in a ManifestComponent here instead of the label and have the
@@ -629,9 +679,10 @@ export class Manifest implements ManifestComponent {
     }
 
     /**
-     * Prepares the manifest for signing and fills in the signature using the provided private key
-     * @param privateKey Private key in PKCS#8 format
-     * @param timestampProvider An optional timestamp provider to add an RFC3161 timestamp
+     * Prepares the manifest for signing and fills in the signature
+     * @param privateKey - Private key in PKCS#8 format
+     * @param timestampProvider - An optional timestamp provider to add an RFC3161 timestamp
+     * @throws Error if manifest has no claim or signature
      */
     public async sign(privateKey: Uint8Array, timestampProvider?: TimestampProvider): Promise<void> {
         if (!this.claim) throw new Error('Manifest does not have claim');
@@ -646,6 +697,11 @@ export class Manifest implements ManifestComponent {
         await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!, timestampProvider);
     }
 
+    /**
+     * Gets the bytes representation of the manifest
+     * @param claim - Optional claim parameter
+     * @returns Uint8Array of bytes or undefined if no source box exists
+     */
     public getBytes(claim?: Claim): Uint8Array | undefined {
         if (!claim && !this.claim) {
             return undefined;
@@ -653,12 +709,20 @@ export class Manifest implements ManifestComponent {
         return this.sourceBox?.toBuffer();
     }
 
+    /**
+     * Validates relationships between manifests
+     * @returns Promise resolving to ValidationResult
+     */
     private async validateManifestRelationships(): Promise<ValidationResult> {
         // TODO: Manifest relationship validation needs to be revisited
         // Current validation is too strict and fails valid Adobe test files
         return new ValidationResult();
     }
 
+    /**
+     * Validates all ingredients in the manifest
+     * @returns Promise resolving to ValidationResult
+     */
     private async validateIngredients(): Promise<ValidationResult> {
         const result = new ValidationResult();
         const ingredients = this.assertions?.getAssertionsByLabel(AssertionLabels.ingredient) ?? [];
@@ -671,6 +735,11 @@ export class Manifest implements ManifestComponent {
         return result;
     }
 
+    /**
+     * Validates a single ingredient
+     * @param ingredient - The ingredient assertion to validate
+     * @returns Promise resolving to ValidationResult
+     */
     private async validateSingleIngredient(ingredient: IngredientAssertion): Promise<ValidationResult> {
         const result = new ValidationResult();
         result.merge(await ingredient.validate(this));

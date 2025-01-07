@@ -31,19 +31,37 @@ export class Claim implements ManifestComponent {
     public claimGeneratorInfo?: string;
     public versionReason?: string;
 
+    /**
+     * Gets the version of the claim
+     * @returns The claim version
+     */
     public get version(): ClaimVersion {
         return this._version;
     }
 
+    /**
+     * Sets the version of the claim and updates the label accordingly
+     * @param value - The new claim version
+     */
     public set version(value: ClaimVersion) {
         this._version = value;
         this._label = this.version === ClaimVersion.V2 ? 'c2pa.claim.v2' : 'c2pa.claim';
     }
 
+    /**
+     * Gets the label for this claim
+     * @returns The claim label string
+     */
     public get label(): string {
         return this._label;
     }
 
+    /**
+     * Reads a claim from a JUMBF box
+     * @param box - The JUMBF box to read from
+     * @returns A new Claim instance
+     * @throws ValidationError if the box is invalid or has unsupported algorithm
+     */
     public static read(box: JUMBF.SuperBox) {
         if (!box.contentBoxes.length || !(box.contentBoxes[0] instanceof JUMBF.CBORBox))
             throw new ValidationError(ValidationStatusCode.ClaimCBORInvalid, box, 'Claim has invalid content box');
@@ -94,6 +112,11 @@ export class Claim implements ManifestComponent {
         return claim;
     }
 
+    /**
+     * Generates a JUMBF box containing the claim
+     * @returns The generated JUMBF box
+     * @throws Error if required fields are missing
+     */
     public generateJUMBFBox(): JUMBF.SuperBox {
         if (!this.instanceID) throw new Error('Claim: missing instanceID');
         if (!this.signatureRef) throw new Error('Claim: missing signature');
@@ -154,6 +177,11 @@ export class Claim implements ManifestComponent {
         return this.sourceBox;
     }
 
+    /**
+     * Maps a raw hash algorithm string to internal HashAlgorithm type
+     * @param alg - The raw hash algorithm string
+     * @returns The mapped HashAlgorithm or undefined if not supported
+     */
     public static mapHashAlgorithm(alg: raw.HashAlgorithm | undefined): HashAlgorithm | undefined {
         switch (alg) {
             case 'sha256':
@@ -167,6 +195,11 @@ export class Claim implements ManifestComponent {
         }
     }
 
+    /**
+     * Maps internal HashAlgorithm type to raw hash algorithm string
+     * @param alg - The HashAlgorithm to map
+     * @returns The raw hash algorithm string or undefined if not supported
+     */
     public static reverseMapHashAlgorithm(alg: HashAlgorithm | undefined): raw.HashAlgorithm | undefined {
         switch (alg) {
             case 'SHA-256':
@@ -180,6 +213,12 @@ export class Claim implements ManifestComponent {
         }
     }
 
+    /**
+     * Maps a raw HashedURI to internal HashedURI type
+     * @param hashedURI - The raw HashedURI to map
+     * @returns The mapped HashedURI
+     * @throws ValidationError if algorithm is unsupported
+     */
     public mapHashedURI(hashedURI: raw.HashedURI): HashedURI {
         const algorithm = Claim.mapHashAlgorithm(hashedURI.alg) ?? this.defaultAlgorithm;
         if (!algorithm) throw new ValidationError(ValidationStatusCode.AlgorithmUnsupported, hashedURI.url);
@@ -191,6 +230,11 @@ export class Claim implements ManifestComponent {
         };
     }
 
+    /**
+     * Maps internal HashedURI type to raw HashedURI
+     * @param hashedURI - The HashedURI to map
+     * @returns The raw HashedURI
+     */
     public reverseMapHashedURI(hashedURI: HashedURI): raw.HashedURI {
         if (hashedURI.algorithm === this.defaultAlgorithm) {
             // don't store the algorithm redundantly if it's the default
@@ -207,11 +251,23 @@ export class Claim implements ManifestComponent {
         }
     }
 
+    /**
+     * Gets the bytes representation of the claim
+     * @param claim - The claim to get bytes for
+     * @param rebuild - Whether to rebuild the JUMBF box before getting bytes
+     * @returns Uint8Array of bytes or undefined if no source box exists
+     */
     public getBytes(claim: Claim, rebuild = false): Uint8Array | undefined {
         if (rebuild) this.generateJUMBFBox();
         return (this.sourceBox?.contentBoxes[0] as JUMBF.CBORBox | undefined)?.rawContent;
     }
 
+    /**
+     * Generates a URN for the claim based on its version
+     * For v1: urn:uuid:{uuid}
+     * For v2: urn:c2pa:{uuid}[:{generatorInfo}][:{versionReason}]
+     * @returns The generated URN string
+     */
     public getURN(): string {
         const uuid = uuidv4({ random: Crypto.getRandomValues(16) });
 

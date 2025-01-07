@@ -31,10 +31,21 @@ export class Signature {
     public paddingLength = 0;
 
     private validatedTimestamp: Date | undefined;
+    /**
+     * Gets the validated timestamp or falls back to unverified timestamp
+     * @returns Date object representing the timestamp, or undefined if no timestamp exists
+     */
     public get timestamp() {
         return this.validatedTimestamp ?? this.getTimestampWithoutVerification();
     }
 
+    /**
+     * Reads a signature from JUMBF data
+     * @param content - The JUMBF content to parse
+     * @returns A new Signature instance
+     * @throws MalformedContentError if content is malformed
+     * @throws ValidationError if algorithm is unsupported
+     */
     public static readFromJUMBFData(content: unknown) {
         const signature = new Signature();
         const rawContent = content as CoseSignature;
@@ -99,6 +110,11 @@ export class Signature {
         return signature;
     }
 
+    /**
+     * Writes the signature data to JUMBF format
+     * @returns CoseSignature array containing the signature data
+     * @throws Error if certificate or algorithm is missing
+     */
     public writeJUMBFData(): CoseSignature {
         if (!this.certificate) throw new Error('Signature is missing certificate');
         if (!this.algorithm) throw new Error('Signature is missing algorithm');
@@ -131,6 +147,13 @@ export class Signature {
         ];
     }
 
+    /**
+     * Signs the provided payload and optionally adds a timestamp
+     * @param privateKey - Private key in PKCS#8 format
+     * @param payload - Data to be signed
+     * @param timestampProvider - Optional provider for RFC3161 timestamp
+     * @throws Error if protected bucket, algorithm or certificate is missing
+     */
     public async sign(
         privateKey: Uint8Array,
         payload: Uint8Array,
@@ -290,6 +313,12 @@ export class Signature {
         return undefined;
     }
 
+    /**
+     * Validates the signature against a payload
+     * @param payload - The payload to validate against
+     * @param sourceBox - Optional JUMBF box for error context
+     * @returns Promise resolving to ValidationResult
+     */
     public async validate(payload: Uint8Array, sourceBox?: JUMBF.IBox): Promise<ValidationResult> {
         if (!this.certificate || !this.rawProtectedBucket || !this.signature || !this.algorithm) {
             return ValidationResult.error(ValidationStatusCode.SigningCredentialInvalid, sourceBox);
