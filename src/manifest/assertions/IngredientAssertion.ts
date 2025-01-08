@@ -28,7 +28,8 @@ interface RawIngredientMapV2 extends Omit<RawIngredientMapV1, 'validationStatus'
     informational_URI?: string;
 }
 
-interface RawIngredientMapV3 extends Omit<RawIngredientMapV2, 'dc:title' | 'dc:format' | 'informational_URI'> {
+interface RawIngredientMapV3
+    extends Omit<RawIngredientMapV2, 'dc:title' | 'dc:format' | 'informational_URI' | 'documentID'> {
     'dc:title'?: string;
     'dc:format'?: string;
     activeManifest?: raw.HashedURI;
@@ -69,6 +70,38 @@ export class IngredientAssertion extends Assertion {
     public informationalURI?: string;
     public data?: HashedURI;
     public description?: string;
+    public metadata?: raw.AssertionMetadataMap;
+    public validationStatus?: ValidationStatusCode[];
+    public c2pa_manifest?: HashedURI;
+
+    public isV1Compatible(): boolean {
+        return (
+            this.title !== undefined &&
+            this.format !== undefined &&
+            this.instanceID !== undefined &&
+            this.data === undefined &&
+            this.dataTypes === undefined &&
+            this.description === undefined &&
+            this.informationalURI === undefined &&
+            this.validationResults === undefined &&
+            this.activeManifest === undefined &&
+            this.claimSignature === undefined
+        );
+    }
+
+    public isV2Compatible(): boolean {
+        return (
+            this.title !== undefined &&
+            this.format !== undefined &&
+            this.validationResults === undefined &&
+            this.activeManifest === undefined &&
+            this.claimSignature === undefined
+        );
+    }
+
+    public isV3Compatible(): boolean {
+        return this.documentID === undefined && this.validationStatus === undefined && this.c2pa_manifest === undefined;
+    }
 
     /**
      * Reads the content of this assertion from a JUMBF box
@@ -95,7 +128,6 @@ export class IngredientAssertion extends Assertion {
 
         this.title = content['dc:title'];
         this.format = content['dc:format'];
-        this.documentID = content.documentID;
         this.instanceID = content.instanceID;
         this.relationship = content.relationship;
 
@@ -103,6 +135,10 @@ export class IngredientAssertion extends Assertion {
             this.activeManifest = claim.mapHashedURI(content.activeManifest);
         } else if ('c2pa_manifest' in content && content.c2pa_manifest) {
             this.activeManifest = claim.mapHashedURI(content.c2pa_manifest);
+        }
+
+        if ('documentID' in content && content.documentID) {
+            this.documentID = content.documentID;
         }
 
         if (content.thumbnail) this.thumbnail = claim.mapHashedURI(content.thumbnail);
@@ -118,6 +154,7 @@ export class IngredientAssertion extends Assertion {
         }
 
         if (content.description) this.description = content.description;
+        if (content.metadata) this.metadata = content.metadata;
     }
 
     /**
@@ -129,8 +166,7 @@ export class IngredientAssertion extends Assertion {
     public generateJUMBFBoxForContent(claim: Claim): JUMBF.IBox {
         if (!this.relationship) throw new Error('Assertion has no relationship');
 
-        const content: RawIngredientMapV3 = {
-            documentID: this.documentID,
+        const content: RawIngredientMapV3 | RawIngredientMapV2 | RawIngredientMapV1 = {
             instanceID: this.instanceID!,
             relationship: this.relationship,
         };
@@ -145,6 +181,11 @@ export class IngredientAssertion extends Assertion {
         if (this.description) content.description = this.description;
         if (this.title) content['dc:title'] = this.title;
         if (this.format) content['dc:format'] = this.format;
+        if (this.metadata) content.metadata = this.metadata;
+        if (this.documentID) (content as RawIngredientMapV2).documentID = this.documentID;
+        if (this.validationStatus) (content as RawIngredientMapV1).validationStatus = this.validationStatus;
+        if (this.c2pa_manifest)
+            (content as RawIngredientMapV1).c2pa_manifest = claim.reverseMapHashedURI(this.c2pa_manifest);
 
         const box = new JUMBF.CBORBox();
         box.content = content;

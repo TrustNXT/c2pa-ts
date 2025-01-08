@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import * as bin from 'typed-binary';
 import { CBORBox, SuperBox } from '../../../src/jumbf';
-import { Assertion, Claim, HashedURI, IngredientAssertion } from '../../../src/manifest';
+import { Assertion, Claim, HashedURI, IngredientAssertion, RelationshipType, ReviewCode } from '../../../src/manifest';
 import * as raw from '../../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../../src/util';
+
+// Helper function to create a HashedURI
+function createHashedUri(uri: string): HashedURI {
+    return {
+        uri,
+        hash: new Uint8Array(32), // Placeholder hash
+        algorithm: 'SHA-256',
+    };
+}
 
 describe('IngredientAssertion Tests', function () {
     this.timeout(0);
@@ -104,5 +113,57 @@ describe('IngredientAssertion Tests', function () {
                 hash: thumbnailHash,
             },
         });
+    });
+
+    it('should read and write a simple ingredient assertion (v1)', () => {
+        const claim = new Claim();
+        claim.defaultAlgorithm = 'SHA-256';
+
+        const original = new IngredientAssertion();
+        original.title = 'image 1.jpg';
+        original.format = 'image/jpeg';
+        original.instanceID = 'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d';
+        original.documentID = 'xmp.did:87d51599-286e-43b2-9478-88c79f49c347';
+        original.thumbnail = createHashedUri('#c2pa.ingredient.thumbnail.jpeg');
+        original.relationship = RelationshipType.ComponentOf;
+
+        const assertion = original.generateJUMBFBox(claim);
+        const restored = new IngredientAssertion();
+        restored.readFromJUMBF(assertion, claim);
+
+        assert.equal(restored.title, original.title);
+        assert.equal(restored.format, original.format);
+        assert.equal(restored.documentID, original.documentID);
+        assert.equal(restored.instanceID, original.instanceID);
+        assert.deepEqual(restored.thumbnail, original.thumbnail);
+    });
+
+    it('should handle reviews in ingredient assertion', () => {
+        const claim = new Claim();
+        claim.defaultAlgorithm = 'SHA-256';
+
+        const reviewRating = {
+            value: 1,
+            explanation: 'a 3rd party plugin was used',
+            code: ReviewCode.ActionsUnknownActionsPerformed,
+        };
+        const metadata: raw.AssertionMetadataMap = {
+            dateTime: new Date().toISOString(),
+            reviewRatings: [reviewRating],
+        };
+
+        const original = new IngredientAssertion();
+        original.title = 'image 1.jpg';
+        original.format = 'image/jpeg';
+        original.instanceID = 'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d';
+        original.documentID = 'xmp.did:87d51599-286e-43b2-9478-88c79f49c347';
+        original.metadata = metadata;
+        original.relationship = RelationshipType.ComponentOf;
+
+        const assertion = original.generateJUMBFBox(claim);
+        const restored = new IngredientAssertion();
+        restored.readFromJUMBF(assertion, claim);
+
+        assert.deepEqual(restored.metadata, metadata);
     });
 });

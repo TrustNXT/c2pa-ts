@@ -74,7 +74,11 @@ export class AssertionStore implements ManifestComponent {
             assertion = new CreativeWorkAssertion();
         } else if (label.label === AssertionLabels.dataHash) {
             assertion = new DataHashAssertion();
-        } else if (label.label === AssertionLabels.ingredient) {
+        } else if (
+            label.label === AssertionLabels.ingredient ||
+            label.label === AssertionLabels.ingredientV2 ||
+            label.label === AssertionLabels.ingredientV3
+        ) {
             assertion = new IngredientAssertion();
         } else if (AssertionLabels.metadataAssertions.includes(label.label)) {
             assertion = new MetadataAssertion();

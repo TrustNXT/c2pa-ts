@@ -132,4 +132,26 @@ export abstract class Assertion implements ManifestComponent {
     public async validate(manifest: Manifest): Promise<ValidationResult> {
         return new ValidationResult();
     }
+
+    /**
+     * Extracts the version number from a label string
+     * @param label - The label string to extract the version from
+     * @returns The version number, or undefined if no version is found
+     */
+    public static getVersion(label: string): number | undefined {
+        const components = label.split('.');
+        const lastComponent = components[components.length - 1];
+
+        if (lastComponent?.length > 1) {
+            const [prefix, versionStr] = [lastComponent[0], lastComponent.slice(1)];
+            if (prefix === 'v') {
+                const version = parseInt(versionStr, 10);
+                if (!isNaN(version)) {
+                    return version;
+                }
+            }
+        }
+
+        return undefined;
+    }
 }
