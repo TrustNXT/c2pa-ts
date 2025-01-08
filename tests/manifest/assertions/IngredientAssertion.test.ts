@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import * as bin from 'typed-binary';
 import { CBORBox, SuperBox } from '../../../src/jumbf';
-import { Assertion, Claim, HashedURI, IngredientAssertion, RelationshipType, ReviewCode } from '../../../src/manifest';
+import {
+    Assertion,
+    Claim,
+    HashedURI,
+    IngredientAssertion,
+    RelationshipType,
+    ReviewCode,
+    ValidationStatusCode,
+} from '../../../src/manifest';
 import * as raw from '../../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../../src/util';
 
@@ -119,11 +127,12 @@ describe('IngredientAssertion Tests', function () {
         const claim = new Claim();
         claim.defaultAlgorithm = 'SHA-256';
 
-        const original = new IngredientAssertion();
-        original.title = 'image 1.jpg';
-        original.format = 'image/jpeg';
-        original.instanceID = 'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d';
-        original.documentID = 'xmp.did:87d51599-286e-43b2-9478-88c79f49c347';
+        const original = IngredientAssertion.new(
+            'image 1.jpg',
+            'image/jpeg',
+            'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d',
+            'xmp.did:87d51599-286e-43b2-9478-88c79f49c347',
+        );
         original.thumbnail = createHashedUri('#c2pa.ingredient.thumbnail.jpeg');
         original.relationship = RelationshipType.ComponentOf;
 
@@ -152,11 +161,12 @@ describe('IngredientAssertion Tests', function () {
             reviewRatings: [reviewRating],
         };
 
-        const original = new IngredientAssertion();
-        original.title = 'image 1.jpg';
-        original.format = 'image/jpeg';
-        original.instanceID = 'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d';
-        original.documentID = 'xmp.did:87d51599-286e-43b2-9478-88c79f49c347';
+        const original = IngredientAssertion.new(
+            'image 1.jpg',
+            'image/jpeg',
+            'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d',
+            'xmp.did:87d51599-286e-43b2-9478-88c79f49c347',
+        );
         original.metadata = metadata;
         original.relationship = RelationshipType.ComponentOf;
 
@@ -165,5 +175,170 @@ describe('IngredientAssertion Tests', function () {
         restored.readFromJUMBF(assertion, claim);
 
         assert.deepEqual(restored.metadata, metadata);
+    });
+
+    it('should test version-specific serialization', () => {
+        const claim = new Claim();
+        claim.defaultAlgorithm = 'SHA-256';
+
+        // Create validation status
+        const validationStatus = [ValidationStatusCode.ClaimSignatureValidated];
+
+        // Create validation results
+        const activeManifestCodes = {
+            success: [
+                {
+                    code: ValidationStatusCode.ClaimSignatureValidated,
+                    url: 'self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322/c2pa.signature',
+                },
+            ],
+            informational: [
+                {
+                    code: ValidationStatusCode.SigningCredentialOCSPSkipped,
+                    url: 'self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322/c2pa.signature',
+                },
+            ],
+            failure: [],
+        };
+
+        const ingredientDeltas = {
+            ingredientAssertionURI:
+                'self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322/c2pa.assertions/c2pa.ingredient.v3',
+            validationDeltas: {
+                success: [],
+                informational: [],
+                failure: [
+                    {
+                        code: ValidationStatusCode.AssertionHashedURIMismatch,
+                        url: 'self#jumbf=c2pa/urn:c2pa:F095F30E-6CD5-4BF7-8C44-CE8420CA9FB7/c2pa.assertions/c2pa.metadata',
+                    },
+                ],
+            },
+        };
+
+        const validationResults = {
+            activeManifest: activeManifestCodes,
+            ingredientDeltas: [ingredientDeltas],
+        };
+
+        // Create metadata
+        const metadata = {
+            dateTime: '2021-06-28T16:49:32.874Z',
+            reviewRatings: [
+                {
+                    value: 5,
+                    explanation: 'Content bindings validated',
+                },
+            ],
+        };
+
+        // Create data types
+        const dataTypes = [
+            {
+                type: 'generatorPrompt',
+                value: '1.0.0',
+            },
+        ];
+
+        // Create base ingredient with all values
+        const allVals = new IngredientAssertion();
+        allVals.title = 'test_title';
+        allVals.format = 'image/jpg';
+        allVals.documentID = '12345';
+        allVals.instanceID = '67890';
+        allVals.c2pa_manifest = createHashedUri('self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322');
+        allVals.validationStatus = validationStatus;
+        allVals.relationship = RelationshipType.ParentOf;
+        allVals.thumbnail = createHashedUri(
+            'self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322/c2pa.thumbnail.ingredient_1.jpg',
+        );
+        allVals.metadata = metadata;
+        allVals.data = createHashedUri(
+            'self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322/c2pa.databoxes/c2pa.data',
+        );
+        allVals.description = 'Some ingredient description';
+        allVals.informationalURI = 'https://tfhub.dev/deepmind/bigbigan-resnet50/1';
+        allVals.dataTypes = dataTypes;
+        allVals.validationResults = validationResults;
+        allVals.activeManifest = createHashedUri('self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322');
+        allVals.claimSignature = createHashedUri(
+            'self#jumbf=c2pa/urn:c2pa:5E7B01FC-4932-4BAB-AB32-D4F12A8AA322/c2pa.signature',
+        );
+
+        // Test V1
+        allVals.version = 1;
+        const v1Box = allVals.generateJUMBFBox(claim);
+        const v1Decoded = new IngredientAssertion();
+        v1Decoded.readFromJUMBF(v1Box, claim);
+
+        // V1 expected values
+        assert.equal(v1Decoded.title, 'test_title');
+        assert.equal(v1Decoded.format, 'image/jpg');
+        assert.equal(v1Decoded.documentID, '12345');
+        assert.equal(v1Decoded.instanceID, '67890');
+        assert.deepEqual(v1Decoded.c2pa_manifest, allVals.c2pa_manifest);
+        assert.deepEqual(v1Decoded.validationStatus, validationStatus);
+        assert.equal(v1Decoded.relationship, RelationshipType.ParentOf);
+        assert.deepEqual(v1Decoded.thumbnail, allVals.thumbnail);
+        assert.deepEqual(v1Decoded.metadata, metadata);
+        assert.equal(v1Decoded.data, undefined);
+        assert.equal(v1Decoded.description, undefined);
+        assert.equal(v1Decoded.informationalURI, undefined);
+        assert.equal(v1Decoded.dataTypes, undefined);
+        assert.equal(v1Decoded.validationResults, undefined);
+        assert.equal(v1Decoded.activeManifest, undefined);
+        assert.equal(v1Decoded.claimSignature, undefined);
+        assert.ok(v1Decoded.isV1Compatible());
+        assert.ok(v1Decoded.isV2Compatible());
+        assert.ok(!v1Decoded.isV3Compatible());
+
+        // Test V2
+        allVals.version = 2;
+        const v2Box = allVals.generateJUMBFBox(claim);
+        const v2Decoded = new IngredientAssertion();
+        v2Decoded.readFromJUMBF(v2Box, claim);
+
+        // V2 expected values
+        assert.equal(v2Decoded.title, 'test_title');
+        assert.equal(v2Decoded.format, 'image/jpg');
+        assert.equal(v2Decoded.documentID, '12345');
+        assert.equal(v2Decoded.instanceID, '67890');
+        assert.deepEqual(v2Decoded.thumbnail, allVals.thumbnail);
+        assert.deepEqual(v2Decoded.metadata, metadata);
+        assert.deepEqual(v2Decoded.data, allVals.data);
+        assert.equal(v2Decoded.description, 'Some ingredient description');
+        assert.equal(v2Decoded.informationalURI, 'https://tfhub.dev/deepmind/bigbigan-resnet50/1');
+        assert.deepEqual(v2Decoded.dataTypes, dataTypes);
+        assert.equal(v2Decoded.validationResults, undefined);
+        assert.equal(v2Decoded.activeManifest, undefined);
+        assert.equal(v2Decoded.claimSignature, undefined);
+        assert.ok(!v2Decoded.isV1Compatible());
+        assert.ok(v2Decoded.isV2Compatible());
+        assert.ok(!v2Decoded.isV3Compatible());
+
+        // Test V3
+        allVals.version = 3;
+        const v3Box = allVals.generateJUMBFBox(claim);
+        const v3Decoded = new IngredientAssertion();
+        v3Decoded.readFromJUMBF(v3Box, claim);
+
+        // V3 expected values
+        assert.equal(v3Decoded.title, 'test_title');
+        assert.equal(v3Decoded.format, 'image/jpg');
+        assert.equal(v3Decoded.documentID, undefined);
+        assert.equal(v3Decoded.instanceID, '67890');
+        assert.equal(v3Decoded.relationship, RelationshipType.ParentOf);
+        assert.deepEqual(v3Decoded.thumbnail, allVals.thumbnail);
+        assert.deepEqual(v3Decoded.metadata, metadata);
+        assert.deepEqual(v3Decoded.data, allVals.data);
+        assert.equal(v3Decoded.description, 'Some ingredient description');
+        assert.equal(v3Decoded.informationalURI, 'https://tfhub.dev/deepmind/bigbigan-resnet50/1');
+        assert.deepEqual(v3Decoded.dataTypes, dataTypes);
+        assert.deepEqual(v3Decoded.validationResults, validationResults);
+        assert.deepEqual(v3Decoded.activeManifest, allVals.activeManifest);
+        assert.deepEqual(v3Decoded.claimSignature, allVals.claimSignature);
+        assert.ok(!v3Decoded.isV1Compatible());
+        assert.ok(!v3Decoded.isV2Compatible());
+        assert.ok(v3Decoded.isV3Compatible());
     });
 });
