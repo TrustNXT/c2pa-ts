@@ -127,7 +127,7 @@ describe('IngredientAssertion Tests', function () {
         const claim = new Claim();
         claim.defaultAlgorithm = 'SHA-256';
 
-        const original = IngredientAssertion.new(
+        const original = IngredientAssertion.create(
             'image 1.jpg',
             'image/jpeg',
             'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d',
@@ -161,7 +161,7 @@ describe('IngredientAssertion Tests', function () {
             reviewRatings: [reviewRating],
         };
 
-        const original = IngredientAssertion.new(
+        const original = IngredientAssertion.create(
             'image 1.jpg',
             'image/jpeg',
             'xmp.iid:7b57930e-2f23-47fc-affe-0400d70b738d',

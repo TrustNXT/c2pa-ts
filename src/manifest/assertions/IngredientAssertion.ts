@@ -10,7 +10,7 @@ import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 
-const ASSERTION_CREATION_VERSION = 3;
+const DEFAULT_ASSERTION_VERSION = 3;
 
 interface RawIngredientMapV1 {
     'dc:title': string;
@@ -57,9 +57,9 @@ interface RawIngredientMapV3
 }
 
 export class IngredientAssertion extends Assertion {
+    private _version: number = DEFAULT_ASSERTION_VERSION;
     public label = AssertionLabels.ingredient;
     public uuid = raw.UUIDs.cborAssertion;
-    public version: number = ASSERTION_CREATION_VERSION;
 
     public title?: string;
     public format?: string;
@@ -78,7 +78,15 @@ export class IngredientAssertion extends Assertion {
     public validationStatus?: ValidationStatusCode[];
     public c2pa_manifest?: HashedURI;
 
-    public static new(title: string, format: string, instanceId: string, documentId?: string): IngredientAssertion {
+    /**
+     * Creates a new v1 ingredient assertion
+     * @param title - The title of the ingredient asset
+     * @param format - The media format of the ingredient asset
+     * @param instanceId - A unique identifier for this instance of the ingredient
+     * @param documentId - Optional document ID for the ingredient
+     * @returns A new IngredientAssertion instance configured for v1
+     */
+    public static create(title: string, format: string, instanceId: string, documentId?: string): IngredientAssertion {
         const assertion = new IngredientAssertion();
         assertion.version = 1;
         assertion.title = title;
@@ -88,7 +96,13 @@ export class IngredientAssertion extends Assertion {
         return assertion;
     }
 
-    public static newV2(title: string, format: string): IngredientAssertion {
+    /**
+     * Creates a new v2 ingredient assertion
+     * @param title - The title of the ingredient asset
+     * @param format - The media format of the ingredient asset
+     * @returns A new IngredientAssertion instance configured for v2
+     */
+    public static createV2(title: string, format: string): IngredientAssertion {
         const assertion = new IngredientAssertion();
         assertion.version = 2;
         assertion.title = title;
@@ -96,13 +110,22 @@ export class IngredientAssertion extends Assertion {
         return assertion;
     }
 
-    public static newV3(relationship: RelationshipType): IngredientAssertion {
+    /**
+     * Creates a new v3 ingredient assertion
+     * @param relationship - The relationship type between this ingredient and its parent asset
+     * @returns A new IngredientAssertion instance configured for v3
+     */
+    public static createV3(relationship: RelationshipType): IngredientAssertion {
         const assertion = new IngredientAssertion();
         assertion.version = 3;
         assertion.relationship = relationship;
         return assertion;
     }
 
+    /**
+     * Checks if this assertion is compatible with v1 format
+     * @returns true if the assertion can be serialized as v1, false otherwise
+     */
     public isV1Compatible(): boolean {
         return (
             this.title !== undefined &&
@@ -118,6 +141,10 @@ export class IngredientAssertion extends Assertion {
         );
     }
 
+    /**
+     * Checks if this assertion is compatible with v2 format
+     * @returns true if the assertion can be serialized as v2, false otherwise
+     */
     public isV2Compatible(): boolean {
         return (
             this.title !== undefined &&
@@ -128,17 +155,62 @@ export class IngredientAssertion extends Assertion {
         );
     }
 
+    /**
+     * Checks if this assertion is compatible with v3 format
+     * @returns true if the assertion can be serialized as v3, false otherwise
+     */
     public isV3Compatible(): boolean {
         return this.documentID === undefined && this.validationStatus === undefined && this.c2pa_manifest === undefined;
     }
 
+    /**
+     * Gets the version number of this ingredient assertion
+     * @returns The version number (1, 2, or 3)
+     */
+    public get version(): number {
+        return this._version;
+    }
+
+    /**
+     * Sets the version number and updates the assertion label accordingly
+     * @param value - The version number to set (1, 2, or 3)
+     * @throws Error if the version number is not supported
+     */
+    public set version(value: number) {
+        this._version = value;
+        switch (value) {
+            case 1:
+                this.label = AssertionLabels.ingredient;
+                break;
+            case 2:
+                this.label = AssertionLabels.ingredientV2;
+                break;
+            case 3:
+                this.label = AssertionLabels.ingredientV3;
+                break;
+            default:
+                throw new Error('Unsupported ingredient version');
+        }
+    }
+
     private serializeV1(claim: Claim): RawIngredientMapV1 {
-        if (!this.relationship) throw new Error('Assertion has no relationship');
+        if (!this.relationship) {
+            throw new Error('Assertion has no relationship');
+        }
+        if (!this.title) {
+            throw new Error('V1 ingredient assertion requires title');
+        }
+        if (!this.format) {
+            throw new Error('V1 ingredient assertion requires format');
+        }
+        if (!this.instanceID) {
+            throw new Error('V1 ingredient assertion requires instanceID');
+        }
 
         const content: RawIngredientMapV1 = {
-            'dc:title': this.title!,
-            'dc:format': this.format!,
-            instanceID: this.instanceID!,
+            'dc:title': this.title,
+            'dc:format': this.format,
+            instanceID: this.instanceID,
             relationship: this.relationship,
         };
 
@@ -152,15 +224,23 @@ export class IngredientAssertion extends Assertion {
     }
 
     private serializeV2(claim: Claim): RawIngredientMapV2 {
-        if (!this.relationship) throw new Error('Assertion has no relationship');
+        if (!this.relationship) {
+            throw new Error('Assertion has no relationship');
+        }
+        if (!this.title) {
+            throw new Error('V2 ingredient assertion requires title');
+        }
+        if (!this.format) {
+            throw new Error('V2 ingredient assertion requires format');
+        }
 
         const content: RawIngredientMapV2 = {
-            'dc:title': this.title!,
-            'dc:format': this.format!,
-            instanceID: this.instanceID!,
+            'dc:title': this.title,
+            'dc:format': this.format,
             relationship: this.relationship,
         };
 
+        if (this.instanceID) content.instanceID = this.instanceID;
         if (this.documentID) content.documentID = this.documentID;
         if (this.c2pa_manifest) content.c2pa_manifest = claim.reverseMapHashedURI(this.c2pa_manifest);
         if (this.data) content.data = claim.reverseMapHashedURI(this.data);
@@ -174,10 +254,14 @@ export class IngredientAssertion extends Assertion {
     }
 
     private serializeV3(claim: Claim): RawIngredientMapV3 {
-        if (!this.relationship) throw new Error('Assertion has no relationship');
+        if (!this.relationship) {
+            throw new Error('Assertion has no relationship');
+        }
 
         if ((!this.activeManifest && this.validationResults) || (this.activeManifest && !this.validationResults)) {
-            throw new Error('Ingredient has incompatible fields');
+            throw new Error(
+                'Ingredient has incompatible validation fields - both activeManifest and validationResults must be present or absent',
+            );
         }
 
         const content: RawIngredientMapV3 = {
@@ -243,42 +327,26 @@ export class IngredientAssertion extends Assertion {
 
         const content = box.content;
 
-        // Determine version based on fields present
-        if (this.isV3Content(content)) {
-            this.version = 3;
-            this.readV3Content(content, claim);
-        } else if (this.isV2Content(content)) {
-            this.version = 2;
-            this.readV2Content(content, claim);
-        } else {
-            this.version = 1;
-            this.readV1Content(content as RawIngredientMapV1, claim);
+        switch (this.label) {
+            case AssertionLabels.ingredient:
+                this.version = 1;
+                this.readV1Content(content as RawIngredientMapV1, claim);
+                break;
+            case AssertionLabels.ingredientV2:
+                this.version = 2;
+                this.readV2Content(content as RawIngredientMapV2, claim);
+                break;
+            case AssertionLabels.ingredientV3:
+                this.version = 3;
+                this.readV3Content(content as RawIngredientMapV3, claim);
+                break;
+            default:
+                throw new ValidationError(
+                    ValidationStatusCode.AssertionCBORInvalid,
+                    this.sourceBox,
+                    `Unsupported ingredient assertion label: ${this.label}`,
+                );
         }
-    }
-
-    private isV3Content(content: unknown): content is RawIngredientMapV3 {
-        return (
-            typeof content === 'object' &&
-            content !== null &&
-            'relationship' in content &&
-            !('documentID' in content) &&
-            !('validationStatus' in content) &&
-            !('c2pa_manifest' in content) &&
-            ('validationResults' in content || 'activeManifest' in content || 'claimSignature' in content)
-        );
-    }
-
-    private isV2Content(content: unknown): content is RawIngredientMapV2 {
-        return (
-            typeof content === 'object' &&
-            content !== null &&
-            'dc:title' in content &&
-            'dc:format' in content &&
-            !('validationResults' in content) &&
-            !('activeManifest' in content) &&
-            !('claimSignature' in content) &&
-            ('data' in content || 'dataTypes' in content || 'informational_URI' in content || 'description' in content)
-        );
     }
 
     private readV1Content(content: RawIngredientMapV1, claim: Claim): void {
