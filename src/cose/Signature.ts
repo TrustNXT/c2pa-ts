@@ -31,10 +31,21 @@ export class Signature {
     public paddingLength = 0;
 
     private validatedTimestamp: Date | undefined;
+    /**
+     * Gets the validated timestamp or falls back to unverified timestamp
+     * @returns Date object representing the timestamp, or undefined if no timestamp exists
+     */
     public get timestamp() {
         return this.validatedTimestamp ?? this.getTimestampWithoutVerification();
     }
 
+    /**
+     * Reads a signature from JUMBF data
+     * @param content - The JUMBF content to parse
+     * @returns A new Signature instance
+     * @throws MalformedContentError if content is malformed
+     * @throws ValidationError if algorithm is unsupported
+     */
     public static readFromJUMBFData(content: unknown) {
         const signature = new Signature();
         const rawContent = content as CoseSignature;
@@ -99,6 +110,11 @@ export class Signature {
         return signature;
     }
 
+    /**
+     * Writes the signature data to JUMBF format
+     * @returns CoseSignature array containing the signature data
+     * @throws Error if certificate or algorithm is missing
+     */
     public writeJUMBFData(): CoseSignature {
         if (!this.certificate) throw new Error('Signature is missing certificate');
         if (!this.algorithm) throw new Error('Signature is missing algorithm');
@@ -131,6 +147,13 @@ export class Signature {
         ];
     }
 
+    /**
+     * Signs the provided payload and optionally adds a timestamp
+     * @param privateKey - Private key in PKCS#8 format
+     * @param payload - Data to be signed
+     * @param timestampProvider - Optional provider for RFC3161 timestamp
+     * @throws Error if protected bucket, algorithm or certificate is missing
+     */
     public async sign(
         privateKey: Uint8Array,
         payload: Uint8Array,
@@ -152,8 +175,11 @@ export class Signature {
         }
     }
 
-    private async getTimestamp(payload: Uint8Array): Promise<Date | undefined> {
-        if (!this.timeStampResponses.length || !this.rawProtectedBucket) return undefined;
+    private async validateTimestamp(payload: Uint8Array, sourceBox?: JUMBF.IBox): Promise<ValidationResult> {
+        this.validatedTimestamp = undefined;
+
+        const result = new ValidationResult();
+        if (!this.timeStampResponses.length || !this.rawProtectedBucket) return result;
 
         const toBeSigned = new SigStructure('CounterSignature', this.rawProtectedBucket, payload).encode();
 
@@ -165,14 +191,17 @@ export class Signature {
                 continue;
 
             try {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const signedData = new pkijs.SignedData({ schema: timestamp.timeStampToken!.content });
                 const rawTstInfo = signedData.encapContentInfo.eContent!.getValue();
                 const tstInfo = pkijs.TSTInfo.fromBER(rawTstInfo);
 
                 const hashAlgorithm = Crypto.getHashAlgorithmByOID(tstInfo.messageImprint.hashAlgorithm.algorithmId);
                 if (!hashAlgorithm) {
-                    // algorithm.unsupported
+                    result.addError(
+                        ValidationStatusCode.AlgorithmUnsupported,
+                        sourceBox,
+                        'Unsupported timestamp hash algorithm',
+                    );
                     continue;
                 }
 
@@ -182,12 +211,12 @@ export class Signature {
                         new Uint8Array(tstInfo.messageImprint.hashedMessage.getValue()),
                     )
                 ) {
-                    // timeStamp.mismatch
+                    result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
                     continue;
                 }
 
                 if (!(await this.verifySignedDataSignature(signedData))) {
-                    // timeStamp.mismatch
+                    result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
                     continue;
                 }
 
@@ -195,13 +224,16 @@ export class Signature {
                 // - Validate each certificate (otherwise: timeStamp.untrusted)
                 // - Configure trusted list (otherwise: timeStamp.untrusted)
                 // - Check that attested timestamp falls within signer validity (otherwise: timeStamp.outsideValidity)
-                return tstInfo.genTime;
+
+                this.validatedTimestamp = tstInfo.genTime;
+                result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
+                break;
             } catch {
                 continue;
             }
         }
 
-        return undefined;
+        return result;
     }
 
     private async verifySignedDataSignature(signedData: pkijs.SignedData): Promise<boolean> {
@@ -281,6 +313,12 @@ export class Signature {
         return undefined;
     }
 
+    /**
+     * Validates the signature against a payload
+     * @param payload - The payload to validate against
+     * @param sourceBox - Optional JUMBF box for error context
+     * @returns Promise resolving to ValidationResult
+     */
     public async validate(payload: Uint8Array, sourceBox?: JUMBF.IBox): Promise<ValidationResult> {
         if (!this.certificate || !this.rawProtectedBucket || !this.signature || !this.algorithm) {
             return ValidationResult.error(ValidationStatusCode.SigningCredentialInvalid, sourceBox);
@@ -288,14 +326,8 @@ export class Signature {
 
         const result = new ValidationResult();
 
-        let timestamp = await this.getTimestamp(payload);
-        if (timestamp) {
-            result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
-            this.validatedTimestamp = timestamp;
-        } else {
-            timestamp = new Date();
-            this.validatedTimestamp = undefined;
-        }
+        result.merge(await this.validateTimestamp(payload, sourceBox));
+        const timestamp = this.validatedTimestamp ?? new Date();
 
         let code = Signature.validateCertificate(this.certificate, timestamp, true);
         if (code === ValidationStatusCode.SigningCredentialTrusted) {

@@ -14,6 +14,8 @@ export class AssertionLabels {
     ];
 
     public static readonly ingredient = 'c2pa.ingredient';
+    public static readonly ingredientV2 = 'c2pa.ingredient.v2';
+    public static readonly ingredientV3 = 'c2pa.ingredient.v3';
 
     public static readonly actions = 'c2pa.actions';
     public static readonly actionsV2 = 'c2pa.actions.v2';

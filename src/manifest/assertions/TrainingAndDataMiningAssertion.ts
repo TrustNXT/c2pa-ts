@@ -35,7 +35,7 @@ export class TrainingAndDataMiningAssertion extends Assertion {
     public readContentFromJUMBF(box: IBox): void {
         if (!(box instanceof CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
                 'Training and Data Mining assertion has invalid type',
             );

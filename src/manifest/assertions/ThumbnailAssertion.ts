@@ -15,7 +15,7 @@ export class ThumbnailAssertion extends Assertion {
 
     public readFromJUMBF(box: JUMBF.SuperBox, claim: Claim): void {
         if (!box.descriptionBox?.label)
-            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, box, 'Assertion is missing label');
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, box, 'Assertion is missing label');
 
         if (box.descriptionBox.label.startsWith(AssertionLabels.thumbnailPrefix)) {
             this.thumbnailType = ThumbnailType.Claim;
@@ -23,7 +23,7 @@ export class ThumbnailAssertion extends Assertion {
             this.thumbnailType = ThumbnailType.Ingredient;
         } else {
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 box,
                 'Thumbnail assertion has invalid label',
             );
@@ -35,7 +35,7 @@ export class ThumbnailAssertion extends Assertion {
 
         if (!this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.embeddedFile))
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
                 'Thumbnail assertion has invalid type',
             );
@@ -48,7 +48,7 @@ export class ThumbnailAssertion extends Assertion {
         );
         if (!descriptionBox?.mediaType || !contentBox?.content?.length)
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 box,
                 'Thumbnail assertion is missing file content or description',
             );

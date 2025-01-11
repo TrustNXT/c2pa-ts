@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import * as bin from 'typed-binary';
 import { HashAlgorithm } from '../../src/crypto';
 import { CBORBox, SuperBox } from '../../src/jumbf';
+import * as JUMBF from '../../src/jumbf';
 import { Claim, ClaimVersion } from '../../src/manifest';
 import * as raw from '../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../src/util';
@@ -243,6 +244,123 @@ describe('Claim Tests', function () {
                     },
                 ],
                 alg: 'sha256',
+            });
+        });
+    });
+
+    describe('Claim Building Tests', () => {
+        it('should build and restore claim from binary', () => {
+            // Create a test claim
+            const claim = new Claim();
+            claim.instanceID = 'xmp:iid:test-instance-id';
+            claim.signatureRef = 'self#jumbf=c2pa.signature';
+            claim.defaultAlgorithm = 'SHA-256';
+
+            // Add some test assertions
+            claim.assertions = [
+                {
+                    uri: 'self#jumbf=c2pa.assertions/test.assertion',
+                    hash: new Uint8Array([1, 2, 3, 4]),
+                    algorithm: 'SHA-256',
+                },
+            ];
+
+            // Generate JUMBF box
+            const originalBox = claim.generateJUMBFBox();
+
+            // Get binary representation
+            const originalBytes = claim.getBytes(claim, true);
+            assert.ok(originalBytes, 'Failed to get original bytes');
+
+            // Restore from binary
+            const restoredClaim = Claim.read(originalBox);
+            const restoredBytes = restoredClaim.getBytes(restoredClaim, true);
+
+            // Compare binary representations
+            assert.ok(restoredBytes, 'Failed to get restored bytes');
+            assert.deepEqual(originalBytes, restoredBytes, 'Binary representations should match');
+        });
+
+        it('should handle claim generator info', () => {
+            const claim = new Claim();
+
+            // Add required fields
+            claim.instanceID = 'xmp:iid:test-instance-id';
+            claim.signatureRef = 'self#jumbf=c2pa.signature';
+
+            // Set claim generator info
+            claim.claimGeneratorName = 'test app';
+            claim.claimGeneratorVersion = '2.3.4';
+            claim.claimGeneratorInfo = '"user app";v="2.3.4", "some toolkit";v="1.0.0"';
+
+            // Generate JUMBF box and verify content
+            const box = claim.generateJUMBFBox();
+            const contentBox = box.contentBoxes[0] as JUMBF.CBORBox;
+
+            // For V2 claims
+            if (claim.version === ClaimVersion.V2) {
+                assert.deepEqual((contentBox.content as raw.ClaimV2).claim_generator_info, {
+                    name: 'test app',
+                    version: '2.3.4',
+                });
+            }
+            // For V1 claims
+            else {
+                assert.deepEqual((contentBox.content as raw.ClaimV1).claim_generator_info, [
+                    {
+                        name: 'test app',
+                        version: '2.3.4',
+                    },
+                ]);
+                assert.equal((contentBox.content as raw.ClaimV1).claim_generator, 'test app/2.3.4');
+            }
+        });
+
+        it('should generate correct URN format', () => {
+            const claim = new Claim();
+            claim.claimGeneratorInfo = 'test info';
+            claim.versionReason = 'test reason';
+
+            // Test V1 URN format
+            claim.version = ClaimVersion.V1;
+            const v1Urn = claim.getURN();
+            assert.match(v1Urn, /^urn:uuid:[0-9a-f-]{36}$/);
+
+            // Test V2 URN format
+            claim.version = ClaimVersion.V2;
+            const v2Urn = claim.getURN();
+            assert.match(v2Urn, /^urn:c2pa:[0-9a-f-]{36}:test info:test reason$/);
+        });
+
+        it('should handle version-specific claim generator formats', () => {
+            const claim = new Claim();
+            // Add required fields
+            claim.instanceID = 'xmp:iid:test-instance-id';
+            claim.signatureRef = 'self#jumbf=c2pa.signature';
+            claim.format = 'image/jpeg'; // Add format for V1 claims
+
+            claim.claimGeneratorName = 'test app';
+            claim.claimGeneratorVersion = '2.3.4';
+
+            // Test V1 format
+            claim.version = ClaimVersion.V1;
+            let box = claim.generateJUMBFBox();
+            const contentV1 = (box.contentBoxes[0] as JUMBF.CBORBox).content as raw.ClaimV1;
+            assert.equal(contentV1.claim_generator, 'test app/2.3.4');
+            assert.deepEqual(contentV1.claim_generator_info, [
+                {
+                    name: 'test app',
+                    version: '2.3.4',
+                },
+            ]);
+
+            // Test V2 format
+            claim.version = ClaimVersion.V2;
+            box = claim.generateJUMBFBox();
+            const contentV2 = (box.contentBoxes[0] as JUMBF.CBORBox).content as raw.ClaimV2;
+            assert.deepEqual(contentV2.claim_generator_info, {
+                name: 'test app',
+                version: '2.3.4',
             });
         });
     });

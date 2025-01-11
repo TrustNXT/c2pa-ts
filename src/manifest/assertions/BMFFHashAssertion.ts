@@ -56,7 +56,7 @@ export class BMFFHashAssertion extends Assertion {
     public readContentFromJUMBF(box: JUMBF.IBox): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
-                ValidationStatusCode.AssertionRequiredMissing,
+                ValidationStatusCode.AssertionCBORInvalid,
                 this.sourceBox,
                 'BMFF hash assertion has invalid type',
             );
@@ -85,7 +85,7 @@ export class BMFFHashAssertion extends Assertion {
         // TODO Merkle hashing is currently not implemented
 
         if (!this.hash || !this.algorithm) {
-            return ValidationResult.error(ValidationStatusCode.AssertionRequiredMissing, this.sourceBox);
+            return ValidationResult.error(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
         }
 
         if (!(asset instanceof BMFF)) {
