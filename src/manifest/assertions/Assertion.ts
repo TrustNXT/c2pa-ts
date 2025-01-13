@@ -1,6 +1,7 @@
 import { Asset } from '../../asset';
 import * as JUMBF from '../../jumbf';
 import { Claim } from '../Claim';
+import { Manifest } from '../Manifest';
 import { ManifestComponent, ManifestComponentType, ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
 import { ValidationResult } from '../ValidationResult';
@@ -12,13 +13,18 @@ export abstract class Assertion implements ManifestComponent {
     public uuid?: Uint8Array;
     public sourceBox: JUMBF.SuperBox | undefined;
 
+    /**
+     * Gets the full label including the optional index
+     * @returns The full label string
+     */
     public get fullLabel() {
         return this.labelSuffix !== undefined ? `${this.label}__${this.labelSuffix}` : this.label;
     }
 
     /**
-     * the label in the JUMBF box contains both the actual assertion type identifier
-     * and an optional index, this utility method splits the two
+     * Splits the label in the JUMBF box into the actual assertion type identifier and an optional index
+     * @param label - The label to split
+     * @returns An object containing the label and the optional index
      */
     public static splitLabel(label: string): { label: string; index?: number } {
         const match = /^(.+)__(\d+)$/.exec(label);
@@ -32,9 +38,15 @@ export abstract class Assertion implements ManifestComponent {
         }
     }
 
+    /**
+     * Reads an assertion from a JUMBF box
+     * @param box - The JUMBF box to read from
+     * @param claim - The claim this assertion belongs to
+     * @throws ValidationError if the box is invalid
+     */
     public readFromJUMBF(box: JUMBF.SuperBox, claim: Claim): void {
         if (!box.descriptionBox?.label)
-            throw new ValidationError(ValidationStatusCode.AssertionRequiredMissing, box, 'Assertion is missing label');
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, box, 'Assertion is missing label');
 
         const label = Assertion.splitLabel(box.descriptionBox.label);
 
@@ -47,8 +59,18 @@ export abstract class Assertion implements ManifestComponent {
         this.readContentFromJUMBF(box.contentBoxes[0], claim);
     }
 
+    /**
+     * Reads the assertion content from a JUMBF box
+     * @param box - The JUMBF box to read from
+     * @param claim - The claim this assertion belongs to
+     */
     public abstract readContentFromJUMBF(box: JUMBF.IBox, claim: Claim): void;
 
+    /**
+     * Generates a JUMBF box for this assertion
+     * @param claim - Optional claim this assertion belongs to
+     * @returns The generated JUMBF box
+     */
     public generateJUMBFBox(claim?: Claim): JUMBF.SuperBox {
         const box = new JUMBF.SuperBox();
 
@@ -62,14 +84,74 @@ export abstract class Assertion implements ManifestComponent {
         return box;
     }
 
+    /**
+     * Generates a JUMBF box for the assertion content
+     * @param claim - Optional claim this assertion belongs to
+     * @returns The generated JUMBF box
+     */
     public abstract generateJUMBFBoxForContent(claim?: Claim): JUMBF.IBox;
 
+    /**
+     * Validates the assertion against an asset
+     * @param asset - The asset to validate against
+     * @returns Promise resolving to ValidationResult
+     */
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         return new ValidationResult();
     }
 
+    /**
+     * Gets the bytes representation of the assertion
+     * @param claim - The claim this assertion belongs to
+     * @param rebuild - Whether to rebuild the JUMBF box
+     * @returns Uint8Array of bytes or undefined if no source box
+     */
     public getBytes(claim: Claim, rebuild = false) {
         if (rebuild) this.generateJUMBFBox(claim);
         return this.sourceBox?.toBuffer();
+    }
+
+    /**
+     * Reads the assertion data from a JUMBF box
+     * @param box - The JUMBF box to read from
+     * @returns The assertion data
+     * @throws ValidationError if the box is not a CBOR box
+     */
+    protected static readAssertionData(box: JUMBF.IBox): unknown {
+        if (!(box instanceof JUMBF.CBORBox)) {
+            throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, box, 'Expected CBOR box');
+        }
+        return box.content;
+    }
+
+    /**
+     * Validates the assertion against a manifest
+     * @param manifest - The manifest to validate against
+     * @returns Promise resolving to ValidationResult
+     */
+    public async validate(manifest: Manifest): Promise<ValidationResult> {
+        return new ValidationResult();
+    }
+
+    /**
+     * Extracts the version number from a label string
+     * @param label - The label string to extract the version from
+     * @returns The version number, or undefined if no version is found
+     */
+    public static getVersion(label: string): number | undefined {
+        const components = label.split('.');
+        const lastComponent = components[components.length - 1];
+
+        if (lastComponent?.length > 1) {
+            const [prefix, versionStr] = [lastComponent[0], lastComponent.slice(1)];
+            if (prefix === 'v') {
+                const version = parseInt(versionStr, 10);
+                if (!isNaN(version)) {
+                    return version;
+                }
+            }
+        }
+
+        return undefined;
     }
 }

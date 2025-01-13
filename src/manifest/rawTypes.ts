@@ -37,6 +37,7 @@ export type ClaimV2 = Claim & {
     claim_generator_info: ClaimGeneratorInfo;
     created_assertions: HashedURI[];
     gathered_assertions?: HashedURI[];
+    redacted_assertions?: HashedURI[];
 };
 
 export const UUIDs = {
@@ -62,10 +63,10 @@ export const UUIDs = {
 };
 
 export interface StatusMap {
-    code: ValidationStatusCode | string;
+    code: ValidationStatusCode;
     url?: string;
     explanation?: string;
-    success?: boolean;
+    success?: boolean; // Deprecated in v2.1
 }
 
 export interface AssertionMetadataMap {

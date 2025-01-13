@@ -1,15 +1,11 @@
 import { X509Certificate } from '@peculiar/x509';
-import { v4 as uuidv4 } from 'uuid';
 import { Asset } from '../asset';
 import { CoseAlgorithmIdentifier } from '../cose';
-import { Crypto, HashAlgorithm } from '../crypto';
+import { HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { BinaryHelper } from '../util';
-import { AssertionStore } from './AssertionStore';
-import { Claim } from './Claim';
 import { Manifest } from './Manifest';
 import * as raw from './rawTypes';
-import { Signature } from './Signature';
 import { ClaimVersion, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
 import { ValidationResult } from './ValidationResult';
@@ -31,23 +27,17 @@ export class ManifestStore {
         chainCertificates?: X509Certificate[];
     }): Manifest {
         const manifest = new Manifest(this);
-        manifest.label = `urn:uuid:${uuidv4({ random: Crypto.getRandomValues(16) })}`;
-        manifest.assertions = new AssertionStore();
         this.manifests.push(manifest);
 
-        manifest.signature = Signature.createFromCertificate(
+        manifest.initialize(
+            options.claimVersion ?? ClaimVersion.V1,
+            options.assetFormat,
+            options.instanceID,
+            options.defaultHashAlgorithm,
             options.certificate,
             options.signingAlgorithm,
             options.chainCertificates,
         );
-
-        const claim = new Claim();
-        claim.version = options.claimVersion ?? ClaimVersion.V1;
-        claim.format = options.assetFormat;
-        claim.instanceID = options.instanceID;
-        claim.defaultAlgorithm = options.defaultHashAlgorithm;
-        claim.signatureRef = 'self#jumbf=' + manifest.signature.label;
-        manifest.claim = claim;
 
         return manifest;
     }
@@ -84,6 +74,15 @@ export class ManifestStore {
     }
 
     /**
+     * Retrieves manifests by instance ID
+     * @param instanceId
+     */
+    public getManifestsByInstanceId(instanceId?: string): Manifest[] {
+        if (!instanceId) return [];
+        return this.manifests.filter(m => m.claim?.instanceID === instanceId);
+    }
+
+    /**
      * Reads a manifest store from a JUMBF structure
      * @param superBox The outer JUMBF super box
      */
@@ -92,14 +91,10 @@ export class ManifestStore {
         manifestStore.sourceBox = superBox;
 
         if (!superBox.descriptionBox || !BinaryHelper.bufEqual(superBox.descriptionBox.uuid, raw.UUIDs.manifestStore))
-            throw new ValidationError(
-                ValidationStatusCode.ClaimRequiredMissing,
-                superBox,
-                'Manifest store has wrong UUID',
-            );
+            throw new ValidationError(ValidationStatusCode.GeneralError, superBox, 'Manifest store has wrong UUID');
         if (!superBox.descriptionBox.label)
             throw new ValidationError(
-                ValidationStatusCode.ClaimRequiredMissing,
+                ValidationStatusCode.GeneralError,
                 superBox,
                 'Manifest store box is missing the label',
             );
@@ -117,7 +112,7 @@ export class ManifestStore {
         } catch (err) {
             if (err instanceof ValidationError) throw err;
             const message = err instanceof Error ? err.message : String(err);
-            throw new ValidationError(ValidationStatusCode.ClaimRequiredMissing, superBox, message);
+            throw new ValidationError(ValidationStatusCode.GeneralError, superBox, message);
         }
 
         return manifestStore;
@@ -125,6 +120,7 @@ export class ManifestStore {
 
     public generateJUMBFBox(): JUMBF.SuperBox {
         this.verifyUniqueLabels();
+        this.verifyUniqueInstanceIds();
 
         const box = new JUMBF.SuperBox();
         box.descriptionBox = new JUMBF.DescriptionBox();
@@ -145,7 +141,7 @@ export class ManifestStore {
         if (activeManifest) {
             return activeManifest.validate(asset);
         } else {
-            return ValidationResult.error(ValidationStatusCode.ClaimRequiredMissing, this.sourceBox);
+            return ValidationResult.error(ValidationStatusCode.ClaimCBORInvalid, this.sourceBox);
         }
     }
 
@@ -160,5 +156,24 @@ export class ManifestStore {
                 if (labels.has(label)) throw new Error(`Duplicate label ${label} in manifest ${index}`);
                 return labels.add(label);
             }, new Set<string>());
+    }
+
+    /**
+     * verify that all manifest instance IDs are set and unique
+     */
+    private verifyUniqueInstanceIds(): void {
+        const instanceIds = new Set<string>();
+        for (const manifest of this.manifests) {
+            if (manifest.claim?.instanceID) {
+                if (instanceIds.has(manifest.claim.instanceID)) {
+                    throw new ValidationError(
+                        ValidationStatusCode.ClaimMultiple,
+                        manifest.sourceBox,
+                        `Duplicate instance ID: ${manifest.claim.instanceID}`,
+                    );
+                }
+                instanceIds.add(manifest.claim.instanceID);
+            }
+        }
     }
 }
