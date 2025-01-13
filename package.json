@@ -1,6 +1,6 @@
 {
   "name": "@trustnxt/c2pa-ts",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "type": "module",
   "author": "TrustNXT GmbH <mail@trustnxt.com>",
   "license": "Apache-2.0",
