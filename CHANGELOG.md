@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.6.0
+
+### Minor Changes
+
+- 097fab2: C2PA v2.1 Updates - ingredients assertion v3
+
 ## 0.5.4
 
 ### Patch Changes
