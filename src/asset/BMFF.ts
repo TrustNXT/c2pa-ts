@@ -176,6 +176,34 @@ export class BMFF extends BaseAsset implements Asset {
 
         box.fillManifestContent(this.data, jumbf);
     }
+
+    /**
+     * Retrieves all boxes matching the provided xpath
+     * @param xpath
+     */
+    public getBoxesByPath(xpath: string): BMFFBox<object>[] {
+        const pathParts = xpath.split('/');
+        if (pathParts.length < 2 || pathParts[0] !== '') return [];
+
+        let boxes = this.boxes;
+        let results: BMFFBox<object>[] = [];
+
+        for (let i = 1; i < pathParts.length; i++) {
+            const isLastPart = i === pathParts.length - 1;
+            const matchingBoxes = boxes.filter(box => box.type === pathParts[i]);
+
+            if (matchingBoxes.length === 0) return [];
+
+            if (isLastPart) {
+                results = matchingBoxes;
+            } else {
+                // For intermediate paths, collect child boxes for next iteration
+                boxes = matchingBoxes.flatMap(box => box.childBoxes);
+            }
+        }
+
+        return results;
+    }
 }
 
 class BoxReader {
