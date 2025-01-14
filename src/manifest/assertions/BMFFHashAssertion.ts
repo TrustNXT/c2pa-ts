@@ -11,6 +11,8 @@ import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 import { AssertionUtils } from './AssertionUtils';
 
+const DEFAULT_ASSERTION_VERSION = 3;
+
 interface DataMap {
     offset: number;
     value: Uint8Array;
@@ -51,7 +53,7 @@ interface RawDataHashMap {
 }
 
 export class BMFFHashAssertion extends Assertion {
-    public label = AssertionLabels.bmffV2Hash;
+    private _version: number = DEFAULT_ASSERTION_VERSION;
     public uuid = raw.UUIDs.cborAssertion;
 
     public exclusions: Exclusion[] = [];
@@ -60,10 +62,38 @@ export class BMFFHashAssertion extends Assertion {
     public name: string | undefined;
     public merkle?: RawMerkleMap[];
 
-    public setVersion(version: 2 | 3) {
-        this.label = version === 3 ? AssertionLabels.bmffV3Hash : AssertionLabels.bmffV2Hash;
+    constructor(version?: number) {
+        super();
+        this._version = version ?? DEFAULT_ASSERTION_VERSION;
+        this.setLabelBasedOnVersion();
     }
 
+    private setLabelBasedOnVersion() {
+        switch (this._version) {
+            case 2:
+                this.label = AssertionLabels.bmffV2Hash;
+                break;
+            case 3:
+                this.label = AssertionLabels.bmffV3Hash;
+                break;
+            default:
+                throw new Error('Unsupported BMFF hash version');
+        }
+    }
+
+    /**
+     * Gets the version of the assertion based on its label.
+     * @returns {number} The version of the assertion.
+     */
+    public get version(): number {
+        return this._version;
+    }
+
+    /**
+     * Reads content from a JUMBF box and populates the assertion properties.
+     * @param box - The JUMBF box containing the assertion data.
+     * @throws {ValidationError} If the box is not a valid CBOR box or if the content is invalid.
+     */
     public readContentFromJUMBF(box: JUMBF.IBox): void {
         if (!(box instanceof JUMBF.CBORBox) || !this.uuid || !BinaryHelper.bufEqual(this.uuid, raw.UUIDs.cborAssertion))
             throw new ValidationError(
@@ -88,6 +118,10 @@ export class BMFFHashAssertion extends Assertion {
         }
     }
 
+    /**
+     * Generates a JUMBF box containing the assertion content.
+     * @returns {JUMBF.IBox} The generated JUMBF box.
+     */
     public generateJUMBFBoxForContent(): JUMBF.IBox {
         const box = new JUMBF.CBORBox();
         box.content = {
@@ -100,6 +134,11 @@ export class BMFFHashAssertion extends Assertion {
         return box;
     }
 
+    /**
+     * Validates the assertion against a given asset.
+     * @param asset - The asset to validate against.
+     * @returns {Promise<ValidationResult>} The result of the validation.
+     */
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
         if (!this.hash || !this.algorithm) {
             return ValidationResult.error(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
@@ -224,24 +263,31 @@ export class BMFFHashAssertion extends Assertion {
         const result = new ValidationResult();
 
         for (const tree of this.merkle!) {
-            // Validate initialization segment if present
-            if (tree.initHash) {
-                const initHash = await this.hashInitializationSegment(asset, tree.localId);
-                if (!BinaryHelper.bufEqual(initHash, tree.initHash)) {
-                    result.addError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
-                    return result;
+            // Per spec 15.12.2.1: Validate count matches hashes length
+            if (tree.count !== tree.hashes.length) {
+                return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMalformed, this.sourceBox);
+            }
+
+            // Per spec 15.12.2: For non-fragmented MP4, validate mdat chunks
+            const chunks = await this.getChunks(asset, tree);
+            if (chunks.length !== tree.count) {
+                return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMalformed, this.sourceBox);
+            }
+
+            // Per spec 15.12.2.1: Compare leaf node hashes directly
+            const leafHashes = await Promise.all(chunks.map(chunk => Crypto.digest(chunk, this.algorithm!)));
+            for (let i = 0; i < leafHashes.length; i++) {
+                if (!BinaryHelper.bufEqual(leafHashes[i], tree.hashes[i])) {
+                    return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
                 }
             }
 
-            // Get chunks based on fixedBlockSize or variableBlockSizes
-            const chunks = await this.getChunks(asset, tree);
-            const leafHashes = await Promise.all(chunks.map(chunk => Crypto.digest(chunk, this.algorithm!)));
-
-            // Verify Merkle tree
-            const rootHash = await this.computeMerkleRoot(leafHashes, tree.hashes);
-            if (!this.hash || !BinaryHelper.bufEqual(rootHash, this.hash)) {
-                result.addError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
-                return result;
+            // Per spec 15.12.2.1: If initHash is present, validate initialization segment
+            if (tree.initHash) {
+                const initHash = await this.hashInitializationSegment(asset, tree.localId);
+                if (!BinaryHelper.bufEqual(initHash, tree.initHash)) {
+                    return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
+                }
             }
         }
 
@@ -274,117 +320,27 @@ export class BMFFHashAssertion extends Assertion {
 
     private async getChunks(asset: BMFF, tree: RawMerkleMap): Promise<Uint8Array[]> {
         const chunks: Uint8Array[] = [];
-        const track = await this.getTrackById(asset, tree.localId);
+        const mdatBox = asset.getBoxByPath('mdat');
 
-        if (!track) {
-            throw new ValidationError(
-                ValidationStatusCode.AssertionBMFFHashMismatch,
-                this.sourceBox,
-                'Track not found',
-            );
+        if (!mdatBox) {
+            throw new ValidationError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox, 'mdat not found');
         }
 
+        // Per spec 15.12.2: Handle fixed and variable size blocks
         if (tree.fixedBlockSize) {
-            // Fixed size blocks for mdat
-            const mdatBox = asset.getBoxByPath('mdat');
-            if (!mdatBox) {
-                throw new ValidationError(
-                    ValidationStatusCode.AssertionBMFFHashMismatch,
-                    this.sourceBox,
-                    'mdat not found',
-                );
-            }
-
             let offset = mdatBox.offset;
             for (let i = 0; i < tree.count; i++) {
                 chunks.push(await asset.getDataRange(offset, tree.fixedBlockSize));
                 offset += tree.fixedBlockSize;
             }
         } else if (tree.variableBlockSizes) {
-            // Variable size blocks based on sample sizes
-            let offset = 0;
+            let offset = mdatBox.offset;
             for (const size of tree.variableBlockSizes) {
                 chunks.push(await asset.getDataRange(offset, size));
                 offset += size;
             }
-        } else {
-            // Fragment-based chunks
-            const moofBoxes = asset.getBoxesByPath('moof');
-            const mdatBoxes = asset.getBoxesByPath('mdat');
-
-            if (moofBoxes.length !== mdatBoxes.length) {
-                throw new ValidationError(
-                    ValidationStatusCode.AssertionBMFFHashMismatch,
-                    this.sourceBox,
-                    'Mismatched moof/mdat count',
-                );
-            }
-
-            for (let i = 0; i < moofBoxes.length; i++) {
-                const fragmentData = await asset.getDataRange(
-                    moofBoxes[i].offset,
-                    moofBoxes[i].size + mdatBoxes[i].size,
-                );
-                chunks.push(fragmentData);
-            }
         }
 
         return chunks;
-    }
-
-    private async getTrackById(asset: BMFF, trackId: number): Promise<BMFFBox<object> | undefined> {
-        const moov = asset.getBoxByPath('moov');
-        if (!moov) return undefined;
-
-        const tracks = asset.getBoxesByPath('moov/trak');
-        return tracks.find(track => {
-            const tkhd = asset.getBoxByPath(`moov/trak[${trackId}]/tkhd`);
-            return tkhd && 'trackId' in tkhd.payload && tkhd.payload.trackId === trackId;
-        });
-    }
-
-    private async computeMerkleRoot(leafHashes: Uint8Array[], treeHashes: Uint8Array[]): Promise<Uint8Array> {
-        if (!this.algorithm) {
-            throw new Error('No algorithm specified');
-        }
-
-        let currentLevel = leafHashes;
-        let treeHashIndex = 0;
-
-        while (currentLevel.length > 1) {
-            const nextLevel: Uint8Array[] = [];
-
-            for (let i = 0; i < currentLevel.length; i += 2) {
-                const left = currentLevel[i];
-                const right = i + 1 < currentLevel.length ? currentLevel[i + 1] : left;
-
-                // Verify against provided tree hash
-                const expectedHash = treeHashes[treeHashIndex++];
-                if (!expectedHash) {
-                    throw new ValidationError(
-                        ValidationStatusCode.AssertionBMFFHashMismatch,
-                        this.sourceBox,
-                        'Invalid Merkle tree structure',
-                    );
-                }
-
-                const combined = Buffer.concat([left, right]);
-                const nodeHash = await Crypto.digest(combined, this.algorithm);
-
-                if (!BinaryHelper.bufEqual(nodeHash, expectedHash)) {
-                    throw new ValidationError(
-                        ValidationStatusCode.AssertionBMFFHashMismatch,
-                        this.sourceBox,
-                        'Merkle tree verification failed',
-                    );
-                }
-
-                nextLevel.push(nodeHash);
-            }
-
-            currentLevel = nextLevel;
-        }
-
-        return currentLevel[0];
     }
 }
