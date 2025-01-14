@@ -11,19 +11,21 @@ import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 import { AssertionUtils } from './AssertionUtils';
 
+interface DataMap {
+    offset: number;
+    value: Uint8Array;
+}
+
+interface SubsetMap {
+    offset: number;
+    length: number;
+}
+
 interface Exclusion {
     xpath: string;
     length?: number;
-    offset?: number;
-    blockSize?: number;
-    data?: {
-        offset: number;
-        value: Uint8Array;
-    }[];
-    subset?: {
-        offset: number;
-        length: number;
-    }[];
+    data?: DataMap[];
+    subset?: SubsetMap[];
     version?: number;
     flags?: Uint8Array;
     exact?: boolean;
@@ -81,14 +83,21 @@ export class BMFFHashAssertion extends Assertion {
             for (const exclusion of content.exclusions) {
                 if (!exclusion.xpath)
                     throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
-
                 this.exclusions.push(exclusion);
             }
         }
     }
 
     public generateJUMBFBoxForContent(): JUMBF.IBox {
-        throw new Error('Method not implemented.');
+        const box = new JUMBF.CBORBox();
+        box.content = {
+            exclusions: this.exclusions,
+            alg: Claim.reverseMapHashAlgorithm(this.algorithm),
+            hash: this.hash,
+            merkle: this.merkle,
+            name: this.name,
+        };
+        return box;
     }
 
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
@@ -100,114 +109,16 @@ export class BMFFHashAssertion extends Assertion {
             return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
         }
 
-        // Handle Merkle tree validation if present
         if (this.merkle?.length) {
             return this.validateMerkleTree(asset);
         }
 
-        // Regular hash validation
         const hash = await this.hashBMFFWithExclusions(asset);
         if (BinaryHelper.bufEqual(hash, this.hash)) {
             return ValidationResult.success(ValidationStatusCode.AssertionBMFFHashMatch, this.sourceBox);
         } else {
             return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
         }
-    }
-
-    private async validateMerkleTree(asset: BMFF): Promise<ValidationResult> {
-        const result = new ValidationResult();
-
-        for (const tree of this.merkle!) {
-            // Validate initialization segment if present
-            if (tree.initHash) {
-                const initSegment = await this.getInitializationSegment(asset, tree.localId);
-                const initHash = await Crypto.digest(initSegment, this.algorithm!);
-                if (!BinaryHelper.bufEqual(initHash, tree.initHash)) {
-                    result.addError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
-                    return result;
-                }
-            }
-
-            // Validate each chunk against Merkle tree
-            const chunks = await this.getChunks(asset, tree);
-            const leafHashes = await Promise.all(chunks.map(chunk => Crypto.digest(chunk, this.algorithm!)));
-
-            // Verify Merkle tree
-            const rootHash = await this.computeMerkleRoot(leafHashes, tree.hashes);
-            if (!this.hash || !BinaryHelper.bufEqual(rootHash, this.hash)) {
-                result.addError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
-                return result;
-            }
-        }
-
-        return ValidationResult.success(ValidationStatusCode.AssertionBMFFHashMatch, this.sourceBox);
-    }
-
-    private async getInitializationSegment(asset: BMFF, trackId: number): Promise<Uint8Array> {
-        const initBox = asset.getBoxByPath(`moov/trak${trackId}/moof`);
-        if (!initBox) {
-            throw new Error('Initialization segment not found');
-        }
-        return asset.getDataRange(initBox.offset, initBox.size);
-    }
-
-    private async getChunks(asset: BMFF, tree: RawMerkleMap): Promise<Uint8Array[]> {
-        const chunks: Uint8Array[] = [];
-        let offset = 0;
-
-        if (tree.fixedBlockSize) {
-            // Fixed size blocks
-            for (let i = 0; i < tree.count; i++) {
-                chunks.push(await asset.getDataRange(offset, tree.fixedBlockSize));
-                offset += tree.fixedBlockSize;
-            }
-        } else if (tree.variableBlockSizes) {
-            // Variable size blocks
-            for (const size of tree.variableBlockSizes) {
-                chunks.push(await asset.getDataRange(offset, size));
-                offset += size;
-            }
-        }
-
-        return chunks;
-    }
-
-    private async computeMerkleRoot(leafHashes: Uint8Array[], treeHashes: Uint8Array[]): Promise<Uint8Array> {
-        if (!this.algorithm) {
-            throw new Error('No algorithm specified');
-        }
-
-        // Build Merkle tree bottom-up
-        let currentLevel = leafHashes;
-        let treeHashIndex = 0;
-
-        while (currentLevel.length > 1) {
-            const nextLevel: Uint8Array[] = [];
-
-            // Process pairs of nodes
-            for (let i = 0; i < currentLevel.length; i += 2) {
-                const left = currentLevel[i];
-                const right = i + 1 < currentLevel.length ? currentLevel[i + 1] : left;
-                const expectedHash = treeHashes[treeHashIndex++];
-
-                if (!left || !right || !expectedHash) {
-                    throw new Error('Invalid Merkle tree data');
-                }
-
-                const combined = Buffer.concat([left, right]);
-                const nodeHash = await Crypto.digest(combined, this.algorithm);
-
-                if (!BinaryHelper.bufEqual(nodeHash, expectedHash)) {
-                    throw new Error('Merkle tree verification failed');
-                }
-
-                nextLevel.push(nodeHash);
-            }
-
-            currentLevel = nextLevel;
-        }
-
-        return currentLevel[0]; // Root hash
     }
 
     private async getMatchingBoxForExclusion(exclusion: Exclusion, asset: BMFF): Promise<BMFFBox<object> | undefined> {
@@ -261,33 +172,23 @@ export class BMFFHashAssertion extends Assertion {
 
     private async hashBMFFWithExclusions(asset: BMFF): Promise<Uint8Array> {
         if (!this.algorithm) {
-            throw new Error('No algorithm specified');
+            throw new ValidationError(
+                ValidationStatusCode.AssertionCBORInvalid,
+                this.sourceBox,
+                'No algorithm specified',
+            );
         }
 
-        const exclusionRanges: HashExclusionRange[] = [];
+        // For any top-level boxes that aren't excluded in their entirety, an offset marker needs to be added to the hash stream
         const markers = new Set(asset.getTopLevelBoxes().map(box => box.offset));
+
+        const exclusionRanges: HashExclusionRange[] = [];
 
         for (const exclusion of this.exclusions) {
             const box = await this.getMatchingBoxForExclusion(exclusion, asset);
             if (!box) continue;
 
-            if (exclusion.blockSize) {
-                // v3: Handle variable block sizes
-                const startOffset = box.offset + (exclusion.offset ?? 0);
-                const length = exclusion.length ?? box.size;
-                let currentOffset = startOffset;
-                const endOffset = startOffset + length;
-
-                while (currentOffset < endOffset) {
-                    const blockLength = Math.min(exclusion.blockSize, endOffset - currentOffset);
-                    exclusionRanges.push({
-                        start: currentOffset,
-                        length: blockLength,
-                    });
-                    currentOffset += blockLength;
-                }
-            } else if (exclusion.subset) {
-                // v2: Handle subsets
+            if (exclusion.subset) {
                 for (const subset of exclusion.subset) {
                     if (subset.offset > box.size) continue;
                     exclusionRanges.push({
@@ -299,24 +200,191 @@ export class BMFFHashAssertion extends Assertion {
                     });
                 }
             } else {
-                // Handle full box exclusion
                 markers.delete(box.offset);
+
                 exclusionRanges.push({
-                    start: box.offset + (exclusion.offset ?? 0),
-                    length: exclusion.length ?? box.size,
+                    start: box.offset,
+                    length: box.size,
                 });
             }
         }
 
-        // Add offset markers for non-excluded boxes
-        for (const offset of markers) {
+        for (const marker of markers) {
             exclusionRanges.push({
-                start: offset,
+                start: marker,
                 length: 0,
                 offsetMarker: true,
             });
         }
 
         return AssertionUtils.hashWithExclusions(asset, exclusionRanges, this.algorithm);
+    }
+
+    private async validateMerkleTree(asset: BMFF): Promise<ValidationResult> {
+        const result = new ValidationResult();
+
+        for (const tree of this.merkle!) {
+            // Validate initialization segment if present
+            if (tree.initHash) {
+                const initHash = await this.hashInitializationSegment(asset, tree.localId);
+                if (!BinaryHelper.bufEqual(initHash, tree.initHash)) {
+                    result.addError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
+                    return result;
+                }
+            }
+
+            // Get chunks based on fixedBlockSize or variableBlockSizes
+            const chunks = await this.getChunks(asset, tree);
+            const leafHashes = await Promise.all(chunks.map(chunk => Crypto.digest(chunk, this.algorithm!)));
+
+            // Verify Merkle tree
+            const rootHash = await this.computeMerkleRoot(leafHashes, tree.hashes);
+            if (!this.hash || !BinaryHelper.bufEqual(rootHash, this.hash)) {
+                result.addError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
+                return result;
+            }
+        }
+
+        result.addInformational(ValidationStatusCode.AssertionBMFFHashMatch, this.sourceBox);
+        return result;
+    }
+
+    private async hashInitializationSegment(asset: BMFF, trackId: number): Promise<Uint8Array> {
+        const exclusions = await this.getInitSegmentExclusions(asset);
+        return AssertionUtils.hashWithExclusions(asset, exclusions, this.algorithm!);
+    }
+
+    private async getInitSegmentExclusions(asset: BMFF): Promise<HashExclusionRange[]> {
+        const exclusions: HashExclusionRange[] = [];
+
+        for (const exclusion of this.exclusions) {
+            if (exclusion.xpath === '/uuid' || exclusion.xpath === '/ftyp' || exclusion.xpath === '/moov[1]/pssh') {
+                const box = await this.getMatchingBoxForExclusion(exclusion, asset);
+                if (box) {
+                    exclusions.push({
+                        start: box.offset,
+                        length: box.size,
+                    });
+                }
+            }
+        }
+
+        return exclusions;
+    }
+
+    private async getChunks(asset: BMFF, tree: RawMerkleMap): Promise<Uint8Array[]> {
+        const chunks: Uint8Array[] = [];
+        const track = await this.getTrackById(asset, tree.localId);
+
+        if (!track) {
+            throw new ValidationError(
+                ValidationStatusCode.AssertionBMFFHashMismatch,
+                this.sourceBox,
+                'Track not found',
+            );
+        }
+
+        if (tree.fixedBlockSize) {
+            // Fixed size blocks for mdat
+            const mdatBox = asset.getBoxByPath('mdat');
+            if (!mdatBox) {
+                throw new ValidationError(
+                    ValidationStatusCode.AssertionBMFFHashMismatch,
+                    this.sourceBox,
+                    'mdat not found',
+                );
+            }
+
+            let offset = mdatBox.offset;
+            for (let i = 0; i < tree.count; i++) {
+                chunks.push(await asset.getDataRange(offset, tree.fixedBlockSize));
+                offset += tree.fixedBlockSize;
+            }
+        } else if (tree.variableBlockSizes) {
+            // Variable size blocks based on sample sizes
+            let offset = 0;
+            for (const size of tree.variableBlockSizes) {
+                chunks.push(await asset.getDataRange(offset, size));
+                offset += size;
+            }
+        } else {
+            // Fragment-based chunks
+            const moofBoxes = asset.getBoxesByPath('moof');
+            const mdatBoxes = asset.getBoxesByPath('mdat');
+
+            if (moofBoxes.length !== mdatBoxes.length) {
+                throw new ValidationError(
+                    ValidationStatusCode.AssertionBMFFHashMismatch,
+                    this.sourceBox,
+                    'Mismatched moof/mdat count',
+                );
+            }
+
+            for (let i = 0; i < moofBoxes.length; i++) {
+                const fragmentData = await asset.getDataRange(
+                    moofBoxes[i].offset,
+                    moofBoxes[i].size + mdatBoxes[i].size,
+                );
+                chunks.push(fragmentData);
+            }
+        }
+
+        return chunks;
+    }
+
+    private async getTrackById(asset: BMFF, trackId: number): Promise<BMFFBox<object> | undefined> {
+        const moov = asset.getBoxByPath('moov');
+        if (!moov) return undefined;
+
+        const tracks = asset.getBoxesByPath('moov/trak');
+        return tracks.find(track => {
+            const tkhd = asset.getBoxByPath(`moov/trak[${trackId}]/tkhd`);
+            return tkhd && 'trackId' in tkhd.payload && tkhd.payload.trackId === trackId;
+        });
+    }
+
+    private async computeMerkleRoot(leafHashes: Uint8Array[], treeHashes: Uint8Array[]): Promise<Uint8Array> {
+        if (!this.algorithm) {
+            throw new Error('No algorithm specified');
+        }
+
+        let currentLevel = leafHashes;
+        let treeHashIndex = 0;
+
+        while (currentLevel.length > 1) {
+            const nextLevel: Uint8Array[] = [];
+
+            for (let i = 0; i < currentLevel.length; i += 2) {
+                const left = currentLevel[i];
+                const right = i + 1 < currentLevel.length ? currentLevel[i + 1] : left;
+
+                // Verify against provided tree hash
+                const expectedHash = treeHashes[treeHashIndex++];
+                if (!expectedHash) {
+                    throw new ValidationError(
+                        ValidationStatusCode.AssertionBMFFHashMismatch,
+                        this.sourceBox,
+                        'Invalid Merkle tree structure',
+                    );
+                }
+
+                const combined = Buffer.concat([left, right]);
+                const nodeHash = await Crypto.digest(combined, this.algorithm);
+
+                if (!BinaryHelper.bufEqual(nodeHash, expectedHash)) {
+                    throw new ValidationError(
+                        ValidationStatusCode.AssertionBMFFHashMismatch,
+                        this.sourceBox,
+                        'Merkle tree verification failed',
+                    );
+                }
+
+                nextLevel.push(nodeHash);
+            }
+
+            currentLevel = nextLevel;
+        }
+
+        return currentLevel[0];
     }
 }
