@@ -1,24 +1,36 @@
 /* eslint-disable @typescript-eslint/dot-notation */
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { BMFF, BMFFBox } from '../../../src/asset';
+import { Crypto } from '../../../src/crypto';
 import { HashAlgorithm } from '../../../src/crypto/types';
 import { CBORBox, DescriptionBox, SuperBox } from '../../../src/jumbf';
 import { BMFFHashAssertion, Claim, ValidationStatusCode } from '../../../src/manifest';
 import { AssertionLabels } from '../../../src/manifest/assertions/AssertionLabels';
 import * as raw from '../../../src/manifest/rawTypes';
 
+const baseDir = 'tests/fixtures';
+
 function createBMFFMock(): Uint8Array {
     /* prettier-ignore */
-    const bmffHeader = new Uint8Array([
+    const data = new Uint8Array([
+        // ftyp box (24 bytes total)
         0x00, 0x00, 0x00, 0x18, // Box size (24 bytes)
         0x66, 0x74, 0x79, 0x70, // Box type 'ftyp'
         0x68, 0x65, 0x69, 0x63, // Major brand 'heic'
         0x00, 0x00, 0x00, 0x01, // Minor version
         0x68, 0x65, 0x69, 0x63, // Compatible brands 'heic'
-        0x6d, 0x69, 0x66, 0x31  // Compatible brands 'mif1'
+        0x6d, 0x69, 0x66, 0x31, // Compatible brands 'mif1'
+
+        // mdat box (16 bytes total)
+        0x00, 0x00, 0x00, 0x10, // Box size (16 bytes)
+        0x6d, 0x64, 0x61, 0x74, // Box type 'mdat'
+        0x00, 0x01, 0x02, 0x03, // Data block 1 (4 bytes)
+        0x04, 0x05, 0x06, 0x07, // Data block 2 (4 bytes)
     ]);
 
-    return bmffHeader;
+    return data;
 }
 
 describe('BMFFHashAssertion Tests', function () {
@@ -190,5 +202,75 @@ describe('BMFFHashAssertion Tests', function () {
         const result = await assertion.validateAgainstAsset(mockAsset);
         assert.equal(result.isValid, false);
         assert.equal(result.statusEntries[0].code, ValidationStatusCode.AssertionBMFFHashMismatch);
+    });
+
+    it('should correctly hash HEIC file with v2 assertion', async () => {
+        const filePath = path.join(baseDir, 'trustnxt-icon.heic');
+        const heicData = new Uint8Array(await fs.readFile(filePath));
+        const asset = new BMFF(heicData);
+        const v2Assertion = new BMFFHashAssertion(2);
+        v2Assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        v2Assertion.exclusions = [{ xpath: '/uuid' }];
+
+        const hash = await v2Assertion['hashBMFFWithExclusions'](asset);
+        assert.ok(hash instanceof Uint8Array);
+        assert.ok(hash.length > 0);
+    });
+
+    it('should correctly handle v3 merkle tree validation', async () => {
+        const mockAsset = new BMFF(createBMFFMock());
+        const v3Assertion = new BMFFHashAssertion(3);
+        v3Assertion.algorithm = 'SHA-256' as HashAlgorithm;
+
+        // Get the mdat box to find its correct offset
+        const mdatBox = mockAsset.getBoxByPath('/mdat');
+        assert.ok(mdatBox, 'mdat box not found');
+
+        // Data starts after the box header (8 bytes)
+        const dataOffset = mdatBox.offset + 8;
+
+        v3Assertion.merkle = [
+            {
+                uniqueId: 1,
+                localId: 1,
+                count: 2,
+                hashes: [
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset, 4), 'SHA-256' as HashAlgorithm),
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset + 4, 4), 'SHA-256' as HashAlgorithm),
+                ] as Uint8Array[],
+                fixedBlockSize: 4,
+            },
+        ];
+
+        const result = await v3Assertion['validateMerkleTree'](mockAsset);
+        assert.ok(result.isValid);
+    });
+
+    it('should handle variable block sizes in merkle tree', async () => {
+        const mockAsset = new BMFF(createBMFFMock());
+        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+
+        // Get the mdat box to find its correct offset
+        const mdatBox = mockAsset.getBoxByPath('/mdat');
+        assert.ok(mdatBox, 'mdat box not found');
+
+        // Data starts after the box header (8 bytes)
+        const dataOffset = mdatBox.offset + 8;
+
+        assertion.merkle = [
+            {
+                uniqueId: 1,
+                localId: 1,
+                count: 2,
+                variableBlockSizes: [4, 4],
+                hashes: [
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset, 4), 'SHA-256' as HashAlgorithm),
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset + 4, 4), 'SHA-256' as HashAlgorithm),
+                ] as Uint8Array[],
+            },
+        ];
+
+        const result = await assertion['validateMerkleTree'](mockAsset);
+        assert.ok(result.isValid);
     });
 });
