@@ -33,7 +33,7 @@ function createBMFFMock(): Uint8Array {
     return data;
 }
 
-describe('BMFFHashAssertion Tests', function () {
+describe('BMFFHashAssertion Mock Tests', function () {
     this.timeout(0);
 
     let assertion: BMFFHashAssertion;
@@ -204,19 +204,6 @@ describe('BMFFHashAssertion Tests', function () {
         assert.equal(result.statusEntries[0].code, ValidationStatusCode.AssertionBMFFHashMismatch);
     });
 
-    it('should correctly hash HEIC file with v2 assertion', async () => {
-        const filePath = path.join(baseDir, 'trustnxt-icon.heic');
-        const heicData = new Uint8Array(await fs.readFile(filePath));
-        const asset = new BMFF(heicData);
-        const v2Assertion = new BMFFHashAssertion(2);
-        v2Assertion.algorithm = 'SHA-256' as HashAlgorithm;
-        v2Assertion.exclusions = [{ xpath: '/uuid' }];
-
-        const hash = await v2Assertion['hashBMFFWithExclusions'](asset);
-        assert.ok(hash instanceof Uint8Array);
-        assert.ok(hash.length > 0);
-    });
-
     it('should correctly handle v3 merkle tree validation', async () => {
         const mockAsset = new BMFF(createBMFFMock());
         const v3Assertion = new BMFFHashAssertion(3);
@@ -272,5 +259,114 @@ describe('BMFFHashAssertion Tests', function () {
 
         const result = await assertion['validateMerkleTree'](mockAsset);
         assert.ok(result.isValid);
+    });
+});
+
+describe('BMFFHashAssertion v2 Tests', function () {
+    this.timeout(0);
+
+    it('should correctly hash HEIC file with v2 assertion', async () => {
+        const filePath = path.join(baseDir, 'trustnxt-icon.heic');
+        const heicData = new Uint8Array(await fs.readFile(filePath));
+        const asset = new BMFF(heicData);
+        const v2Assertion = new BMFFHashAssertion(2);
+        v2Assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        v2Assertion.exclusions = [{ xpath: '/uuid' }];
+
+        const hash = await v2Assertion['hashBMFFWithExclusions'](asset);
+        assert.ok(hash instanceof Uint8Array);
+        assert.ok(hash.length > 0);
+    });
+});
+
+describe('BMFFHashAssertion v3 Tests', function () {
+    this.timeout(0);
+
+    let assertion: BMFFHashAssertion;
+    let superBox: SuperBox;
+    let signedHeicData: Uint8Array;
+    let signedHeicAsset: BMFF;
+
+    const findHashAssertion = (box: SuperBox): SuperBox | undefined => {
+        if (box.descriptionBox?.label === 'c2pa.hash.data') {
+            return box;
+        }
+        for (const content of box.contentBoxes) {
+            if (content instanceof SuperBox) {
+                const found = findHashAssertion(content);
+                if (found) return found;
+            }
+        }
+        return undefined;
+    };
+
+    before(async () => {
+        const filePath = path.join(baseDir, 'trustnxt-icon-signed-v3.heic');
+        signedHeicData = new Uint8Array(await fs.readFile(filePath));
+        signedHeicAsset = new BMFF(signedHeicData);
+    });
+
+    beforeEach(() => {
+        assertion = new BMFFHashAssertion(3);
+        superBox = new SuperBox();
+        superBox.descriptionBox = new DescriptionBox();
+        superBox.descriptionBox.label = AssertionLabels.bmffV3Hash;
+        superBox.descriptionBox.uuid = raw.UUIDs.cborAssertion;
+    });
+
+    it('should validate v3 hash assertion from signed HEIC', async () => {
+        const jumbf = signedHeicAsset.getManifestJUMBF();
+        assert.ok(jumbf, 'No JUMBF found in signed HEIC');
+
+        const manifestBox = SuperBox.fromBuffer(jumbf);
+
+        const hashAssertion = findHashAssertion(manifestBox);
+        assert.ok(hashAssertion, 'No hash assertion found in manifest');
+        assertion.readFromJUMBF(hashAssertion, new Claim());
+
+        const result = await assertion.validateAgainstAsset(signedHeicAsset);
+        assert.ok(result.isValid);
+    });
+
+    it('should correctly validate merkle tree in signed HEIC', async () => {
+        const jumbf = signedHeicAsset.getManifestJUMBF();
+        assert.ok(jumbf, 'No JUMBF found in signed HEIC');
+
+        const manifestBox = SuperBox.fromBuffer(jumbf);
+
+        const hashAssertion = findHashAssertion(manifestBox);
+        assert.ok(hashAssertion, 'No hash assertion found in manifest');
+        assertion.readFromJUMBF(hashAssertion, new Claim());
+        assert.ok(assertion.merkle, 'No merkle tree found in assertion');
+
+        const result = await assertion['validateMerkleTree'](signedHeicAsset);
+        assert.ok(result.isValid);
+    });
+
+    it('should construct an assertion from a JUMBF box', () => {
+        const cborBox = new CBORBox();
+        cborBox.content = {
+            exclusions: [{ xpath: '/uuid' }],
+            alg: 'sha256',
+            hash: new Uint8Array([1, 2, 3, 4]),
+            name: 'Test BMFF Hash',
+        };
+        superBox.contentBoxes.push(cborBox);
+
+        assertion.readFromJUMBF(superBox, new Claim());
+        assert.equal(assertion.algorithm, 'SHA-256');
+        assert.equal(assertion.name, 'Test BMFF Hash');
+        assert.equal(assertion.exclusions.length, 1);
+    });
+
+    it('should generate a JUMBF box from the assertion', () => {
+        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.hash = new Uint8Array([1, 2, 3, 4]);
+        assertion.name = 'Test BMFF Hash';
+        assertion.exclusions = [{ xpath: '/uuid' }];
+
+        const box = assertion.generateJUMBFBox(new Claim());
+        assert.ok(box.descriptionBox);
+        assert.equal(box.descriptionBox.label, AssertionLabels.bmffV3Hash);
     });
 });

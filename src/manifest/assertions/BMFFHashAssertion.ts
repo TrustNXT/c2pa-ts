@@ -113,6 +113,7 @@ export class BMFFHashAssertion extends Assertion {
             for (const exclusion of content.exclusions) {
                 if (!exclusion.xpath)
                     throw new ValidationError(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
+
                 this.exclusions.push(exclusion);
             }
         }
