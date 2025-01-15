@@ -11,7 +11,6 @@ interface RawAction {
     action: ActionType | string;
     // `when` currently not implemented
     softwareAgent?: string;
-    reason?: ActionReason | string;
     changed?: string;
     instanceID?: string;
     parameters?: {
@@ -30,13 +29,13 @@ interface RawActionsMap {
 interface RawActionV2 {
     action: ActionType | string;
     softwareAgent?: raw.ClaimGeneratorInfo;
+    softwareAgentIndex?: number;
     description?: string;
     digitalSourceType?: DigitalSourceType;
     // `when` currently not implemented
-    // `changed` currently not implemented
+    // `changes` currently not implemented
     // `related` currently not implemented
     reason?: ActionReason | string;
-    instanceID?: string;
     parameters?: {
         [key: string]: unknown;
         instanceID?: string;
@@ -48,6 +47,7 @@ interface RawActionV2 {
 interface RawTemplateV2 {
     action: ActionType | string;
     softwareAgent?: raw.ClaimGeneratorInfo;
+    softwareAgentIndex?: number;
     description?: string;
     digitalSourceType?: DigitalSourceType;
     icon?: raw.HashedURI; // TODO could also be extURI
@@ -57,6 +57,7 @@ interface RawTemplateV2 {
 interface RawActionsMapV2 {
     actions: RawActionV2[];
     templates?: RawTemplateV2[];
+    softwareAgents?: raw.ClaimGeneratorInfo[];
     metadata?: raw.AssertionMetadataMap;
 }
 
@@ -89,23 +90,20 @@ export class ActionAssertion extends Assertion {
         for (const rawAction of rawContent.actions) {
             const action: Action = {
                 action: rawAction.action as ActionType,
-                reason: rawAction.reason,
-                instanceID: rawAction.instanceID,
-                parameters:
-                    rawAction.parameters ?
-                        {
-                            ...rawAction.parameters,
-                            ingredients:
-                                rawAction.parameters.ingredient ?
-                                    [claim.mapHashedURI(rawAction.parameters.ingredient)]
-                                :   [],
-                            ingredient: undefined,
-                        }
-                    :   undefined,
-                digitalSourceType: this.fixDigitalSourceType(rawAction.digitalSourceType),
             };
 
+            if (rawAction.instanceID) action.instanceID = rawAction.instanceID;
+            if (rawAction.digitalSourceType)
+                action.digitalSourceType = this.fixDigitalSourceType(rawAction.digitalSourceType);
             if (rawAction.softwareAgent) action.softwareAgent = { name: rawAction.softwareAgent };
+            if (rawAction.parameters) {
+                action.parameters = {
+                    ...rawAction.parameters,
+                    ingredients:
+                        rawAction.parameters.ingredient ? [claim.mapHashedURI(rawAction.parameters.ingredient)] : [],
+                };
+                delete action.parameters.ingredient;
+            }
 
             this.actions.push(action);
         }
@@ -119,19 +117,16 @@ export class ActionAssertion extends Assertion {
         for (const rawAction of rawContent.actions) {
             const action: Action = {
                 action: rawAction.action as ActionType,
-                reason: rawAction.reason,
-                instanceID: rawAction.instanceID,
-                parameters:
-                    rawAction.parameters ?
-                        {
-                            ...rawAction.parameters,
-                            ingredients: rawAction.parameters.ingredients?.map(ingredient =>
-                                claim.mapHashedURI(ingredient),
-                            ),
-                        }
-                    :   undefined,
-                digitalSourceType: rawAction.digitalSourceType,
             };
+
+            if (rawAction.reason) action.reason = rawAction.reason;
+            if (rawAction.digitalSourceType)
+                action.digitalSourceType = this.fixDigitalSourceType(rawAction.digitalSourceType);
+            if (rawAction.parameters)
+                action.parameters = {
+                    ...rawAction.parameters,
+                    ingredients: rawAction.parameters.ingredients?.map(ingredient => claim.mapHashedURI(ingredient)),
+                };
 
             if (rawAction.softwareAgent) {
                 action.softwareAgent = {
@@ -140,6 +135,16 @@ export class ActionAssertion extends Assertion {
                     icon: rawAction.softwareAgent.icon ? claim.mapHashedURI(rawAction.softwareAgent.icon) : undefined,
                     operatingSystem: rawAction.softwareAgent.operating_system,
                 };
+            } else if (rawAction.softwareAgentIndex !== undefined) {
+                const softwareAgent = rawContent.softwareAgents?.[rawAction.softwareAgentIndex];
+                if (softwareAgent) {
+                    action.softwareAgent = {
+                        name: softwareAgent.name,
+                        version: softwareAgent.version,
+                        icon: softwareAgent.icon ? claim.mapHashedURI(softwareAgent.icon) : undefined,
+                        operatingSystem: softwareAgent.operating_system,
+                    };
+                }
             }
 
             const template = rawContent.templates?.find(t => t.action === rawAction.action);
@@ -147,8 +152,6 @@ export class ActionAssertion extends Assertion {
                 action.description = action.description ?? template.description;
                 action.digitalSourceType = action.digitalSourceType ?? template.digitalSourceType;
             }
-
-            action.digitalSourceType = this.fixDigitalSourceType(action.digitalSourceType);
 
             this.actions.push(action);
         }
@@ -173,7 +176,6 @@ export class ActionAssertion extends Assertion {
         return {
             actions: this.actions.map(action => {
                 const res: RawAction = { action: action.action };
-                if (action.reason) res.reason = action.reason;
                 if (action.parameters) {
                     res.parameters = {};
                     for (const [name, value] of Object.entries(action.parameters)) {
@@ -225,7 +227,6 @@ export class ActionAssertion extends Assertion {
                     }
                 }
                 if (action.digitalSourceType) res.digitalSourceType = action.digitalSourceType;
-                if (action.instanceID) res.instanceID = action.instanceID;
                 if (action.softwareAgent) {
                     const softwareAgent: raw.ClaimGeneratorInfo = {
                         name: action.softwareAgent.name,
@@ -247,8 +248,8 @@ export class ActionAssertion extends Assertion {
     /**
      * Some implementations prefix digital source type values with https, convert those to http
      */
-    private fixDigitalSourceType(digitalSourceType: DigitalSourceType | undefined): DigitalSourceType | undefined {
-        if (digitalSourceType?.startsWith('https://cv.iptc.org/')) {
+    private fixDigitalSourceType(digitalSourceType: DigitalSourceType): DigitalSourceType {
+        if (digitalSourceType.startsWith('https://cv.iptc.org/')) {
             return ('http:' + digitalSourceType.substring('https:'.length)) as DigitalSourceType;
         }
         return digitalSourceType;
