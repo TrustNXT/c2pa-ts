@@ -327,18 +327,15 @@ export class BMFFHashAssertion extends Assertion {
             throw new ValidationError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox, 'mdat not found');
         }
 
-        // Start from the data portion of mdat (after 8-byte header)
-        const dataOffset = mdatBox.offset + 8;
-
         // Per spec 15.12.2: Handle fixed and variable size blocks
         if (tree.fixedBlockSize) {
-            let offset = dataOffset;
+            let offset = mdatBox.payloadOffset;
             for (let i = 0; i < tree.count; i++) {
                 chunks.push(await asset.getDataRange(offset, tree.fixedBlockSize));
                 offset += tree.fixedBlockSize;
             }
         } else if (tree.variableBlockSizes) {
-            let offset = dataOffset;
+            let offset = mdatBox.payloadOffset;
             for (const size of tree.variableBlockSizes) {
                 chunks.push(await asset.getDataRange(offset, size));
                 offset += size;
