@@ -1,5 +1,12 @@
 # c2pa-ts
 
+## 0.7.0
+
+### Minor Changes
+
+- 48a0242: Fix field mappings for actions assertion
+- e07fab7: Implement v2 timestamping (sigTst2)
+
 ## 0.6.0
 
 ### Minor Changes
