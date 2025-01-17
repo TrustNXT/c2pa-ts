@@ -14,12 +14,21 @@ import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
 import { Crypto, ECDSANamedCurve, SigningAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
+import { CBORBox } from '../jumbf';
 import { ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
 import { Timestamp, TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
 import { Algorithms, CoseAlgorithm } from './Algorithms';
 import { SigStructure } from './SigStructure';
-import { AdditionalEKU, CoseSignature, ProtectedBucket, UnprotectedBucket } from './types';
+import {
+    AdditionalEKU,
+    CoseSignature,
+    ProtectedBucket,
+    TimestampToken,
+    TimestampVersion,
+    TstContainer,
+    UnprotectedBucket,
+} from './types';
 
 export class Signature {
     public algorithm?: CoseAlgorithm;
@@ -27,7 +36,7 @@ export class Signature {
     public chainCertificates: X509Certificate[] = [];
     public rawProtectedBucket?: Uint8Array;
     public signature?: Uint8Array;
-    public timeStampResponses: pkijs.TimeStampResp[] = [];
+    public timestampTokens: TimestampToken[] = [];
     public paddingLength = 0;
 
     private validatedTimestamp: Date | undefined;
@@ -96,18 +105,28 @@ export class Signature {
 
         signature.signature = rawContent[3];
 
-        const sigTst = protectedBucket.sigTst ?? unprotectedBucket.sigTst;
-        if (sigTst?.tstTokens?.length) {
-            for (const timestampToken of sigTst.tstTokens) {
-                try {
-                    signature.timeStampResponses.push(pkijs.TimeStampResp.fromBER(timestampToken.val));
-                } catch {
-                    throw new MalformedContentError('Malformed timestamp');
-                }
-            }
-        }
+        signature.timestampTokens.push(
+            ...Signature.readTimestamps(protectedBucket.sigTst ?? unprotectedBucket.sigTst, TimestampVersion.V1),
+        );
+        signature.timestampTokens.push(
+            ...Signature.readTimestamps(protectedBucket.sigTst2 ?? unprotectedBucket.sigTst2, TimestampVersion.V2),
+        );
 
         return signature;
+    }
+
+    private static *readTimestamps(container: TstContainer | undefined, version: TimestampVersion) {
+        if (!container?.tstTokens?.length) return;
+        for (const timestampToken of container.tstTokens) {
+            try {
+                yield {
+                    version,
+                    response: pkijs.TimeStampResp.fromBER(timestampToken.val),
+                };
+            } catch {
+                throw new MalformedContentError('Malformed timestamp');
+            }
+        }
     }
 
     /**
@@ -119,6 +138,7 @@ export class Signature {
         if (!this.certificate) throw new Error('Signature is missing certificate');
         if (!this.algorithm) throw new Error('Signature is missing algorithm');
 
+        // Build the protected bucket containing alg identifier and certificates
         const protectedBucket: ProtectedBucket = {
             '1': this.algorithm.coseIdentifier,
             '33': [
@@ -128,13 +148,24 @@ export class Signature {
         };
         this.rawProtectedBucket = JUMBF.CBORBox.encoder.encode(protectedBucket);
 
+        // Build the unprotected bucket containing padding and timestamps
         const unprotectedBucket: UnprotectedBucket = {
             pad: new Uint8Array(this.paddingLength),
         };
-        if (this.timeStampResponses.length) {
+
+        const timestampTokensV1 = this.timestampTokens.filter(token => token.version === TimestampVersion.V1);
+        if (timestampTokensV1.length) {
             unprotectedBucket.sigTst = {
-                tstTokens: this.timeStampResponses.map(tst => ({
-                    val: new Uint8Array(tst.toSchema().toBER()),
+                tstTokens: timestampTokensV1.map(tst => ({
+                    val: new Uint8Array(tst.response.toSchema().toBER()),
+                })),
+            };
+        }
+        const timestampTokensV2 = this.timestampTokens.filter(token => token.version === TimestampVersion.V2);
+        if (timestampTokensV2.length) {
+            unprotectedBucket.sigTst2 = {
+                tstTokens: timestampTokensV2.map(tst => ({
+                    val: new Uint8Array(tst.response.toSchema().toBER()),
                 })),
             };
         }
@@ -158,6 +189,7 @@ export class Signature {
         privateKey: Uint8Array,
         payload: Uint8Array,
         timestampProvider?: TimestampProvider,
+        timestampVersion: TimestampVersion = TimestampVersion.V2,
     ): Promise<void> {
         if (!this.rawProtectedBucket) throw new Error('Signature is missing protected bucket');
         if (!this.algorithm || !this.certificate) throw new Error('Signature is missing algorithm');
@@ -165,33 +197,40 @@ export class Signature {
         const toBeSigned = new SigStructure('Signature1', this.rawProtectedBucket, payload).encode();
         this.signature = await Crypto.sign(toBeSigned, privateKey, this.getSigningAlgorithm()!);
 
-        this.timeStampResponses = [];
+        this.timestampTokens = [];
         if (timestampProvider) {
             const timestampResponse = await Timestamp.getTimestamp(
                 timestampProvider,
-                new SigStructure('CounterSignature', this.rawProtectedBucket, payload).encode(),
+                new SigStructure(
+                    'CounterSignature',
+                    this.rawProtectedBucket,
+                    timestampVersion === TimestampVersion.V1 ? payload : CBORBox.encoder.encode(this.signature),
+                ).encode(),
             );
-            if (timestampResponse) this.timeStampResponses.push(timestampResponse);
+            if (timestampResponse)
+                this.timestampTokens.push({ version: timestampVersion, response: timestampResponse });
         }
     }
 
-    private async validateTimestamp(payload: Uint8Array, sourceBox?: JUMBF.IBox): Promise<ValidationResult> {
+    private async validateTimestamp(
+        v1Payload: Uint8Array,
+        v2Payload: Uint8Array,
+        sourceBox?: JUMBF.IBox,
+    ): Promise<ValidationResult> {
         this.validatedTimestamp = undefined;
 
         const result = new ValidationResult();
-        if (!this.timeStampResponses.length || !this.rawProtectedBucket) return result;
+        if (!this.timestampTokens.length || !this.rawProtectedBucket) return result;
 
-        const toBeSigned = new SigStructure('CounterSignature', this.rawProtectedBucket, payload).encode();
-
-        for (const timestamp of this.timeStampResponses) {
+        for (const timestamp of this.timestampTokens) {
             if (
-                timestamp.status.status !== pkijs.PKIStatus.granted &&
-                timestamp.status.status !== pkijs.PKIStatus.grantedWithMods
+                timestamp.response.status.status !== pkijs.PKIStatus.granted &&
+                timestamp.response.status.status !== pkijs.PKIStatus.grantedWithMods
             )
                 continue;
 
             try {
-                const signedData = new pkijs.SignedData({ schema: timestamp.timeStampToken!.content });
+                const signedData = new pkijs.SignedData({ schema: timestamp.response.timeStampToken!.content });
                 const rawTstInfo = signedData.encapContentInfo.eContent!.getValue();
                 const tstInfo = pkijs.TSTInfo.fromBER(rawTstInfo);
 
@@ -204,6 +243,12 @@ export class Signature {
                     );
                     continue;
                 }
+
+                const toBeSigned = new SigStructure(
+                    'CounterSignature',
+                    this.rawProtectedBucket,
+                    timestamp.version === TimestampVersion.V1 ? v1Payload : v2Payload,
+                ).encode();
 
                 if (
                     !BinaryHelper.bufEqual(
@@ -296,14 +341,16 @@ export class Signature {
     }
 
     private getTimestampWithoutVerification(): Date | undefined {
-        for (const timestamp of this.timeStampResponses) {
+        for (const timestamp of this.timestampTokens) {
             if (
-                timestamp.status.status !== pkijs.PKIStatus.granted &&
-                timestamp.status.status !== pkijs.PKIStatus.grantedWithMods
+                timestamp.response.status.status !== pkijs.PKIStatus.granted &&
+                timestamp.response.status.status !== pkijs.PKIStatus.grantedWithMods
             )
                 continue;
             try {
-                const signedData = new pkijs.SignedData({ schema: timestamp.timeStampToken!.content as unknown });
+                const signedData = new pkijs.SignedData({
+                    schema: timestamp.response.timeStampToken!.content as unknown,
+                });
                 const tstInfo = pkijs.TSTInfo.fromBER(signedData.encapContentInfo.eContent!.getValue());
                 return tstInfo.genTime;
             } catch {
@@ -326,7 +373,7 @@ export class Signature {
 
         const result = new ValidationResult();
 
-        result.merge(await this.validateTimestamp(payload, sourceBox));
+        result.merge(await this.validateTimestamp(payload, CBORBox.encoder.encode(this.signature), sourceBox));
         const timestamp = this.validatedTimestamp ?? new Date();
 
         let code = Signature.validateCertificate(this.certificate, timestamp, true);
