@@ -69,7 +69,9 @@ export class AssertionStore implements ManifestComponent {
         if (label.label === AssertionLabels.actions || label.label === AssertionLabels.actionsV2) {
             assertion = new ActionAssertion();
         } else if (label.label === AssertionLabels.bmffV2Hash) {
-            assertion = new BMFFHashAssertion();
+            assertion = new BMFFHashAssertion(2);
+        } else if (label.label === AssertionLabels.bmffV3Hash) {
+            assertion = new BMFFHashAssertion(3);
         } else if (label.label === AssertionLabels.creativeWork) {
             assertion = new CreativeWorkAssertion();
         } else if (label.label === AssertionLabels.dataHash) {
