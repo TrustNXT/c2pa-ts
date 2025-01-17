@@ -222,6 +222,12 @@ export class Signature {
         const result = new ValidationResult();
         if (!this.timestampTokens.length || !this.rawProtectedBucket) return result;
 
+        // Validate single timestamp requirement per spec v2.1
+        if (this.timestampTokens.length > 1) {
+            result.addError(ValidationStatusCode.TimeStampMalformed, sourceBox, 'Multiple timestamps are not allowed');
+            return result;
+        }
+
         for (const timestamp of this.timestampTokens) {
             if (
                 timestamp.response.status.status !== pkijs.PKIStatus.granted &&
@@ -242,6 +248,18 @@ export class Signature {
                         'Unsupported timestamp hash algorithm',
                     );
                     continue;
+                }
+
+                // Validate timestamp falls within signer validity
+                if (this.certificate) {
+                    if (tstInfo.genTime < this.certificate.notBefore || tstInfo.genTime > this.certificate.notAfter) {
+                        result.addError(
+                            ValidationStatusCode.TimeStampOutsideValidity,
+                            sourceBox,
+                            'Timestamp outside signer certificate validity period',
+                        );
+                        continue;
+                    }
                 }
 
                 const toBeSigned = new SigStructure(
@@ -265,15 +283,22 @@ export class Signature {
                     continue;
                 }
 
-                // TODO More thorough validation:
-                // - Validate each certificate (otherwise: timeStamp.untrusted)
-                // - Configure trusted list (otherwise: timeStamp.untrusted)
-                // - Check that attested timestamp falls within signer validity (otherwise: timeStamp.outsideValidity)
+                // Validate TSA certificates
+                for (const cert of signedData.certificates ?? []) {
+                    if (!(cert instanceof pkijs.Certificate)) continue;
+                    const x509Cert = new X509Certificate(cert.toSchema().toBER());
+                    const certValidation = Signature.validateCertificate(x509Cert, tstInfo.genTime, false);
+                    if (certValidation !== ValidationStatusCode.SigningCredentialTrusted) {
+                        result.addError(ValidationStatusCode.TimeStampUntrusted, sourceBox);
+                        continue;
+                    }
+                }
 
                 this.validatedTimestamp = tstInfo.genTime;
                 result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
                 break;
             } catch {
+                result.addError(ValidationStatusCode.TimeStampMalformed, sourceBox);
                 continue;
             }
         }
