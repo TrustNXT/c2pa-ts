@@ -10,6 +10,7 @@ import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 import { AssertionUtils } from './AssertionUtils';
+import { HashAssertion } from './HashAssertion';
 
 const DEFAULT_ASSERTION_VERSION = 3;
 
@@ -52,7 +53,7 @@ interface RawDataHashMap {
     name?: string;
 }
 
-export class BMFFHashAssertion extends Assertion {
+export class BMFFHashAssertion extends Assertion implements HashAssertion {
     private _version: number = DEFAULT_ASSERTION_VERSION;
     public uuid = raw.UUIDs.cborAssertion;
 
@@ -61,6 +62,7 @@ export class BMFFHashAssertion extends Assertion {
     public hash?: Uint8Array;
     public name: string | undefined;
     public merkle?: RawMerkleMap[];
+    public paddingLength = 0;
 
     constructor(version?: number) {
         super();
@@ -131,6 +133,7 @@ export class BMFFHashAssertion extends Assertion {
             hash: this.hash,
             merkle: this.merkle,
             name: this.name,
+            pad: new Uint8Array(this.paddingLength),
         };
         return box;
     }
@@ -164,14 +167,14 @@ export class BMFFHashAssertion extends Assertion {
     private async getMatchingBoxForExclusion(exclusion: Exclusion, asset: BMFF): Promise<BMFFBox<object> | undefined> {
         // A box matches an exclusion entry in the exclusions array if and only if all of the following conditions are met:
 
-        // The box’s location in the file exactly matches the exclusions-map entry’s xpath field.
+        // The box's location in the file exactly matches the exclusions-map entry's xpath field.
         const box = asset.getBoxByPath(exclusion.xpath);
         if (!box) return undefined;
 
-        // If length is specified in the exclusions-map entry, the box’s length exactly matches the exclusions-map entry’s length field.
+        // If length is specified in the exclusions-map entry, the box's length exactly matches the exclusions-map entry's length field.
         if (exclusion.length && box.size !== exclusion.length) return undefined;
 
-        // If version is specified in the exclusions-map entry, the box is a FullBox and the box’s version exactly matches the exclusions-map entry’s version field.
+        // If version is specified in the exclusions-map entry, the box is a FullBox and the box's version exactly matches the exclusions-map entry's version field.
         if (exclusion.version && !('version' in box.payload && box.payload.version === exclusion.version))
             return undefined;
 
@@ -182,11 +185,11 @@ export class BMFFHashAssertion extends Assertion {
             const boxFlags = box.payload.flags as Uint8Array;
             if (exclusion.flags.length !== 3 || boxFlags.length !== 3) return undefined;
 
-            // If exact is set to true or not specified, the box’s flags (bit(24), i.e., 3 bytes) also exactly matches the exclusions-map entry’s flags field.
+            // If exact is set to true or not specified, the box's flags (bit(24), i.e., 3 bytes) also exactly matches the exclusions-map entry's flags field.
             if (exclusion.exact === undefined || exclusion.exact) {
                 if (!BinaryHelper.bufEqual(exclusion.flags, boxFlags)) return undefined;
             } else {
-                // If exact is set to false, the bitwise-and of the box’s flags (bit(24), i.e., 3 bytes) with the exclusions-map entry’s flags field exactly matches the exclusions-map entry’s flags field.
+                // If exact is set to false, the bitwise-and of the box's flags (bit(24), i.e., 3 bytes) with the exclusions-map entry's flags field exactly matches the exclusions-map entry's flags field.
                 for (let i = 0; i < 3; i++) {
                     if ((exclusion.flags[i] & boxFlags[i]) !== exclusion.flags[i]) {
                         return undefined;
@@ -195,7 +198,7 @@ export class BMFFHashAssertion extends Assertion {
             }
         }
 
-        // If data (array of objects) is specified in the exclusions-map entry, then for each item in the array, the box’s binary data at that item’s relative byte offset field exactly matches that item’s bytes field.
+        // If data (array of objects) is specified in the exclusions-map entry, then for each item in the array, the box's binary data at that item's relative byte offset field exactly matches that item's bytes field.
         for (const data of exclusion.data ?? []) {
             if (
                 !BinaryHelper.bufEqual(
@@ -343,5 +346,51 @@ export class BMFFHashAssertion extends Assertion {
         }
 
         return chunks;
+    }
+
+    /**
+     * Updates the assertion with hash and exclusion data from the given asset
+     * @param asset - The asset to generate the hash from
+     * @throws {Error} If the asset is not a BMFF asset or if the algorithm is not set
+     */
+    public async updateWithAsset(asset: Asset): Promise<void> {
+        if (!this.algorithm) {
+            throw new Error('Assertion has no algorithm');
+        }
+
+        if (!(asset instanceof BMFF)) {
+            throw new Error('Asset must be a BMFF asset');
+        }
+
+        // Measure the size before adding exclusions
+        const previousLength = this.generateJUMBFBox().measureSize();
+
+        const exclusionRange = asset.getHashExclusionRange();
+        this.exclusions = [
+            {
+                xpath: '/uuid',
+                length: exclusionRange.length,
+                data: [],
+            },
+        ];
+
+        this.hash = await this.hashBMFFWithExclusions(asset);
+
+        // Measure the new length after exclusions are added and adjust padding as necessary
+        const adjust = this.generateJUMBFBox().measureSize() - previousLength;
+        if (adjust > this.paddingLength) throw new Error('Not enough padding for exclusions');
+        this.paddingLength -= adjust;
+    }
+
+    /**
+     * Creates a new BMFFHashAssertion with the given algorithm
+     * @param algorithm - The hash algorithm to use
+     * @returns {BMFFHashAssertion} The new BMFFHashAssertion
+     */
+    public static create(algorithm: HashAlgorithm, initialPaddingLength = 100) {
+        const bmffHashAssertion = new BMFFHashAssertion();
+        bmffHashAssertion.algorithm = algorithm;
+        bmffHashAssertion.paddingLength = initialPaddingLength;
+        return bmffHashAssertion;
     }
 }
