@@ -50,7 +50,9 @@ describe('BMFF Signing Tests', function () {
 
         // create hash assertion with appropriate version
         const bmffHashAssertion =
-            version === 2 ? BMFFHashAssertion.createV2('SHA-256') : BMFFHashAssertion.createV3('SHA-256');
+            version === 2 ?
+                BMFFHashAssertion.createV2('jumbf manifest', 'SHA-256')
+            :   BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
         manifest.addAssertion(bmffHashAssertion);
 
         // make space in the asset

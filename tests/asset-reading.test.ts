@@ -193,7 +193,7 @@ const testFiles: Record<string, TestExpectations> = {
         assetType: BMFF,
         jumbf: false,
     },
-    'trustnxt-icon-signed-v3.heic': {
+    'trustnxt-icon-signed-v2-bmff.heic': {
         assetType: BMFF,
         jumbf: true,
         valid: true,

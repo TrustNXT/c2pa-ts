@@ -3,6 +3,10 @@ import { BaseAsset } from './BaseAsset';
 import { Asset } from './types';
 
 export class BMFF extends BaseAsset implements Asset {
+    public static c2paBoxUserType = [
+        0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
+    ];
+
     /** Currently supported major brand identifiers */
     private static canReadBrands = new Set(['heic', 'mif1']);
 
@@ -234,7 +238,7 @@ class BoxReader {
 
             // Now that the box header is fully read, we know that it might be a UUID box (== has a userType),
             // so handle those cases as well (currently only C2PABox)
-            if (box.userType && BinaryHelper.bufEqual(box.userType, C2PABox.c2paUserType)) {
+            if (box.userType && BinaryHelper.bufEqual(box.userType, BMFF.c2paBoxUserType)) {
                 box = new C2PABox(pos, size, payloadPos, payloadSize, boxType);
                 box.readContents(buf);
             }
@@ -578,10 +582,6 @@ interface C2PAManifestBoxPayload extends C2PABoxPayload {
 }
 
 class C2PABox extends FullBox<C2PABoxPayload> {
-    public static c2paUserType = [
-        0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
-    ];
-
     private static readonly headerLength =
         4 + // size
         4 + // type
@@ -630,7 +630,7 @@ class C2PABox extends FullBox<C2PABoxPayload> {
             'uuid',
         );
 
-        box.userType = new Uint8Array(C2PABox.c2paUserType);
+        box.userType = new Uint8Array(BMFF.c2paBoxUserType);
         const payload: C2PAManifestBoxPayload = {
             version: 0,
             flags: 0,

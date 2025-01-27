@@ -87,10 +87,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
                 data: [
                     {
                         offset: 8,
-                        value: new Uint8Array([
-                            0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4,
-                            0x81,
-                        ]),
+                        value: new Uint8Array(BMFF.c2paBoxUserType),
                     },
                 ],
             },
@@ -310,7 +307,7 @@ describe('BMFFHashAssertion v3 Tests', function () {
     });
 
     it('should validate v3 hash assertion from signed HEIC', async () => {
-        const filePath = path.join(baseDir, 'trustnxt-icon-signed-c2patool.heic');
+        const filePath = path.join(baseDir, 'trustnxt-icon-signed-v2-bmff.heic');
         const signedHeicData = new Uint8Array(await fs.readFile(filePath));
         const signedHeicAsset = new BMFF(signedHeicData);
 
@@ -353,10 +350,7 @@ describe('BMFFHashAssertion v3 Tests', function () {
                 data: [
                     {
                         offset: 8,
-                        value: new Uint8Array([
-                            0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4,
-                            0x81,
-                        ]),
+                        value: new Uint8Array(BMFF.c2paBoxUserType),
                     },
                 ],
             },
