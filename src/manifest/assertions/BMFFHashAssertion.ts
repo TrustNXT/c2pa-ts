@@ -61,7 +61,7 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
     public algorithm?: HashAlgorithm;
     public hash?: Uint8Array;
     public name: string | undefined;
-    public merkle?: RawMerkleMap[];
+    public merkle?: RawMerkleMap[] = [];
     public paddingLength = 0;
 
     constructor(version?: number) {
@@ -366,31 +366,65 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
         const previousLength = this.generateJUMBFBox().measureSize();
 
         const exclusionRange = asset.getHashExclusionRange();
+
+        const uuidBox = asset.getBoxByPath('/uuid');
+        if (!uuidBox) {
+            throw new Error('UUID box not found');
+        }
+
         this.exclusions = [
             {
                 xpath: '/uuid',
                 length: exclusionRange.length,
-                data: [],
+                data: [
+                    {
+                        offset: 8,
+                        value: uuidBox.userType!,
+                    },
+                ],
+            },
+            {
+                xpath: '/ftyp',
+            },
+            {
+                xpath: '/mfra',
             },
         ];
 
+        this.name = 'jumbf manifest';
         this.hash = await this.hashBMFFWithExclusions(asset);
 
         // Measure the new length after exclusions are added and adjust padding as necessary
         const adjust = this.generateJUMBFBox().measureSize() - previousLength;
-        if (adjust > this.paddingLength) throw new Error('Not enough padding for exclusions');
+
+        if (adjust > this.paddingLength)
+            throw new Error(
+                `Not enough padding for exclusions, adjust padding length to ${this.paddingLength + adjust}`,
+            );
         this.paddingLength -= adjust;
     }
 
     /**
-     * Creates a new BMFFHashAssertion with the given algorithm
+     * Creates a new BMFFHashAssertion with the given algorithm and version 2
      * @param algorithm - The hash algorithm to use
      * @returns {BMFFHashAssertion} The new BMFFHashAssertion
      */
-    public static create(algorithm: HashAlgorithm, initialPaddingLength = 100) {
-        const bmffHashAssertion = new BMFFHashAssertion();
+    public static createV2(algorithm: HashAlgorithm) {
+        const bmffHashAssertion = new BMFFHashAssertion(2);
         bmffHashAssertion.algorithm = algorithm;
-        bmffHashAssertion.paddingLength = initialPaddingLength;
+        bmffHashAssertion.paddingLength = 242;
+        return bmffHashAssertion;
+    }
+
+    /**
+     * Creates a new BMFFHashAssertion with the given algorithm and version 3
+     * @param algorithm - The hash algorithm to use
+     * @returns {BMFFHashAssertion} The new BMFFHashAssertion
+     */
+    public static createV3(algorithm: HashAlgorithm) {
+        const bmffHashAssertion = new BMFFHashAssertion(3);
+        bmffHashAssertion.algorithm = algorithm;
+        bmffHashAssertion.paddingLength = 242;
         return bmffHashAssertion;
     }
 }
