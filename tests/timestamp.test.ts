@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import * as fs from 'node:fs/promises';
 import { X509Certificate } from '@peculiar/x509';
 import { CoseAlgorithmIdentifier } from '../src/cose';
 import { Signature } from '../src/cose/Signature';
@@ -9,6 +8,7 @@ import { Crypto } from '../src/crypto';
 import { CBORBox } from '../src/jumbf';
 import { ValidationStatusCode } from '../src/manifest';
 import { LocalTimestampProvider } from '../src/rfc3161';
+import { loadTestCertificate } from './utils/testCertificates';
 
 describe('Timestamp Tests', () => {
     let signature: Signature;
@@ -17,15 +17,20 @@ describe('Timestamp Tests', () => {
     let x509Certificate: X509Certificate;
 
     beforeEach(async () => {
-        // Load test certificate and private key
-        x509Certificate = new X509Certificate(await fs.readFile('tests/fixtures/sample_es256.pem'));
-        const privateKeyData = await fs.readFile('tests/fixtures/sample_es256.key');
-        const base64 = privateKeyData
-            .toString()
-            .replace(/-{5}(BEGIN|END) .*-{5}/gm, '')
-            .replace(/\s/gm, '');
-        const privateKey = new Uint8Array(Buffer.from(base64, 'base64'));
+        const {
+            x509Certificate: cert,
+            privateKey,
+            timestampProvider,
+        } = await loadTestCertificate({
+            name: 'ES256 sample certificate',
+            certificateFile: 'tests/fixtures/sample_es256.pem',
+            privateKeyFile: 'tests/fixtures/sample_es256.key',
+            algorithm: CoseAlgorithmIdentifier.ES256,
+        });
+
+        x509Certificate = cert;
         signingPrivateKey = privateKey;
+        mockTimestampProvider = timestampProvider;
 
         // Create protected bucket with algorithm and certificate chain
         const protectedBucket = {
@@ -52,7 +57,6 @@ describe('Timestamp Tests', () => {
         ];
 
         signature = Signature.readFromJUMBFData(mockCoseSignature);
-        mockTimestampProvider = new LocalTimestampProvider(x509Certificate, privateKey);
     });
 
     describe('Timestamp Validation', () => {

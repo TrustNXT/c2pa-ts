@@ -1,54 +1,25 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
-import { X509Certificate } from '@peculiar/x509';
 import { after } from 'mocha';
 import { JPEG } from '../src/asset';
-import { CoseAlgorithmIdentifier } from '../src/cose';
 import { SuperBox } from '../src/jumbf';
 import { DataHashAssertion, Manifest, ManifestStore, ValidationStatusCode } from '../src/manifest';
-import { LocalTimestampProvider } from '../src/rfc3161';
+import { loadTestCertificate, TEST_CERTIFICATES } from './utils/testCertificates';
 
 // location of the image to sign
 const sourceFile = 'tests/fixtures/trustnxt-icon.jpg';
 // location of the signed image
 const targetFile = 'tests/fixtures/trustnxt-icon-signed.jpg';
 
-const testCertificates = [
-    {
-        name: 'ES256 sample certificate',
-        certificateFile: 'tests/fixtures/sample_es256.pem',
-        privateKeyFile: 'tests/fixtures/sample_es256.key',
-        algorithm: CoseAlgorithmIdentifier.ES256,
-    },
-    {
-        name: 'Ed25519 sample certificate',
-        certificateFile: 'tests/fixtures/sample_ed25519.pem',
-        privateKeyFile: 'tests/fixtures/sample_ed25519.key',
-        algorithm: CoseAlgorithmIdentifier.Ed25519,
-    },
-];
-
 describe('Functional Signing Tests', function () {
     this.timeout(5000);
 
-    for (const certificate of testCertificates) {
+    for (const certificate of TEST_CERTIFICATES) {
         describe(`using ${certificate.name}`, function () {
             let manifest: Manifest | undefined;
 
             it('add a manifest to a JPEG test file', async function () {
-                // load the certificate
-                const x509Certificate = new X509Certificate(await fs.readFile(certificate.certificateFile));
-
-                // load the private key
-                const privateKeyData = await fs.readFile(certificate.privateKeyFile);
-                const base64 = privateKeyData
-                    .toString()
-                    .replace(/-{5}(BEGIN|END) .*-{5}/gm, '')
-                    .replace(/\s/gm, '');
-                const privateKey = Buffer.from(base64, 'base64');
-
-                // initialize a local timestamp provider using the same certificate
-                const timestampProvider = new LocalTimestampProvider(x509Certificate, privateKey);
+                const { x509Certificate, privateKey, timestampProvider } = await loadTestCertificate(certificate);
 
                 // load the file into a buffer
                 const buf = await fs.readFile(sourceFile);

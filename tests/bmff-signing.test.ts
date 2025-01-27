@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
-import { X509Certificate } from '@peculiar/x509';
 import { BMFF } from '../src/asset';
 import { CoseAlgorithmIdentifier } from '../src/cose';
 import { SuperBox } from '../src/jumbf';
 import { BMFFHashAssertion, Manifest, ManifestStore, ValidationStatusCode } from '../src/manifest';
-import { LocalTimestampProvider } from '../src/rfc3161';
+import { loadTestCertificate } from './utils/testCertificates';
 
 const sourceFile = 'tests/fixtures/trustnxt-icon.heic';
 const targetFileV2 = 'tests/fixtures/trustnxt-icon-signed-v2-test.heic';
@@ -20,18 +19,12 @@ describe('BMFF Signing Tests', function () {
     async function signAndVerify(version: 2 | 3) {
         const targetFile = version === 2 ? targetFileV2 : targetFileV3;
 
-        // load the certificate
-        const x509Certificate = new X509Certificate(await fs.readFile('tests/fixtures/sample_es256.pem'));
-
-        // load and parse the private key
-        const privateKeyData = await fs.readFile('tests/fixtures/sample_es256.key');
-        const base64 = privateKeyData
-            .toString()
-            .replace(/-{5}(BEGIN|END) .*-{5}/gm, '') // Remove PEM headers
-            .replace(/\s/gm, ''); // Remove whitespace
-        const privateKey = Buffer.from(base64, 'base64');
-
-        const timestampProvider = new LocalTimestampProvider(x509Certificate, privateKey);
+        const { x509Certificate, privateKey, timestampProvider } = await loadTestCertificate({
+            name: 'ES256 sample certificate',
+            certificateFile: 'tests/fixtures/sample_es256.pem',
+            privateKeyFile: 'tests/fixtures/sample_es256.key',
+            algorithm: CoseAlgorithmIdentifier.ES256,
+        });
 
         // load and verify the file
         const buf = await fs.readFile(sourceFile);

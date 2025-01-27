@@ -171,6 +171,15 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
         }
     }
 
+    /**
+     * Finds the Box object in the asset that matches the given exclusion criteria.
+     * A box matches if it has the same xpath location, and optionally matches specified length,
+     * version, flags and data patterns defined in the exclusion. If no box matches all criteria,
+     * returns undefined.
+     * @param exclusion - The exclusion entry containing match criteria like xpath, length, version, etc.
+     * @param asset - The BMFF asset to search for matching boxes in.
+     * @returns {Promise<BMFFBox<object> | undefined>} The matching box if found, undefined otherwise.
+     */
     private async getMatchingBoxForExclusion(exclusion: Exclusion, asset: BMFF): Promise<BMFFBox<object> | undefined> {
         // A box matches an exclusion entry in the exclusions array if and only if all of the following conditions are met:
 
@@ -356,7 +365,7 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
     }
 
     /**
-     * Updates the assertion with hash and exclusion data from the given asset
+     * Calculates the hash value for the given asset
      * @param asset - The asset to generate the hash from
      * @throws {Error} If the asset is not a BMFF asset or if the algorithm is not set
      */
@@ -372,14 +381,8 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
         this.hash = await this.hashBMFFWithExclusions(asset);
     }
 
-    /**
-     * Creates a new BMFFHashAssertion with the given algorithm and version 2
-     * @param name - The name of the assertion
-     * @param algorithm - The hash algorithm to use
-     * @returns {BMFFHashAssertion} The new BMFFHashAssertion
-     */
-    public static createV2(name: string, algorithm: HashAlgorithm) {
-        const bmffHashAssertion = new BMFFHashAssertion(2);
+    private static create(name: string, algorithm: HashAlgorithm, version: number): BMFFHashAssertion {
+        const bmffHashAssertion = new BMFFHashAssertion(version);
         bmffHashAssertion.name = name;
         bmffHashAssertion.algorithm = algorithm;
         bmffHashAssertion.hash = new Uint8Array(Crypto.getDigestLength(algorithm));
@@ -406,35 +409,22 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
     }
 
     /**
-     * Creates a new BMFFHashAssertion with the given algorithm and version 3
+     * Creates a new BMFFHashAssertion version 2
      * @param name - The name of the assertion
      * @param algorithm - The hash algorithm to use
      * @returns {BMFFHashAssertion} The new BMFFHashAssertion
      */
-    public static createV3(name: string, algorithm: HashAlgorithm) {
-        const bmffHashAssertion = new BMFFHashAssertion(3);
-        bmffHashAssertion.name = name;
-        bmffHashAssertion.algorithm = algorithm;
-        bmffHashAssertion.hash = new Uint8Array(Crypto.getDigestLength(algorithm));
+    public static createV2(name: string, algorithm: HashAlgorithm): BMFFHashAssertion {
+        return BMFFHashAssertion.create(name, algorithm, 2);
+    }
 
-        bmffHashAssertion.exclusions = [
-            {
-                xpath: '/uuid',
-                data: [
-                    {
-                        offset: 8,
-                        value: new Uint8Array(BMFF.c2paBoxUserType),
-                    },
-                ],
-            },
-            {
-                xpath: '/ftyp',
-            },
-            {
-                xpath: '/mfra',
-            },
-        ];
-
-        return bmffHashAssertion;
+    /**
+     * Creates a new BMFFHashAssertion version 3
+     * @param name - The name of the assertion
+     * @param algorithm - The hash algorithm to use
+     * @returns {BMFFHashAssertion} The new BMFFHashAssertion
+     */
+    public static createV3(name: string, algorithm: HashAlgorithm): BMFFHashAssertion {
+        return BMFFHashAssertion.create(name, algorithm, 3);
     }
 }
