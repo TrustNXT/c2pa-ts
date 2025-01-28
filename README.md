@@ -41,11 +41,11 @@ Anything that's not listed below is not currently planned to be implemented.
 ### Supported assertions
 
 - :white_check_mark: Data Hash
-- :white_check_mark: BMFF-Based Hash (except Merkle tree hashing)
+- :white_check_mark: BMFF-Based Hash (v2 and v3)
 - :x: General Boxes Hash
 - :white_check_mark: Thumbnail
 - :white_check_mark: Actions (except action templates and metadata)
-- :white_check_mark: Ingredient
+- :white_check_mark: Ingredient (v2 and v3)
 - :white_check_mark: Metadata (specialized, common, generic, and CAWG variants)
 - :white_check_mark: Creative Work
 - :white_check_mark: Training and Data Mining (C2PA and CAWG variants)
