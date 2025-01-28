@@ -4,7 +4,7 @@
 
 ## About
 
-`c2pa-ts` is a pure TypeScript implementation of [Coalition for Content Provenance and Authenticity (C2PA)](https://c2pa.org/) according to [specification version 2.0](https://c2pa.org/specifications/specifications/2.0/specs/C2PA_Specification.html).
+`c2pa-ts` is a pure TypeScript implementation of [Coalition for Content Provenance and Authenticity (C2PA)](https://c2pa.org/) according to [specification version 2.1](https://c2pa.org/specifications/specifications/2.1/specs/C2PA_Specification.html).
 
 It does not use any native binaries or WebAssembly and is therefore truly platform independent. In modern browsers as well as Node.js it should run out of the box. In mobile apps or other environments lacking browser APIs, some external code may be necessary (see [below](#usage-in-constrained-environments) for details).
 
@@ -24,7 +24,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :construction: Validating manifests (mostly implemented except chain of trust validation)
 - :white_check_mark: Creating manifests
 
-:information_source: On C2PA versions: The library is targeted at C2PA specification 2.0, however data structures from older versions of the specification are also supported for backwards compatibility.
+:information_source: On C2PA versions: The library is targeted at C2PA specification 2.1, however data structures from older versions of the specification are also supported for backwards compatibility.
 
 :information_source: Although it is a separate project from C2PA, the library also includes support for several [CAWG](https://github.com/creator-assertions/) assertions.
 
@@ -36,6 +36,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :x: GIF
 - :x: TIFF
 - :x: WebP
+- :x: JPEG XL
 
 ### Supported assertions
 

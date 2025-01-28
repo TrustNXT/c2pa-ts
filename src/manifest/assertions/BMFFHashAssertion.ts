@@ -279,6 +279,16 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
         return AssertionUtils.hashWithExclusions(asset, exclusionRanges, this.algorithm);
     }
 
+    /**
+     * Validates the merkle tree hashes against the asset data.
+     *
+     * @remarks
+     * This method is currently untested since we don't have any example data with merkle trees
+     * and no way to generate test data within c2patool.
+     *
+     * @param asset - The BMFF asset to validate against
+     * @returns A ValidationResult indicating success or failure
+     */
     private async validateMerkleTree(asset: BMFF): Promise<ValidationResult> {
         const result = new ValidationResult();
 
