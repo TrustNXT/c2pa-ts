@@ -14,36 +14,33 @@ export class AssertionUtils {
             return Crypto.digest(await asset.getDataRange(), algorithm);
         }
 
-        // Sort exclusions by start, however make sure offset markers appear first
-        exclusions.sort((a, b) => {
-            const startDiff = a.start - b.start;
-            if (startDiff !== 0) return startDiff;
-            if (a.offsetMarker && !b.offsetMarker) return -1;
-            if (!a.offsetMarker && b.offsetMarker) return 1;
-            return 0;
-        });
+        // Sort exclusions by start position only
+        exclusions.sort((a, b) => a.start - b.start);
 
         const digest = Crypto.streamingDigest(algorithm);
+        let currentPosition = 0;
 
-        for (let i = 0; i < exclusions.length; i++) {
-            const previousEnd = i > 0 ? exclusions[i - 1].start + exclusions[i - 1].length : 0;
-            const length = exclusions[i].start - previousEnd;
-
-            if (exclusions[i].offsetMarker) {
-                const offsetBytes = new Uint8Array(8);
-                const view = new DataView(offsetBytes.buffer);
-                view.setBigInt64(0, BigInt(exclusions[i].start), false);
-                digest.update(offsetBytes);
+        for (const exclusion of exclusions) {
+            // Write data up to this position
+            if (exclusion.start > currentPosition) {
+                digest.update(await asset.getDataRange(currentPosition, exclusion.start - currentPosition));
             }
 
-            if (length > 0) {
-                digest.update(await asset.getDataRange(previousEnd, length));
+            // Handle offset markers
+            if (exclusion.offsetMarker) {
+                const offsetBytes = new Uint8Array(8);
+                const view = new DataView(offsetBytes.buffer);
+                view.setBigInt64(0, BigInt(exclusion.start), false);
+                digest.update(offsetBytes);
+                currentPosition = exclusion.start; // Don't skip any data for offset markers
+            } else {
+                currentPosition = exclusion.start + exclusion.length;
             }
         }
 
-        const endOfLastExclusion = exclusions[exclusions.length - 1].start + exclusions[exclusions.length - 1].length;
-        if (asset.getDataLength() > endOfLastExclusion) {
-            digest.update(await asset.getDataRange(endOfLastExclusion));
+        // Hash any remaining data
+        if (currentPosition < asset.getDataLength()) {
+            digest.update(await asset.getDataRange(currentPosition));
         }
 
         return digest.final();

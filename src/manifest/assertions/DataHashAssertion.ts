@@ -10,6 +10,7 @@ import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 import { AssertionUtils } from './AssertionUtils';
+import { HashAssertion } from './HashAssertion';
 
 interface RawDataHashMap {
     exclusions?: HashExclusionRange[];
@@ -20,7 +21,7 @@ interface RawDataHashMap {
     name?: string;
 }
 
-export class DataHashAssertion extends Assertion {
+export class DataHashAssertion extends Assertion implements HashAssertion {
     public label = AssertionLabels.dataHash;
     public uuid = raw.UUIDs.cborAssertion;
 

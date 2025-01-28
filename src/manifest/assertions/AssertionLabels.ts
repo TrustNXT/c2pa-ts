@@ -4,6 +4,7 @@ export class AssertionLabels {
     public static readonly collectionHash = 'c2pa.hash.collection.data';
     public static readonly bmffHash = 'c2pa.hash.bmff';
     public static readonly bmffV2Hash = 'c2pa.hash.bmff.v2';
+    public static readonly bmffV3Hash = 'c2pa.hash.bmff.v3';
     public static readonly hardBindings = [
         AssertionLabels.dataHash,
         AssertionLabels.boxHash,
@@ -11,6 +12,7 @@ export class AssertionLabels {
         // "A validator or consumer shall not validate content authenticated by a c2pa.hash.bmff assertion. Instead, it shall report the content as unauthenticated, as if no manifest were present."
         //AssertionLabels.bmffHash,
         AssertionLabels.bmffV2Hash,
+        AssertionLabels.bmffV3Hash,
     ];
 
     public static readonly ingredient = 'c2pa.ingredient';
