@@ -9,41 +9,41 @@
     "type": "git",
     "url": "git+https://github.com/TrustNXT/c2pa-ts.git"
   },
-  "main": "./dist/src/index.js",
-  "module": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./asset": {
-      "types": "./dist/src/asset/index.d.ts",
-      "import": "./dist/src/asset/index.js"
+      "types": "./dist/asset/index.d.ts",
+      "import": "./dist/asset/index.js"
     },
     "./cose": {
-      "types": "./dist/src/cose/index.d.ts",
-      "import": "./dist/src/cose/index.js"
+      "types": "./dist/cose/index.d.ts",
+      "import": "./dist/cose/index.js"
     },
     "./crypto": {
-      "types": "./dist/src/crypto/index.d.ts",
-      "import": "./dist/src/crypto/index.js"
+      "types": "./dist/crypto/index.d.ts",
+      "import": "./dist/crypto/index.js"
     },
     "./jumbf": {
-      "types": "./dist/src/jumbf/index.d.ts",
-      "import": "./dist/src/jumbf/index.js"
+      "types": "./dist/jumbf/index.d.ts",
+      "import": "./dist/jumbf/index.js"
     },
     "./manifest": {
-      "types": "./dist/src/manifest/index.d.ts",
-      "import": "./dist/src/manifest/index.js"
+      "types": "./dist/manifest/index.d.ts",
+      "import": "./dist/manifest/index.js"
     },
     "./rfc3161": {
-      "types": "./dist/src/rfc3161/index.d.ts",
-      "import": "./dist/src/rfc3161/index.js"
+      "types": "./dist/rfc3161/index.d.ts",
+      "import": "./dist/rfc3161/index.js"
     }
   },
   "files": [
-    "dist/src"
+    "dist"
   ],
   "devDependencies": {
     "@eslint/js": "^9.12.0",
@@ -67,7 +67,8 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
-    "typescript-eslint": "^8.8.1"
+    "typescript-eslint": "^8.8.1",
+    "tsup": "^8.3.6"
   },
   "dependencies": {
     "@peculiar/x509": "^1.12.2",
@@ -89,9 +90,12 @@
     "lint": "eslint src tests",
     "format": "prettier --write src tests",
     "test": "mocha 'tests/**/*test.ts'",
-    "build": "rimraf dist && node prebuild.js && tsc -p tsconfig.json; exit_code=$?; node postbuild.js; exit $exit_code",
+    "prebuild": "rimraf dist && node prebuild.js",
+    "postbuild": "node postbuild.js",
+    "build": "tsup",
     "changeset": "changeset",
     "version": "changeset version && npm install --package-lock-only",
-    "release": "npm run build && changeset publish"
+    "release": "npm run build && changeset publish",
+    "prepublishOnly": "npm run build"
   }
 }
