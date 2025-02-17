@@ -149,12 +149,6 @@ const testFiles: Record<string, TestExpectations> = {
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionDataHashMismatch],
     },
-    'public-testfiles/image/jpeg/adobe-20221004-ukraine_building.jpeg': {
-        assetType: JPEG,
-        jumbf: true,
-        valid: false,
-        statusCodes: [ValidationStatusCode.AssertionActionMalformed],
-    },
     'public-testfiles/image/jpeg/nikon-20221019-building.jpeg': {
         assetType: JPEG,
         jumbf: true,

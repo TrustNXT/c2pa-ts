@@ -106,7 +106,13 @@
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
   "include": [
-    "src", "tests"
+    "src",
+    "tests",
+    "tsup.config.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
   ],
   "ts-node": {
     "esm": true

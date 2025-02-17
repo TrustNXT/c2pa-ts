@@ -389,6 +389,7 @@ export class IngredientAssertion extends Assertion {
         // Optional fields
         if (content.instanceID) this.instanceID = content.instanceID;
         if (content.documentID) this.documentID = content.documentID;
+        if (content.c2pa_manifest) this.c2pa_manifest = claim.mapHashedURI(content.c2pa_manifest);
         if (content.data) this.data = claim.mapHashedURI(content.data);
         if (content.dataTypes) this.dataTypes = content.dataTypes;
         if (content.thumbnail) this.thumbnail = claim.mapHashedURI(content.thumbnail);
