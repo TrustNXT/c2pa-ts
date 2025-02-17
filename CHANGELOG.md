@@ -1,5 +1,12 @@
 # c2pa-ts
 
+## 0.7.1
+
+### Patch Changes
+
+- e8a9d1a: Add missing v2 prop `c2pa_manifest` in `IngredientAssertion` for backward compatibility.
+- e8a9d1a: Switch to tsup for building the dist
+
 ## 0.7.0
 
 ### Minor Changes
