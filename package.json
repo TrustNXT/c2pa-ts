@@ -65,8 +65,8 @@
     "replace-in-file": "^8.2.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
-    "typescript": "^5.6.2",
-    "typescript-eslint": "^8.8.1",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.0",
     "tsup": "^8.3.6"
   },
   "dependencies": {
