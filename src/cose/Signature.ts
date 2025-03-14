@@ -119,10 +119,7 @@ export class Signature {
         if (!container?.tstTokens?.length) return;
         for (const timestampToken of container.tstTokens) {
             try {
-                yield {
-                    version,
-                    response: pkijs.TimeStampResp.fromBER(timestampToken.val),
-                };
+                yield { version, response: pkijs.TimeStampResp.fromBER(timestampToken.val) };
             } catch {
                 throw new MalformedContentError('Malformed timestamp');
             }
@@ -149,24 +146,18 @@ export class Signature {
         this.rawProtectedBucket = JUMBF.CBORBox.encoder.encode(protectedBucket);
 
         // Build the unprotected bucket containing padding and timestamps
-        const unprotectedBucket: UnprotectedBucket = {
-            pad: new Uint8Array(this.paddingLength),
-        };
+        const unprotectedBucket: UnprotectedBucket = { pad: new Uint8Array(this.paddingLength) };
 
         const timestampTokensV1 = this.timestampTokens.filter(token => token.version === TimestampVersion.V1);
         if (timestampTokensV1.length) {
             unprotectedBucket.sigTst = {
-                tstTokens: timestampTokensV1.map(tst => ({
-                    val: new Uint8Array(tst.response.toSchema().toBER()),
-                })),
+                tstTokens: timestampTokensV1.map(tst => ({ val: new Uint8Array(tst.response.toSchema().toBER()) })),
             };
         }
         const timestampTokensV2 = this.timestampTokens.filter(token => token.version === TimestampVersion.V2);
         if (timestampTokensV2.length) {
             unprotectedBucket.sigTst2 = {
-                tstTokens: timestampTokensV2.map(tst => ({
-                    val: new Uint8Array(tst.response.toSchema().toBER()),
-                })),
+                tstTokens: timestampTokensV2.map(tst => ({ val: new Uint8Array(tst.response.toSchema().toBER()) })),
             };
         }
 
