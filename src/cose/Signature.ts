@@ -348,12 +348,20 @@ export class Signature {
             payload = signerInfo.signedAttrs.encodedValue;
         }
 
+        let namedCurveOID: string | undefined = undefined;
+        if (
+            certificate.subjectPublicKeyInfo.algorithm.algorithmParams &&
+            'getValue' in certificate.subjectPublicKeyInfo.algorithm.algorithmParams
+        ) {
+            namedCurveOID = (
+                certificate.subjectPublicKeyInfo.algorithm.algorithmParams as asn1js.ObjectIdentifier
+            ).getValue();
+        }
+
         const signingAlgorithm = Crypto.getSigningAlgorithmByOID(
             certificate.subjectPublicKeyInfo.algorithm.algorithmId,
             signerHashAlgorithm,
-            certificate.subjectPublicKeyInfo.algorithm.algorithmParams instanceof asn1js.ObjectIdentifier ?
-                certificate.subjectPublicKeyInfo.algorithm.algorithmParams.getValue()
-            :   undefined,
+            namedCurveOID,
         );
         if (!signingAlgorithm) return false;
 
