@@ -51,10 +51,15 @@ export class LocalTimestampProvider implements TimestampProvider {
             nonce: request.nonce,
         });
 
-        const namedCurveOID =
-            this.certificate.subjectPublicKeyInfo.algorithm.algorithmParams instanceof asn1js.ObjectIdentifier ?
-                this.certificate.subjectPublicKeyInfo.algorithm.algorithmParams.getValue()
-            :   undefined;
+        let namedCurveOID: string | undefined = undefined;
+        if (
+            this.certificate.subjectPublicKeyInfo.algorithm.algorithmParams &&
+            'getValue' in this.certificate.subjectPublicKeyInfo.algorithm.algorithmParams
+        ) {
+            namedCurveOID = (
+                this.certificate.subjectPublicKeyInfo.algorithm.algorithmParams as asn1js.ObjectIdentifier
+            ).getValue();
+        }
 
         let hashAlgorithm: HashAlgorithm = 'SHA-256';
         const signatureAlgorithm = Crypto.getSigningAlgorithmByOID(
