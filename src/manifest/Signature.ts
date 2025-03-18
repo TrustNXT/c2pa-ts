@@ -1,4 +1,3 @@
-import { X509Certificate } from '@peculiar/x509';
 import * as COSE from '../cose';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
@@ -91,31 +90,22 @@ export class Signature implements ManifestComponent {
         }
     }
 
-    public static createFromCertificate(
-        certificate: X509Certificate,
-        algorithm: COSE.CoseAlgorithmIdentifier,
-        chainCertificates: X509Certificate[] = [],
-        initialPaddingLength = 25000,
-    ) {
+    public static create(signer: COSE.Signer, initialPaddingLength = 25000) {
         const coseSignature = new COSE.Signature();
         coseSignature.paddingLength = initialPaddingLength;
-        coseSignature.certificate = certificate;
-        coseSignature.chainCertificates = chainCertificates;
-        coseSignature.algorithm = COSE.Algorithms.getAlgorithm(algorithm);
+        coseSignature.certificate = signer.certificate;
+        coseSignature.chainCertificates = signer.chainCertificates;
+        coseSignature.algorithm = COSE.Algorithms.getAlgorithm(signer.algorithm);
         return new Signature(coseSignature);
     }
 
-    public async sign(
-        privateKey: Uint8Array,
-        payload: Uint8Array,
-        timestampProvider?: TimestampProvider,
-    ): Promise<void> {
+    public async sign(signer: COSE.Signer, payload: Uint8Array, timestampProvider?: TimestampProvider): Promise<void> {
         const schema = JUMBF.SuperBox.schema;
 
         // Measure the size before adding the signature
         const previousLength = schema.measure(this.generateJUMBFBox()).size;
 
-        await this.signatureData.sign(privateKey, payload, timestampProvider);
+        await this.signatureData.sign(signer, payload, timestampProvider);
 
         // Measure the new length after signature is added and adjust padding as necessary
         const adjust = schema.measure(this.generateJUMBFBox()).size - previousLength;

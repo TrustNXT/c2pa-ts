@@ -19,7 +19,7 @@ describe('Functional Signing Tests', function () {
             let manifest: Manifest | undefined;
 
             it('add a manifest to a JPEG test file', async function () {
-                const { x509Certificate, privateKey, timestampProvider } = await loadTestCertificate(certificate);
+                const { signer, timestampProvider } = await loadTestCertificate(certificate);
 
                 // load the file into a buffer
                 const buf = await fs.readFile(sourceFile);
@@ -37,8 +37,7 @@ describe('Functional Signing Tests', function () {
                     assetFormat: 'image/jpeg',
                     instanceID: 'xyzxyz',
                     defaultHashAlgorithm: 'SHA-256',
-                    certificate: x509Certificate,
-                    signingAlgorithm: certificate.algorithm,
+                    signer,
                 });
 
                 // create a data hash assertion
@@ -52,7 +51,7 @@ describe('Functional Signing Tests', function () {
                 await dataHashAssertion.updateWithAsset(asset);
 
                 // create the signature
-                await manifest.sign(privateKey, timestampProvider);
+                await manifest.sign(signer, timestampProvider);
 
                 // write the JUMBF box to the asset
                 await asset.writeManifestJUMBF(manifestStore.getBytes());

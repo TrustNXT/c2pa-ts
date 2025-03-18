@@ -1,6 +1,5 @@
-import { X509Certificate } from '@peculiar/x509';
 import { Asset } from '../asset';
-import { CoseAlgorithmIdentifier } from '../cose';
+import { Signer } from '../cose';
 import { HashAlgorithm } from '../crypto';
 import { Crypto } from '../crypto/Crypto';
 import * as JUMBF from '../jumbf';
@@ -44,22 +43,18 @@ export class Manifest implements ManifestComponent {
      * @param assetFormat - The format of the asset this manifest is for
      * @param instanceID - Unique identifier for this manifest instance
      * @param defaultHashAlgorithm - Default hashing algorithm to use
-     * @param certificate - X.509 certificate for signing
-     * @param signingAlgorithm - Algorithm to use for signing
-     * @param chainCertificates - Optional chain of certificates
+     * @param signer - Signer to use for signing the manifest
      */
     public initialize(
         claimVersion: ClaimVersion,
         assetFormat: string | undefined,
         instanceID: string,
         defaultHashAlgorithm: HashAlgorithm | undefined,
-        certificate: X509Certificate,
-        signingAlgorithm: CoseAlgorithmIdentifier,
-        chainCertificates: X509Certificate[] | undefined,
+        signer: Signer,
     ): void {
         this.assertions = new AssertionStore();
 
-        this.signature = Signature.createFromCertificate(certificate, signingAlgorithm, chainCertificates);
+        this.signature = Signature.create(signer);
 
         const claim = new Claim();
         claim.version = claimVersion;
@@ -667,11 +662,7 @@ export class Manifest implements ManifestComponent {
         if (!hashAlgorithm && !this.claim.defaultAlgorithm) throw new Error('Missing algorithm');
         const algorithm = hashAlgorithm ?? this.claim.defaultAlgorithm!;
 
-        const uri = {
-            uri: `self#jumbf=${label}`,
-            hash: new Uint8Array(Crypto.getDigestLength(algorithm)),
-            algorithm,
-        };
+        const uri = { uri: `self#jumbf=${label}`, hash: new Uint8Array(Crypto.getDigestLength(algorithm)), algorithm };
 
         this.hashedReferences.push(uri);
 
@@ -684,7 +675,7 @@ export class Manifest implements ManifestComponent {
      * @param timestampProvider - An optional timestamp provider to add an RFC3161 timestamp
      * @throws Error if manifest has no claim or signature
      */
-    public async sign(privateKey: Uint8Array, timestampProvider?: TimestampProvider): Promise<void> {
+    public async sign(signer: Signer, timestampProvider?: TimestampProvider): Promise<void> {
         if (!this.claim) throw new Error('Manifest does not have claim');
         if (!this.signature) throw new Error('Manifest does not have signature');
 
@@ -694,7 +685,7 @@ export class Manifest implements ManifestComponent {
             await this.updateHashedReference(reference);
         }
 
-        await this.signature.sign(privateKey, this.claim.getBytes(this.claim, true)!, timestampProvider);
+        await this.signature.sign(signer, this.claim.getBytes(this.claim, true)!, timestampProvider);
     }
 
     /**
