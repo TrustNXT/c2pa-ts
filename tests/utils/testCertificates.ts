@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import { X509Certificate } from '@peculiar/x509';
-import { CoseAlgorithmIdentifier } from '../../src/cose';
+import { CoseAlgorithmIdentifier, LocalSigner, Signer } from '../../src/cose';
 import { LocalTimestampProvider } from '../../src/rfc3161';
 
 export interface TestCertificate {
@@ -26,8 +26,7 @@ export const TEST_CERTIFICATES: TestCertificate[] = [
 ];
 
 export interface LoadedCertificate {
-    x509Certificate: X509Certificate;
-    privateKey: Uint8Array;
+    signer: Signer;
     timestampProvider: LocalTimestampProvider;
 }
 
@@ -46,5 +45,7 @@ export async function loadTestCertificate(certificateInfo: TestCertificate): Pro
     // Create timestamp provider
     const timestampProvider = new LocalTimestampProvider(x509Certificate, privateKey);
 
-    return { x509Certificate, privateKey, timestampProvider };
+    const signer = new LocalSigner(privateKey, certificateInfo.algorithm, x509Certificate);
+
+    return { signer, timestampProvider };
 }

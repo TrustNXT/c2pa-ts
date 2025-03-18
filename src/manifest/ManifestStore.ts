@@ -1,6 +1,5 @@
-import { X509Certificate } from '@peculiar/x509';
 import { Asset } from '../asset';
-import { CoseAlgorithmIdentifier } from '../cose';
+import { Signer } from '../cose';
 import { HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { BinaryHelper } from '../util';
@@ -22,9 +21,7 @@ export class ManifestStore {
         assetFormat: string;
         instanceID: string;
         defaultHashAlgorithm?: HashAlgorithm;
-        certificate: X509Certificate;
-        signingAlgorithm: CoseAlgorithmIdentifier;
-        chainCertificates?: X509Certificate[];
+        signer: Signer;
     }): Manifest {
         const manifest = new Manifest(this);
         this.manifests.push(manifest);
@@ -34,9 +31,7 @@ export class ManifestStore {
             options.assetFormat,
             options.instanceID,
             options.defaultHashAlgorithm,
-            options.certificate,
-            options.signingAlgorithm,
-            options.chainCertificates,
+            options.signer,
         );
 
         return manifest;
