@@ -1,4 +1,11 @@
-import { ECDSASigningAlgorithm, Ed25519SigningAlgorithm, RSASigningAlgorithm } from '../crypto';
+import { X509Certificate } from '@peculiar/x509';
+import {
+    ECDSANamedCurve,
+    ECDSASigningAlgorithm,
+    Ed25519SigningAlgorithm,
+    RSASigningAlgorithm,
+    SigningAlgorithm,
+} from '../crypto';
 
 export interface CoseAlgorithm {
     // Do not specify a namedCurve here – according to C2PA spec:
@@ -79,7 +86,32 @@ const algorithmList: CoseAlgorithm[] = [
 ];
 
 export class Algorithms {
+    /**
+     * Returns the algorithm structure by its identifier.
+     * @param coseIdentifier COSE algorithm identifier
+     */
     public static getAlgorithm(coseIdentifier: CoseAlgorithmIdentifier): CoseAlgorithm | undefined {
         return algorithmList.find(alg => alg.coseIdentifier === coseIdentifier);
+    }
+
+    /**
+     * Returns the actual Crypto algorithm to use for signing/verifying.
+     * @param coseAlgorithm – COSE algorithm structure
+     * @param certificate – X.509 certificate (required for ECDSA named curve)
+     */
+    public static getCryptoAlgorithm(
+        coseAlgorithm?: CoseAlgorithm,
+        certificate?: X509Certificate,
+    ): SigningAlgorithm | undefined {
+        if (!coseAlgorithm || !certificate) return undefined;
+
+        if (coseAlgorithm.alg.name === 'ECDSA') {
+            return {
+                ...coseAlgorithm.alg,
+                namedCurve: (certificate.publicKey.algorithm as EcKeyAlgorithm).namedCurve as ECDSANamedCurve,
+            };
+        }
+
+        return coseAlgorithm.alg;
     }
 }

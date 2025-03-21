@@ -19,7 +19,7 @@ describe('BMFF Signing Tests', function () {
     async function signAndVerify(version: 2 | 3) {
         const targetFile = version === 2 ? targetFileV2 : targetFileV3;
 
-        const { x509Certificate, privateKey, timestampProvider } = await loadTestCertificate({
+        const { signer, timestampProvider } = await loadTestCertificate({
             name: 'ES256 sample certificate',
             certificateFile: 'tests/fixtures/sample_es256.pem',
             privateKeyFile: 'tests/fixtures/sample_es256.key',
@@ -37,8 +37,7 @@ describe('BMFF Signing Tests', function () {
             assetFormat: 'image/heic',
             instanceID: 'xyzxyz',
             defaultHashAlgorithm: 'SHA-256',
-            certificate: x509Certificate,
-            signingAlgorithm: CoseAlgorithmIdentifier.ES256,
+            signer,
         });
 
         // create hash assertion with appropriate version
@@ -55,7 +54,7 @@ describe('BMFF Signing Tests', function () {
         await bmffHashAssertion.updateWithAsset(asset);
 
         // create the signature
-        await manifest.sign(privateKey, timestampProvider);
+        await manifest.sign(signer, timestampProvider);
 
         // write the JUMBF box to the asset
         await asset.writeManifestJUMBF(manifestStore.getBytes());

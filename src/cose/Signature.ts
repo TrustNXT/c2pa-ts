@@ -12,13 +12,14 @@ import {
 } from '@peculiar/x509';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
-import { Crypto, ECDSANamedCurve, SigningAlgorithm } from '../crypto';
+import { Crypto } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { CBORBox } from '../jumbf';
 import { ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
 import { Timestamp, TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
 import { Algorithms, CoseAlgorithm } from './Algorithms';
+import { Signer } from './Signer';
 import { SigStructure } from './SigStructure';
 import {
     AdditionalEKU,
@@ -119,10 +120,7 @@ export class Signature {
         if (!container?.tstTokens?.length) return;
         for (const timestampToken of container.tstTokens) {
             try {
-                yield {
-                    version,
-                    response: pkijs.TimeStampResp.fromBER(timestampToken.val),
-                };
+                yield { version, response: pkijs.TimeStampResp.fromBER(timestampToken.val) };
             } catch {
                 throw new MalformedContentError('Malformed timestamp');
             }
@@ -149,24 +147,18 @@ export class Signature {
         this.rawProtectedBucket = JUMBF.CBORBox.encoder.encode(protectedBucket);
 
         // Build the unprotected bucket containing padding and timestamps
-        const unprotectedBucket: UnprotectedBucket = {
-            pad: new Uint8Array(this.paddingLength),
-        };
+        const unprotectedBucket: UnprotectedBucket = { pad: new Uint8Array(this.paddingLength) };
 
         const timestampTokensV1 = this.timestampTokens.filter(token => token.version === TimestampVersion.V1);
         if (timestampTokensV1.length) {
             unprotectedBucket.sigTst = {
-                tstTokens: timestampTokensV1.map(tst => ({
-                    val: new Uint8Array(tst.response.toSchema().toBER()),
-                })),
+                tstTokens: timestampTokensV1.map(tst => ({ val: new Uint8Array(tst.response.toSchema().toBER()) })),
             };
         }
         const timestampTokensV2 = this.timestampTokens.filter(token => token.version === TimestampVersion.V2);
         if (timestampTokensV2.length) {
             unprotectedBucket.sigTst2 = {
-                tstTokens: timestampTokensV2.map(tst => ({
-                    val: new Uint8Array(tst.response.toSchema().toBER()),
-                })),
+                tstTokens: timestampTokensV2.map(tst => ({ val: new Uint8Array(tst.response.toSchema().toBER()) })),
             };
         }
 
@@ -180,13 +172,13 @@ export class Signature {
 
     /**
      * Signs the provided payload and optionally adds a timestamp
-     * @param privateKey - Private key in PKCS#8 format
+     * @param signer – Signer implementation providing the signature
      * @param payload - Data to be signed
      * @param timestampProvider - Optional provider for RFC3161 timestamp
      * @throws Error if protected bucket, algorithm or certificate is missing
      */
     public async sign(
-        privateKey: Uint8Array,
+        signer: Signer,
         payload: Uint8Array,
         timestampProvider?: TimestampProvider,
         timestampVersion: TimestampVersion = TimestampVersion.V2,
@@ -195,7 +187,7 @@ export class Signature {
         if (!this.algorithm || !this.certificate) throw new Error('Signature is missing algorithm');
 
         const toBeSigned = new SigStructure('Signature1', this.rawProtectedBucket, payload).encode();
-        this.signature = await Crypto.sign(toBeSigned, privateKey, this.getSigningAlgorithm()!);
+        this.signature = await signer.sign(toBeSigned);
 
         this.timestampTokens = [];
         if (timestampProvider) {
@@ -348,12 +340,20 @@ export class Signature {
             payload = signerInfo.signedAttrs.encodedValue;
         }
 
+        let namedCurveOID: string | undefined = undefined;
+        if (
+            certificate.subjectPublicKeyInfo.algorithm.algorithmParams &&
+            'getValue' in certificate.subjectPublicKeyInfo.algorithm.algorithmParams
+        ) {
+            namedCurveOID = (
+                certificate.subjectPublicKeyInfo.algorithm.algorithmParams as asn1js.ObjectIdentifier
+            ).getValue();
+        }
+
         const signingAlgorithm = Crypto.getSigningAlgorithmByOID(
             certificate.subjectPublicKeyInfo.algorithm.algorithmId,
             signerHashAlgorithm,
-            certificate.subjectPublicKeyInfo.algorithm.algorithmParams instanceof asn1js.ObjectIdentifier ?
-                certificate.subjectPublicKeyInfo.algorithm.algorithmParams.getValue()
-            :   undefined,
+            namedCurveOID,
         );
         if (!signingAlgorithm) return false;
 
@@ -419,7 +419,7 @@ export class Signature {
                     toBeSigned,
                     this.signature,
                     new Uint8Array(this.certificate.publicKey.rawData),
-                    this.getSigningAlgorithm()!,
+                    Algorithms.getCryptoAlgorithm(this.algorithm, this.certificate)!,
                 )
             ) {
                 result.addInformational(ValidationStatusCode.ClaimSignatureValidated, sourceBox);
@@ -431,18 +431,6 @@ export class Signature {
         }
 
         return result;
-    }
-
-    private getSigningAlgorithm(): SigningAlgorithm | undefined {
-        if (!this.algorithm || !this.certificate) return undefined;
-
-        if (this.algorithm.alg.name === 'ECDSA') {
-            return {
-                ...this.algorithm.alg,
-                namedCurve: (this.certificate.publicKey.algorithm as EcKeyAlgorithm).namedCurve as ECDSANamedCurve,
-            };
-        }
-        return this.algorithm.alg;
     }
 
     private static validateCertificate(
