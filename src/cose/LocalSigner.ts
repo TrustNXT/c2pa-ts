@@ -18,8 +18,8 @@ export class LocalSigner implements Signer {
         public chainCertificates: X509Certificate[] = [],
     ) {}
 
-    public async sign(payload: Uint8Array): Promise<Uint8Array> {
-        return await Crypto.sign(
+    public sign(payload: Uint8Array): Promise<Uint8Array> {
+        return Crypto.sign(
             payload,
             this.privateKey,
             Algorithms.getCryptoAlgorithm(Algorithms.getAlgorithm(this.algorithm), this.certificate)!,
