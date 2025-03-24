@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.8.0
+
+### Minor Changes
+
+- f8a48f3: Breaking Change: Introduce Signer interface to support external signing of manifests
+
 ## 0.7.1
 
 ### Patch Changes
