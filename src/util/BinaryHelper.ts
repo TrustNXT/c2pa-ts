@@ -1,5 +1,5 @@
 export class BinaryHelper {
-    private static textDecoder = new TextDecoder();
+    private static readonly textDecoder = new TextDecoder();
 
     public static readUInt16(buf: Uint8Array, offset: number): number {
         return (buf[offset] << 8) | buf[offset + 1];

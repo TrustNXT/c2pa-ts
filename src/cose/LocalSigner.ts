@@ -12,7 +12,7 @@ export class LocalSigner implements Signer {
      * @param chainCertificates – Additional certificates to include in the certificate chain
      */
     public constructor(
-        private privateKey: Uint8Array,
+        private readonly privateKey: Uint8Array,
         public algorithm: COSEAlgorithmIdentifier,
         public certificate: X509Certificate,
         public chainCertificates: X509Certificate[] = [],

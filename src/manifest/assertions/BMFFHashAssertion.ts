@@ -54,7 +54,7 @@ interface RawDataHashMap {
 }
 
 export class BMFFHashAssertion extends Assertion implements HashAssertion {
-    private _version: number = DEFAULT_ASSERTION_VERSION;
+    private readonly _version: number = DEFAULT_ASSERTION_VERSION;
     public uuid = raw.UUIDs.cborAssertion;
 
     public exclusions: Exclusion[] = [];

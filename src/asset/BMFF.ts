@@ -3,19 +3,19 @@ import { BaseAsset } from './BaseAsset';
 import { Asset } from './types';
 
 export class BMFF extends BaseAsset implements Asset {
-    public static c2paBoxUserType = [
+    public static readonly c2paBoxUserType = [
         0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
     ];
 
     /** Currently supported major brand identifiers */
-    private static canReadBrands = new Set(['heic', 'mif1']);
+    private static readonly canReadBrands = new Set(['heic', 'mif1']);
 
     /** Non-exhaustive list of boxes that may not appear before a FileType box, otherwise it's not a valid file */
-    private static mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
+    private static readonly mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
 
     public readonly mimeType = 'image/heic'; // Could technically also be image/heif if the brand is mif1
 
-    private boxes: Box<object>[] = [];
+    private readonly boxes: Box<object>[] = [];
 
     public constructor(data: Uint8Array) {
         super(data);
@@ -326,7 +326,7 @@ class FullBox<T extends FullBoxPayload> extends Box<T> {
  * have any other additional fields that need parsing.
  */
 class SimpleContainerBox extends Box<never> {
-    public static boxTypes = new Set([
+    public static readonly boxTypes = new Set([
         'cinf',
         'dinf',
         'edts',
