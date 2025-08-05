@@ -96,9 +96,11 @@ export class Signature {
         if (!Array.isArray(x5chain)) x5chain = [x5chain];
 
         try {
-            signature.certificate = new X509Certificate(x5chain[0]);
+            signature.certificate = new X509Certificate(x5chain[0] as Uint8Array<ArrayBuffer>);
             if (x5chain.length > 1) {
-                signature.chainCertificates = x5chain.slice(1).map(c => new X509Certificate(c));
+                signature.chainCertificates = x5chain
+                    .slice(1)
+                    .map(c => new X509Certificate(c as Uint8Array<ArrayBuffer>));
             }
         } catch {
             throw new MalformedContentError('Malformed credentials');
@@ -120,7 +122,7 @@ export class Signature {
         if (!container?.tstTokens?.length) return;
         for (const timestampToken of container.tstTokens) {
             try {
-                yield { version, response: pkijs.TimeStampResp.fromBER(timestampToken.val) };
+                yield { version, response: pkijs.TimeStampResp.fromBER(timestampToken.val as Uint8Array<ArrayBuffer>) };
             } catch {
                 throw new MalformedContentError('Malformed timestamp');
             }
