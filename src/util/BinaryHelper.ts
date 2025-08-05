@@ -94,7 +94,7 @@ export class BinaryHelper {
         return hexString;
     }
 
-    public static toArrayBuffer(buf: Uint8Array): ArrayBuffer {
+    public static toArrayBuffer(buf: Uint8Array<ArrayBuffer>): ArrayBuffer {
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
     }
 }

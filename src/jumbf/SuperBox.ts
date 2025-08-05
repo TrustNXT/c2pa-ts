@@ -71,8 +71,8 @@ export class SuperBox extends Box {
         super(SuperBox.typeCode, SuperBox.schema);
     }
 
-    public static fromBuffer(buf: Uint8Array): SuperBox {
-        const reader = new bin.BufferReader(buf, { endianness: 'big' });
+    public static fromBuffer(buf: Uint8Array<ArrayBuffer>): SuperBox {
+        const reader = new bin.BufferReader(BinaryHelper.toArrayBuffer(buf), { endianness: 'big' });
         const box = SuperBox.schema.read(reader);
 
         const rootURI = 'self#jumbf=';
