@@ -31,77 +31,77 @@ interface TestExpectations {
 
 // test data sets with file names and expected outcomes
 const testFiles: Record<string, TestExpectations> = {
-    'public-testfiles/image/jpeg/adobe-20220124-A.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-A.jpg': {
         assetType: JPEG,
         jumbf: false,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-C.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-C.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CACA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CACA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CACAICAICICA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CACAICAICICA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CAI.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CAI.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CAICA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CAICA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CAICAI.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CAICAI.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CAIAIIICAICIICAIICICA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CAIAIIICAICIICAIICICA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionActionIngredientMismatch],
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CI.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CI.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CICA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CICA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CICACACA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CICACACA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CIE-sig-CA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CIE-sig-CA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-CII.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-CII.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-E-clm-CAICAI.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-E-clm-CAICAI.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
@@ -110,62 +110,62 @@ const testFiles: Record<string, TestExpectations> = {
             ValidationStatusCode.AssertionActionIngredientMismatch,
         ],
     },
-    'public-testfiles/image/jpeg/adobe-20220124-E-dat-CA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-E-dat-CA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionDataHashMismatch],
     },
-    'public-testfiles/image/jpeg/adobe-20220124-E-sig-CA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-E-sig-CA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.ClaimSignatureMismatch, ValidationStatusCode.TimeStampMismatch],
     },
-    'public-testfiles/image/jpeg/adobe-20220124-E-uri-CA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-E-uri-CA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionHashedURIMismatch],
     },
-    'public-testfiles/image/jpeg/adobe-20220124-E-uri-CIE-sig-CA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-E-uri-CIE-sig-CA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-I.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-I.jpg': {
         assetType: JPEG,
         jumbf: false,
     },
-    'public-testfiles/image/jpeg/adobe-20220124-XCA.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-XCA.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionDataHashMismatch],
     },
-    'public-testfiles/image/jpeg/adobe-20220124-XCI.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/adobe-20220124-XCI.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.AssertionDataHashMismatch],
     },
-    'public-testfiles/image/jpeg/nikon-20221019-building.jpeg': {
+    'public-testfiles/legacy/1.4/image/jpeg/nikon-20221019-building.jpeg': {
         assetType: JPEG,
         jumbf: true,
         valid: false,
         statusCodes: [ValidationStatusCode.SigningCredentialExpired],
     },
-    'public-testfiles/image/jpeg/truepic-20230212-camera.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/truepic-20230212-camera.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/truepic-20230212-landscape.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/truepic-20230212-landscape.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
     },
-    'public-testfiles/image/jpeg/truepic-20230212-library.jpg': {
+    'public-testfiles/legacy/1.4/image/jpeg/truepic-20230212-library.jpg': {
         assetType: JPEG,
         jumbf: true,
         valid: true,
