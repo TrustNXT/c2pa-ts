@@ -3,9 +3,23 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { MP3 } from '../src/asset';
 
-// Helper to get fixture paths
 const fixturesPath = 'tests/fixtures';
 const getFixturePath = (fixture: string) => path.join(fixturesPath, fixture);
+
+async function createAssetWithManifest(manifestData: Uint8Array): Promise<MP3> {
+    const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
+    const asset = new MP3(mp3Buffer);
+    await asset.ensureManifestSpace(manifestData.length);
+    await asset.writeManifestJUMBF(manifestData);
+    return asset;
+}
+
+async function verifyManifestInNewInstance(asset: MP3, expectedManifest: Uint8Array | undefined): Promise<void> {
+    const modifiedBuffer = await asset.getDataRange();
+    const newAsset = new MP3(modifiedBuffer);
+    const newRetrievedManifest = newAsset.getManifestJUMBF();
+    assert.deepEqual(newRetrievedManifest, expectedManifest, 'manifest should match in new asset instance');
+}
 
 describe('MP3', function () {
     it('should identify a valid MP3 file', () => {
@@ -23,32 +37,18 @@ describe('MP3', function () {
     });
 
     it('should add a manifest to an MP3 file', async () => {
-        const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        const asset = new MP3(mp3Buffer);
-
         const manifestData = new Uint8Array(Array.from({ length: 100 }, (_, i) => i));
-
-        await asset.ensureManifestSpace(manifestData.length);
-        await asset.writeManifestJUMBF(manifestData);
+        const asset = await createAssetWithManifest(manifestData);
 
         const retrievedManifest = asset.getManifestJUMBF();
         assert.deepEqual(retrievedManifest, manifestData, 'retrieved manifest should match the original');
 
-        // Verify that the modified asset is still a valid MP3 and contains the manifest
-        const modifiedBuffer = await asset.getDataRange();
-        const newAsset = new MP3(modifiedBuffer);
-        const newRetrievedManifest = newAsset.getManifestJUMBF();
-        assert.deepEqual(newRetrievedManifest, manifestData, 'manifest should be present in new asset instance');
+        await verifyManifestInNewInstance(asset, manifestData);
     });
 
     it('should replace an existing manifest with a larger one', async () => {
-        const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        let asset = new MP3(mp3Buffer);
-
         const initialManifest = new Uint8Array([1, 2, 3, 4, 5]);
-        await asset.ensureManifestSpace(initialManifest.length);
-        await asset.writeManifestJUMBF(initialManifest);
-
+        const asset = await createAssetWithManifest(initialManifest);
         assert.deepEqual(asset.getManifestJUMBF(), initialManifest);
 
         const newManifest = new Uint8Array([10, 20, 30, 40, 50, 60, 70]);
@@ -56,21 +56,12 @@ describe('MP3', function () {
         await asset.writeManifestJUMBF(newManifest);
 
         assert.deepEqual(asset.getManifestJUMBF(), newManifest, 'should have the new manifest');
-
-        // Verify in a new instance
-        const modifiedBuffer = await asset.getDataRange();
-        asset = new MP3(modifiedBuffer);
-        assert.deepEqual(asset.getManifestJUMBF(), newManifest, 'new instance should have the new manifest');
+        await verifyManifestInNewInstance(asset, newManifest);
     });
 
     it('should replace an existing manifest with a smaller one', async () => {
-        const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        let asset = new MP3(mp3Buffer);
-
         const initialManifest = new Uint8Array([1, 2, 3, 4, 5, 6, 7]);
-        await asset.ensureManifestSpace(initialManifest.length);
-        await asset.writeManifestJUMBF(initialManifest);
-
+        const asset = await createAssetWithManifest(initialManifest);
         assert.deepEqual(asset.getManifestJUMBF(), initialManifest);
 
         const newManifest = new Uint8Array([10, 20, 30]);
@@ -78,33 +69,18 @@ describe('MP3', function () {
         await asset.writeManifestJUMBF(newManifest);
 
         assert.deepEqual(asset.getManifestJUMBF(), newManifest, 'should have the new manifest');
-
-        // Verify in a new instance
-        const modifiedBuffer = await asset.getDataRange();
-        asset = new MP3(modifiedBuffer);
-        assert.deepEqual(asset.getManifestJUMBF(), newManifest, 'new instance should have the new manifest');
+        await verifyManifestInNewInstance(asset, newManifest);
     });
 
     it('should remove a manifest from an MP3 file', async () => {
-        const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        let asset = new MP3(mp3Buffer);
-
         const manifestData = new Uint8Array([1, 2, 3, 4, 5]);
-        await asset.ensureManifestSpace(manifestData.length);
-        await asset.writeManifestJUMBF(manifestData);
-
+        const asset = await createAssetWithManifest(manifestData);
         assert.ok(asset.getManifestJUMBF(), 'manifest should exist');
 
         await asset.ensureManifestSpace(0);
-        // After ensureManifestSpace(0), the manifest should be gone.
-        // The write is not strictly necessary but let's do it for completeness.
         await asset.writeManifestJUMBF(new Uint8Array(0));
 
         assert.equal(asset.getManifestJUMBF(), undefined, 'manifest should be removed');
-
-        // Verify in a new instance
-        const modifiedBuffer = await asset.getDataRange();
-        asset = new MP3(modifiedBuffer);
-        assert.equal(asset.getManifestJUMBF(), undefined, 'new instance should not have a manifest');
+        await verifyManifestInNewInstance(asset, undefined);
     });
 });
