@@ -15,6 +15,14 @@ export class BinaryHelper {
         return lsb + 4294967296n * gsb;
     }
 
+    public static readSynchsafe(buf: Uint8Array, offset: number): number {
+        const b1 = buf[offset];
+        const b2 = buf[offset + 1];
+        const b3 = buf[offset + 2];
+        const b4 = buf[offset + 3];
+        return (b1 << 21) | (b2 << 14) | (b3 << 7) | b4;
+    }
+
     public static readString(buf: Uint8Array, offset: number, length: number): string {
         return this.textDecoder.decode(buf.subarray(offset, offset + length));
     }
@@ -96,5 +104,12 @@ export class BinaryHelper {
 
     public static toArrayBuffer(buf: Uint8Array<ArrayBuffer>): ArrayBuffer {
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    }
+
+    public static writeSynchsafe(view: DataView, offset: number, value: number) {
+        view.setUint8(offset + 0, (value >> 21) & 0x7f);
+        view.setUint8(offset + 1, (value >> 14) & 0x7f);
+        view.setUint8(offset + 2, (value >> 7) & 0x7f);
+        view.setUint8(offset + 3, value & 0x7f);
     }
 }
