@@ -77,7 +77,7 @@ export class MP3 extends BaseAsset implements Asset {
 
         while (offset < end && offset + 10 <= this.data.length) {
             const frameId = BinaryHelper.readString(this.data, offset, 4);
-            if (frameId.charCodeAt(0) === 0) {
+            if (frameId.codePointAt(0) === 0) {
                 break; // Padding
             }
 
@@ -194,7 +194,9 @@ export class MP3 extends BaseAsset implements Asset {
         for (const frameInfo of newFramesConfig) {
             const frameHeader = new Uint8Array(10);
             const frameHeaderView = new DataView(frameHeader.buffer);
-            frameInfo.id.split('').forEach((c, i) => frameHeaderView.setUint8(i, c.charCodeAt(0)));
+            for (const [i, char] of frameInfo.id.split('').entries()) {
+                frameHeaderView.setUint8(i, char.codePointAt(0)!);
+            }
             BinaryHelper.writeSynchsafe(frameHeaderView, 4, frameInfo.size);
             // Flags = 0
             parts.push({ position: currentPosition, data: frameHeader });
