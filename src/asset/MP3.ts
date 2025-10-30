@@ -30,6 +30,7 @@ export class MP3 extends BaseAsset implements Asset {
 
     private frames: Frame[] = [];
     private manifestFrameIndex?: number;
+    private hasUnsupportedTag = false;
 
     constructor(data: Uint8Array) {
         super(data);
@@ -58,6 +59,7 @@ export class MP3 extends BaseAsset implements Asset {
         this.frames = [];
         this.manifestFrameIndex = undefined;
         this.tagHeader = undefined;
+        this.hasUnsupportedTag = false;
 
         // Check for ID3 tag
         if (this.data.length < 10 || this.data[0] !== 0x49 || this.data[1] !== 0x44 || this.data[2] !== 0x33) {
@@ -66,7 +68,9 @@ export class MP3 extends BaseAsset implements Asset {
 
         const versionMajor = this.data[3];
         if (versionMajor < 2 || versionMajor > 4) {
-            return; // Unsupported version
+            // Unsupported version, we can't safely parse or modify this tag.
+            this.hasUnsupportedTag = true;
+            return;
         }
 
         const size = BinaryHelper.readSynchsafe(this.data, 6);
@@ -161,6 +165,10 @@ export class MP3 extends BaseAsset implements Asset {
             return;
         }
 
+        if (this.hasUnsupportedTag) {
+            throw new Error('Cannot add a manifest to an MP3 with an unsupported ID3 tag version.');
+        }
+
         const otherFrames = this.frames.filter((_, i) => i !== this.manifestFrameIndex);
 
         const newFramesConfig: {
@@ -236,7 +244,7 @@ export class MP3 extends BaseAsset implements Asset {
             1 + mimeBytes.length + 1 + filenameBytes.length + 1 + descriptionBytes.length + 1,
         );
         let offset = 0;
-        buffer[offset++] = 0x00; // Encoding: ISO-8859-1
+        buffer[offset++] = 0x00; // Encoding: ISO-8559-1 – we actually encode as UTF-8 but solely constants containing ASCII letters only
 
         buffer.set(mimeBytes, offset);
         offset += mimeBytes.length;

@@ -89,6 +89,22 @@ describe('MP3', function () {
         assert.equal(asset.getManifestJUMBF(), undefined, 'manifest should be removed');
         await verifyManifestInNewInstance(asset, undefined);
     });
+
+    it('should throw when adding a manifest to a file with an unsupported ID3 version', async () => {
+        const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
+        // Create a fake unsupported ID3 tag by changing the version byte
+        const modifiedBuffer = Uint8Array.from(mp3Buffer);
+        modifiedBuffer[3] = 1; // Version 2.1 is not supported by this library for modification
+
+        const asset = new MP3(modifiedBuffer);
+        const manifestData = new Uint8Array([1, 2, 3, 4, 5]);
+
+        await assert.rejects(
+            asset.ensureManifestSpace(manifestData.length),
+            new Error('Cannot add a manifest to an MP3 with an unsupported ID3 tag version.'),
+            'Should throw an error for unsupported ID3 version',
+        );
+    });
 });
 
 describe('MP3 Signing Tests', function () {
