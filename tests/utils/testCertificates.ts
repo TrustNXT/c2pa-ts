@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import { X509Certificate } from '@peculiar/x509';
 import { CoseAlgorithmIdentifier, LocalSigner, Signer } from '../../src/cose';
+import { ValidationStatusCode } from '../../src/manifest';
 import { LocalTimestampProvider } from '../../src/rfc3161';
 
 export interface TestCertificate {
@@ -48,4 +49,40 @@ export async function loadTestCertificate(certificateInfo: TestCertificate): Pro
     const signer = new LocalSigner(privateKey, certificateInfo.algorithm, x509Certificate);
 
     return { signer, timestampProvider };
+}
+
+// Helper function to generate expected validation status entries for signing tests
+export function getExpectedValidationStatusEntries(manifestLabel: string | undefined) {
+    return [
+        {
+            code: ValidationStatusCode.TimeStampTrusted,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.SigningCredentialTrusted,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.ClaimSignatureValidated,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.AssertionHashedURIMatch,
+            explanation: undefined,
+            url: 'self#jumbf=c2pa.assertions/c2pa.hash.data',
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.AssertionDataHashMatch,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.assertions/c2pa.hash.data`,
+            success: true,
+        },
+    ];
 }

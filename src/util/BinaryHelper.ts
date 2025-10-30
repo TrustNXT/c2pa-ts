@@ -15,6 +15,22 @@ export class BinaryHelper {
         return lsb + 4294967296n * gsb;
     }
 
+    /**
+     * Read a synchsafe integer from 4 bytes.
+     * Synchsafe integers use only 7 bits per byte (MSB is 0) to avoid
+     * confusion with MP3 frame sync bytes in ID3 tags.
+     * @param buf The buffer to read from
+     * @param offset The offset to start reading from
+     * @returns The decoded integer value
+     */
+    public static readSynchsafe(buf: Uint8Array, offset: number): number {
+        const b1 = buf[offset];
+        const b2 = buf[offset + 1];
+        const b3 = buf[offset + 2];
+        const b4 = buf[offset + 3];
+        return (b1 << 21) | (b2 << 14) | (b3 << 7) | b4;
+    }
+
     public static readString(buf: Uint8Array, offset: number, length: number): string {
         return this.textDecoder.decode(buf.subarray(offset, offset + length));
     }
@@ -96,5 +112,20 @@ export class BinaryHelper {
 
     public static toArrayBuffer(buf: Uint8Array<ArrayBuffer>): ArrayBuffer {
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    }
+
+    /**
+     * Write a synchsafe integer to 4 bytes.
+     * Synchsafe integers use only 7 bits per byte (MSB is 0) to avoid
+     * confusion with MP3 frame sync bytes in ID3 tags.
+     * @param view The DataView to write to
+     * @param offset The offset to start writing at
+     * @param value The integer value to encode
+     */
+    public static writeSynchsafe(view: DataView, offset: number, value: number) {
+        view.setUint8(offset + 0, (value >> 21) & 0x7f);
+        view.setUint8(offset + 1, (value >> 14) & 0x7f);
+        view.setUint8(offset + 2, (value >> 7) & 0x7f);
+        view.setUint8(offset + 3, value & 0x7f);
     }
 }

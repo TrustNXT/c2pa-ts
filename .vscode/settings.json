@@ -2,5 +2,9 @@
     "[typescript]": {
         "editor.formatOnPaste": true,
         "editor.formatOnSave": true,
-    }
+    },
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "typescript.tsdk": "node_modules\\typescript\\lib"
 }
