@@ -193,10 +193,10 @@ export class MP3 extends BaseAsset implements Asset {
         // Part 2: All frames
         for (const frameInfo of newFramesConfig) {
             const frameHeader = new Uint8Array(10);
+            const textEncoder = new TextEncoder();
+            const idBytes = textEncoder.encode(frameInfo.id);
+            frameHeader.set(idBytes.subarray(0, 4));
             const frameHeaderView = new DataView(frameHeader.buffer);
-            for (const [i, char] of frameInfo.id.split('').entries()) {
-                frameHeaderView.setUint8(i, char.codePointAt(0)!);
-            }
             BinaryHelper.writeSynchsafe(frameHeaderView, 4, frameInfo.size);
             // Flags = 0
             parts.push({ position: currentPosition, data: frameHeader });
