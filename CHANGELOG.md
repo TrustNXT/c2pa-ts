@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.9.0
+
+### Minor Changes
+
+- 7e4c824: Add MP3 support
+
 ## 0.8.0
 
 ### Minor Changes
