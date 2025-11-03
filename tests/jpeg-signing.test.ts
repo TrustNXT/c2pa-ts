@@ -3,8 +3,8 @@ import * as fs from 'node:fs/promises';
 import { after } from 'mocha';
 import { JPEG } from '../src/asset';
 import { SuperBox } from '../src/jumbf';
-import { DataHashAssertion, Manifest, ManifestStore, ValidationStatusCode } from '../src/manifest';
-import { loadTestCertificate, TEST_CERTIFICATES } from './utils/testCertificates';
+import { DataHashAssertion, Manifest, ManifestStore } from '../src/manifest';
+import { getExpectedValidationStatusEntries, loadTestCertificate, TEST_CERTIFICATES } from './utils/testCertificates';
 
 // location of the image to sign
 const sourceFile = 'tests/fixtures/trustnxt-icon.jpg';
@@ -78,7 +78,7 @@ describe('Functional Signing Tests', function () {
                 assert.ok(jumbf, 'no JUMBF found');
 
                 // deserialize the JUMBF box structure
-                const superBox = SuperBox.fromBuffer(jumbf);
+                const superBox = SuperBox.fromBuffer(jumbf as Uint8Array<ArrayBuffer>);
 
                 // construct the manifest store from the JUMBF box
                 const manifestStore = ManifestStore.read(superBox);
@@ -87,38 +87,7 @@ describe('Functional Signing Tests', function () {
                 const validationResult = await manifestStore.validate(asset);
 
                 // check individual codes
-                assert.deepEqual(validationResult.statusEntries, [
-                    {
-                        code: ValidationStatusCode.TimeStampTrusted,
-                        explanation: undefined,
-                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
-                        success: true,
-                    },
-                    {
-                        code: ValidationStatusCode.SigningCredentialTrusted,
-                        explanation: undefined,
-                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
-                        success: true,
-                    },
-                    {
-                        code: ValidationStatusCode.ClaimSignatureValidated,
-                        explanation: undefined,
-                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.signature`,
-                        success: true,
-                    },
-                    {
-                        code: ValidationStatusCode.AssertionHashedURIMatch,
-                        explanation: undefined,
-                        url: 'self#jumbf=c2pa.assertions/c2pa.hash.data',
-                        success: true,
-                    },
-                    {
-                        code: ValidationStatusCode.AssertionDataHashMatch,
-                        explanation: undefined,
-                        url: `self#jumbf=/c2pa/${manifest.label}/c2pa.assertions/c2pa.hash.data`,
-                        success: true,
-                    },
-                ]);
+                assert.deepEqual(validationResult.statusEntries, getExpectedValidationStatusEntries(manifest.label));
 
                 // check overall validity
                 assert.ok(validationResult.isValid, 'Validation result invalid');
