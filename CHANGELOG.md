@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.9.1
+
+### Patch Changes
+
+- cef2521: switch NPM publish to use OIDC
+
 ## 0.9.0
 
 ### Minor Changes
