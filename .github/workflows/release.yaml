@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
       pull-requests: write
     steps:
       - name: Checkout Repo
@@ -50,7 +51,4 @@ jobs:
         run: |
           npm config delete @trustnxt:registry --location project
           npm config set @trustnxt:registry 'https://registry.npmjs.org' --location project
-          npm config set //registry.npmjs.org/:_authToken '${NODE_AUTH_TOKEN}' --location project
           npm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
