@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
       pull-requests: write
     steps:
       - name: Checkout Repo
@@ -29,13 +30,12 @@ jobs:
         with:
           cache: npm
           node-version: 22
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@trustnxt'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install Dependencies
         run: npm ci
 
-      - name: Create Release Pull Request and publish to GitHub Packages
+      - name: Create Release Pull Request and publish
         id: changesets
         uses: changesets/action@v1
         with:
@@ -43,14 +43,8 @@ jobs:
           publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
 
       - name: Publish to npm registry
         if: steps.changesets.outputs.published == 'true'
         run: |
-          npm config delete @trustnxt:registry --location project
-          npm config set @trustnxt:registry 'https://registry.npmjs.org' --location project
-          npm config set //registry.npmjs.org/:_authToken '${NODE_AUTH_TOKEN}' --location project
           npm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
