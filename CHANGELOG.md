@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.9.3
+
+### Patch Changes
+
+- 239954e: github release
+
 ## 0.9.2
 
 ### Patch Changes
