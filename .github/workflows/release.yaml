@@ -9,6 +9,7 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   release:
@@ -53,7 +54,7 @@ jobs:
       - name: Publish to GitHub Packages
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
-          npm config set registry 'https://npm.pkg.github.com/@trustnxt'
+          npm config set @trustnxt:registry 'https://npm.pkg.github.com'
           npm run release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
