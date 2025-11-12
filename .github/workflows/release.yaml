@@ -39,23 +39,20 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Create Release Pull Request or Version Packages
+      - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
           version: npm run version
+          publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to npm registry
-        if: steps.changesets.outputs.hasChangesets == 'false'
-        run: npm publish --access public --no-git-checks
-
       - name: Publish to GitHub Packages
-        if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs.published == 'true'
         run: |
           npm config set @trustnxt:registry 'https://npm.pkg.github.com'
           npm config set //npm.pkg.github.com/:_authToken '${NODE_AUTH_TOKEN}'
-          npm run release
+          npm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
