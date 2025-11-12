@@ -91,7 +91,7 @@
     "build": "tsup",
     "changeset": "changeset",
     "version": "changeset version && npm install --package-lock-only",
-    "release": "npm run build && changeset publish",
+    "release": "npm run build && changeset publish --access public --no-git-checks",
     "prepublishOnly": "npm run build"
   }
 }
