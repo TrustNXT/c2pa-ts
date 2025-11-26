@@ -19,6 +19,7 @@ export default tseslint.config(
         },
         rules: {
             '@typescript-eslint/require-await': 'off',
+            '@typescript-eslint/no-redundant-type-constituents': 'off',
             '@typescript-eslint/no-empty-function': ['error', { allow: ['private-constructors'] }],
             '@typescript-eslint/no-unused-vars': ['error', { args: 'none' }],
             '@typescript-eslint/prefer-nullish-coalescing': ['error', { ignoreConditionalTests: true }],
