@@ -32,8 +32,10 @@ interface RawIngredientMapV2 extends Omit<RawIngredientMapV1, 'validationStatus'
     description?: string;
 }
 
-interface RawIngredientMapV3
-    extends Omit<RawIngredientMapV2, 'dc:title' | 'dc:format' | 'informational_URI' | 'documentID' | 'c2pa_manifest'> {
+interface RawIngredientMapV3 extends Omit<
+    RawIngredientMapV2,
+    'dc:title' | 'dc:format' | 'informational_URI' | 'documentID' | 'c2pa_manifest'
+> {
     'dc:title'?: string;
     'dc:format'?: string;
     activeManifest?: raw.HashedURI;
