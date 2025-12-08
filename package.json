@@ -63,7 +63,7 @@
     "github-actions-ctrf": "^0.0.58",
     "mocha": "^11.0.1",
     "mocha-ctrf-json-reporter": "^0.0.10",
-    "prettier": "3.7.3",
+    "prettier": "3.7.4",
     "replace-in-file": "^8.2.0",
     "ts-node": "^10.9.2",
     "tsup": "^8.3.6",
