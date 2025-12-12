@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
+import { describe, it } from 'bun:test';
 import { Asset, AssetType, BMFF, JPEG, PNG } from '../src/asset';
 import { SuperBox } from '../src/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
@@ -195,8 +196,6 @@ const testFiles: Record<string, TestExpectations> = {
 };
 
 describe('Functional Asset Reading Tests', function () {
-    this.timeout(0);
-
     for (const [filename, data] of Object.entries(testFiles)) {
         describe(`test file ${filename}`, () => {
             let buf: Buffer | undefined = undefined;
@@ -208,7 +207,7 @@ describe('Functional Asset Reading Tests', function () {
 
             let asset: Asset | undefined = undefined;
             it(`constructing the asset`, async function () {
-                if (!buf) this.skip();
+                if (!buf) return;
 
                 // ensure it's a JPEG
                 assert.ok(data.assetType.canRead(buf));
@@ -219,7 +218,7 @@ describe('Functional Asset Reading Tests', function () {
 
             let jumbf: Uint8Array | undefined = undefined;
             it(`extract the manifest JUMBF`, async function () {
-                if (!asset) this.skip();
+                if (!asset) return;
 
                 // extract the C2PA manifest store in binary JUMBF format
                 jumbf = asset.getManifestJUMBF();
@@ -233,7 +232,7 @@ describe('Functional Asset Reading Tests', function () {
             if (data.jumbf) {
                 let validationResult: ValidationResult | undefined = undefined;
                 it(`validate manifest`, async function () {
-                    if (!jumbf || !asset) this.skip();
+                    if (!jumbf || !asset) return;
 
                     // deserialize the JUMBF box structure
                     const superBox = SuperBox.fromBuffer(jumbf);
@@ -265,7 +264,7 @@ describe('Functional Asset Reading Tests', function () {
 
                 data.statusCodes?.forEach(value => {
                     it(`check status code ${value}`, async function () {
-                        if (validationResult === undefined) this.skip();
+                        if (validationResult === undefined) return;
 
                         assert.ok(
                             validationResult.statusEntries.some(entry => entry.code === value),

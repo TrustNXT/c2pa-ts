@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { CBORBox, SuperBox } from '../../../src/jumbf';
 import {
@@ -13,8 +14,6 @@ import * as raw from '../../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../../src/util';
 
 describe('ActionAssertion Tests', function () {
-    this.timeout(0);
-
     const claim = new Claim();
 
     const serializedStringV1 =
@@ -57,7 +56,7 @@ describe('ActionAssertion Tests', function () {
 
     let assertion: Assertion;
     it('construct an assertion from the v1 JUMBF box', function () {
-        if (!superBox) this.skip();
+        if (!superBox) return;
 
         const actionAssertion = new ActionAssertion();
 
@@ -82,7 +81,7 @@ describe('ActionAssertion Tests', function () {
     });
 
     it('construct a JUMBF box from the v1 assertion', function () {
-        if (!assertion) this.skip();
+        if (!assertion) return;
 
         const box = assertion.generateJUMBFBox(claim);
 

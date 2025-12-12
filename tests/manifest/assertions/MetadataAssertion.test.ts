@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
+import { describe, it } from 'bun:test';
 import { DescriptionBox, JSONBox, SuperBox } from '../../../src/jumbf';
 import { Assertion, Claim, DigitalSourceType, MetadataAssertion, MetadataNamespace } from '../../../src/manifest';
 import * as raw from '../../../src/manifest/rawTypes';
 
 describe('MetadataAssertion Tests', function () {
-    this.timeout(0);
-
     const exampleMetadataJsonLD = {
         '@context': {
             exif: 'http://ns.adobe.com/exif/1.0/',
@@ -131,7 +130,7 @@ describe('MetadataAssertion Tests', function () {
     });
 
     it('construct a JUMBF box from the assertion', function () {
-        if (!assertion) this.skip();
+        if (!assertion) return;
 
         const box = assertion.generateJUMBFBox(claim);
 

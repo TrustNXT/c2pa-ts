@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { beforeEach, describe, it } from 'bun:test';
 import { BMFF, BMFFBox } from '../../../src/asset';
 import { Crypto } from '../../../src/crypto';
 import { HashAlgorithm } from '../../../src/crypto/types';
@@ -34,8 +35,6 @@ function createBMFFMock(): Uint8Array {
 }
 
 describe('BMFFHashAssertion Mock Tests', function () {
-    this.timeout(0);
-
     let assertion: BMFFHashAssertion;
     let superBox: SuperBox;
 
@@ -260,8 +259,6 @@ describe('BMFFHashAssertion Mock Tests', function () {
 });
 
 describe('BMFFHashAssertion v2 Tests', function () {
-    this.timeout(0);
-
     it('should correctly hash HEIC file with v2 assertion', async () => {
         const filePath = path.join(baseDir, 'trustnxt-icon.heic');
         const heicData = new Uint8Array(await fs.readFile(filePath));
@@ -277,8 +274,6 @@ describe('BMFFHashAssertion v2 Tests', function () {
 });
 
 describe('BMFFHashAssertion v3 Tests', function () {
-    this.timeout(0);
-
     let assertion: BMFFHashAssertion;
     let superBox: SuperBox;
 

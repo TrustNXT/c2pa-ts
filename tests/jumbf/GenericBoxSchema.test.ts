@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { GenericBoxSchema } from '../../src/jumbf/GenericBoxSchema';
 import { UUIDBox } from '../../src/jumbf/UUIDBox';
 import { BinaryHelper } from '../../src/util';
 
 describe('GenericBoxSchema Tests', function () {
-    this.timeout(0);
-
     const schema = new GenericBoxSchema();
 
     it('read an unrecognized box', async function () {

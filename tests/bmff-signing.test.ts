@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
+import { afterAll, describe, it } from 'bun:test';
 import { BMFF } from '../src/asset';
 import { CoseAlgorithmIdentifier } from '../src/cose';
 import { SuperBox } from '../src/jumbf';
@@ -11,8 +12,6 @@ const targetFileV2 = 'tests/fixtures/trustnxt-icon-signed-v2-test.heic';
 const targetFileV3 = 'tests/fixtures/trustnxt-icon-signed-v3-test.heic';
 
 describe('BMFF Signing Tests', function () {
-    this.timeout(5000);
-
     let manifestV2: Manifest | undefined;
     let manifestV3: Manifest | undefined;
 
@@ -76,7 +75,7 @@ describe('BMFF Signing Tests', function () {
     });
 
     it('read and verify the BMFF with v2 manifest', async function () {
-        if (!manifestV2) this.skip();
+        if (!manifestV2) return;
 
         const buf = await fs.readFile(targetFileV2);
         const asset = new BMFF(buf);
@@ -98,7 +97,7 @@ describe('BMFF Signing Tests', function () {
     });
 
     it('read and verify the BMFF with v3 manifest', async function () {
-        if (!manifestV3) this.skip();
+        if (!manifestV3) return;
 
         const buf = await fs.readFile(targetFileV3);
         const asset = new BMFF(buf);
@@ -119,7 +118,7 @@ describe('BMFF Signing Tests', function () {
         );
     });
 
-    after(async function () {
+    afterAll(async function () {
         // delete test files, ignore if they don't exist
         await fs.unlink(targetFileV2).catch(() => undefined);
         await fs.unlink(targetFileV3).catch(() => undefined);

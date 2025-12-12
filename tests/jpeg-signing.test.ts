@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
-import { after } from 'mocha';
+import { afterAll, describe, it } from 'bun:test';
 import { JPEG } from '../src/asset';
 import { SuperBox } from '../src/jumbf';
 import { DataHashAssertion, Manifest, ManifestStore } from '../src/manifest';
@@ -12,8 +12,6 @@ const sourceFile = 'tests/fixtures/trustnxt-icon.jpg';
 const targetFile = 'tests/fixtures/trustnxt-icon-signed.jpg';
 
 describe('Functional Signing Tests', function () {
-    this.timeout(5000);
-
     for (const certificate of TEST_CERTIFICATES) {
         describe(`using ${certificate.name}`, function () {
             let manifest: Manifest | undefined;
@@ -61,11 +59,11 @@ describe('Functional Signing Tests', function () {
             });
 
             it('read and verify the JPEG with manifest', async function () {
-                if (!manifest) this.skip();
+                if (!manifest) return;
 
                 // load the file into a buffer
                 const buf = await fs.readFile(targetFile).catch(() => undefined);
-                if (!buf) this.skip();
+                if (!buf) return;
 
                 // ensure it's a JPEG
                 assert.ok(JPEG.canRead(buf));
@@ -95,7 +93,7 @@ describe('Functional Signing Tests', function () {
         });
     }
 
-    after(async function () {
+    afterAll(async function () {
         // delete test file, ignore the case it doesn't exist
         await fs.unlink(targetFile).catch(() => undefined);
     });

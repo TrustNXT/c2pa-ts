@@ -1,7 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { beforeAll } from 'bun:test';
 
-function beforeAll() {
+beforeAll(() => {
     // expected location with the test file repo
     const testfilesDir = path.join(import.meta.dirname, 'fixtures/public-testfiles');
 
@@ -13,6 +14,4 @@ function beforeAll() {
         );
         process.exit(1);
     }
-}
-
-export { beforeAll as mochaHooks };
+});
