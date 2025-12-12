@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { DescriptionBox, JSONBox, SuperBox } from '../../src/jumbf';
 import { BinaryHelper } from '../../src/util';
 
 describe('SuperBox Tests', function () {
-    this.timeout(0);
-
     describe('Empty', function () {
         const uuidString = '6332637300110010800000aa00389b71';
         const descriptionLabel = 'test.superbox';

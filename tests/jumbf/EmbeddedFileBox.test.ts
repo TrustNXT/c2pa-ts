@@ -1,11 +1,10 @@
 import assert from 'assert';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { EmbeddedFileBox } from '../../src/jumbf';
 import { BinaryHelper } from '../../src/util';
 
 describe('EmbeddedFileBox Tests', function () {
-    this.timeout(0);
-
     describe('Empty', function () {
         const serializedString = '0000000862696462';
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { beforeEach, describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { SuperBox } from '../../src/jumbf';
 import { IngredientAssertion, ManifestStore } from '../../src/manifest';
@@ -6,8 +7,6 @@ import * as raw from '../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../src/util';
 
 describe('Manifest Store Tests', function () {
-    this.timeout(0);
-
     // manifest store data taken from adobe-20220124-CAI.jpg but
     // modified, because some of the assertions are not supported
     // and thus can't be written to a box
@@ -76,7 +75,7 @@ describe('Manifest Store Tests', function () {
 
         let manifestStore: ManifestStore;
         it('construct an assertion store from the JUMBF box', function () {
-            if (!superBox) this.skip();
+            if (!superBox) return;
 
             const s = ManifestStore.read(superBox);
 
@@ -87,7 +86,7 @@ describe('Manifest Store Tests', function () {
         });
 
         it('construct a JUMBF box from the assertion store', function () {
-            if (!manifestStore) this.skip();
+            if (!manifestStore) return;
 
             const box = manifestStore.generateJUMBFBox();
 

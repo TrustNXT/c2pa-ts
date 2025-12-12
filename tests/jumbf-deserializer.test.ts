@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { describe, it } from 'bun:test';
 import {
     BoxReader,
     DescriptionBox,
@@ -11,8 +12,6 @@ import { UUIDBox } from '../src/jumbf/UUIDBox';
 import { BinaryHelper } from '../src/util';
 
 describe('JUMBF Deserializer Tests', function () {
-    this.timeout(0);
-
     it('description box', async () => {
         const jumbf = BinaryHelper.fromHexString(
             '000000266a756d640000000000000000000000000000000003746573742e64657363626f7800',

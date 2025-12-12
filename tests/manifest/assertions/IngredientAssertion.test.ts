@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { CBORBox, SuperBox } from '../../../src/jumbf';
 import {
@@ -23,8 +24,6 @@ function createHashedUri(uri: string): HashedURI {
 }
 
 describe('IngredientAssertion Tests', function () {
-    this.timeout(0);
-
     const claim = new Claim();
     claim.defaultAlgorithm = 'SHA-256';
 
@@ -71,7 +70,7 @@ describe('IngredientAssertion Tests', function () {
 
     let assertion: Assertion;
     it('construct an assertion from the JUMBF box', function () {
-        if (!superBox) this.skip();
+        if (!superBox) return;
 
         const ingredientAssertion = new IngredientAssertion();
 
@@ -96,7 +95,7 @@ describe('IngredientAssertion Tests', function () {
     });
 
     it('construct a JUMBF box from the assertion', function () {
-        if (!assertion) this.skip();
+        if (!assertion) return;
 
         const box = assertion.generateJUMBFBox(claim);
 
