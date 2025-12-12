@@ -32,7 +32,7 @@ describe('Manifest Store Tests', function () {
             const schema = SuperBox.schema;
 
             // read the box from the buffer
-            const reader = new bin.BufferReader(buffer, { endianness: 'big' });
+            const reader = new bin.BufferReader(BinaryHelper.toArrayBuffer(buffer), { endianness: 'big' });
             const box = schema.read(reader);
             assert.equal(reader.currentByteOffset, buffer.length, 'consumed number of bytes differs');
 
@@ -137,7 +137,9 @@ describe('Manifest Store Tests', function () {
 
         beforeEach(async function () {
             const buffer = BinaryHelper.fromHexString(serializedString);
-            const box = SuperBox.schema.read(new bin.BufferReader(buffer, { endianness: 'big' }));
+            const box = SuperBox.schema.read(
+                new bin.BufferReader(BinaryHelper.toArrayBuffer(buffer), { endianness: 'big' }),
+            );
             manifestStore = ManifestStore.read(box);
         });
 
@@ -201,7 +203,7 @@ describe('Manifest Store Tests', function () {
         it('should serialize and deserialize correctly', function () {
             const bytes = manifestStore.getBytes();
             const newManifestStore = ManifestStore.read(
-                SuperBox.schema.read(new bin.BufferReader(bytes, { endianness: 'big' })),
+                SuperBox.schema.read(new bin.BufferReader(BinaryHelper.toArrayBuffer(bytes), { endianness: 'big' })),
             );
 
             assert.equal(

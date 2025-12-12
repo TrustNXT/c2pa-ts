@@ -7,7 +7,7 @@ import { HashAlgorithm, SigningAlgorithm, StreamingDigest } from './types';
 
 export class WebCryptoProvider implements CryptoProvider {
     public async digest(data: Uint8Array, algorithm: HashAlgorithm): Promise<Uint8Array> {
-        return new Uint8Array(await crypto.subtle.digest(algorithm, data));
+        return new Uint8Array(await crypto.subtle.digest(algorithm, data as BufferSource));
     }
 
     public streamingDigest(algorithm: HashAlgorithm): StreamingDigest {
@@ -24,7 +24,7 @@ export class WebCryptoProvider implements CryptoProvider {
                     hashSource.set(fragment, offset);
                     offset += fragment.length;
                 }
-                return new Uint8Array(await crypto.subtle.digest(algorithm, hashSource));
+                return new Uint8Array(await crypto.subtle.digest(algorithm, hashSource as BufferSource));
             },
         };
     }
@@ -45,23 +45,26 @@ export class WebCryptoProvider implements CryptoProvider {
             publicKey = new Uint8Array(AsnConvert.serialize(asnSpki));
         }
 
-        const key = await crypto.subtle.importKey('spki', publicKey, algorithm, true, ['verify']);
+        const key = await crypto.subtle.importKey('spki', publicKey as BufferSource, algorithm, true, ['verify']);
 
         // Convert ECDSA signature from ASN.1 representation to IEEE P1363 representation if necessary
         if (algorithm.name === 'ECDSA') {
             const curveSize = AsnEcSignatureFormatter.namedCurveSize.get(algorithm.namedCurve);
             if (curveSize && signature.length !== curveSize * 2) {
-                const convertedSignature = new AsnEcSignatureFormatter().toWebSignature(algorithm, signature);
+                const convertedSignature = new AsnEcSignatureFormatter().toWebSignature(
+                    algorithm,
+                    signature as BufferSource,
+                );
                 if (convertedSignature) signature = new Uint8Array(convertedSignature);
             }
         }
 
-        return crypto.subtle.verify(algorithm, key, signature, payload);
+        return crypto.subtle.verify(algorithm, key, signature as BufferSource, payload as BufferSource);
     }
 
     public async sign(payload: Uint8Array, privateKey: Uint8Array, algorithm: SigningAlgorithm): Promise<Uint8Array> {
-        const key = await crypto.subtle.importKey('pkcs8', privateKey, algorithm, true, ['sign']);
-        let signature = await crypto.subtle.sign(algorithm, key, payload);
+        const key = await crypto.subtle.importKey('pkcs8', privateKey as BufferSource, algorithm, true, ['sign']);
+        let signature = await crypto.subtle.sign(algorithm, key, payload as BufferSource);
 
         // Convert ECDSA signature from IEEE P1363 representation to ASN.1 representation
         if (algorithm.name === 'ECDSA') {
