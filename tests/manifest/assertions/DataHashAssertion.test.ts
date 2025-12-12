@@ -21,7 +21,7 @@ describe('DataHashAssertion Tests', function () {
         const schema = SuperBox.schema;
 
         // read the box from the buffer
-        const reader = new bin.BufferReader(buffer, { endianness: 'big' });
+        const reader = new bin.BufferReader(BinaryHelper.toArrayBuffer(buffer), { endianness: 'big' });
         const box = schema.read(reader);
         assert.equal(reader.currentByteOffset, buffer.length, 'consumed number of bytes differs');
 

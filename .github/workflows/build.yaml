@@ -32,6 +32,10 @@ jobs:
         id: npm-ci
         run: npm ci
 
+      - name: Run TypeScript Type Check
+        id: type-check
+        run: npx tsc --noEmit
+
       - name: Run TypeScript Build
         id: npm-build
         run: npm run build
