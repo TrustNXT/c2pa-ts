@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.9.5
+
+### Patch Changes
+
+- 68b9c64: Fix TypeScript 5.8+ ArrayBuffer/BufferSource compatibility inconsistencies
+
 ## 0.9.4
 
 ### Patch Changes
