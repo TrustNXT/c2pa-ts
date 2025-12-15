@@ -1,11 +1,10 @@
 import assert from 'assert';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { UUIDBox } from '../../src/jumbf/UUIDBox';
 import { BinaryHelper } from '../../src/util';
 
 describe('UUIDBox Tests', function () {
-    this.timeout(0);
-
     describe('Minimal', function () {
         const uuidString = '6332637300110010800000aa00389b71';
         const serializedString = '00000018757569646332637300110010800000aa00389b71';

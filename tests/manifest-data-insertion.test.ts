@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
+import { describe, it } from 'bun:test';
 import { Asset, BMFF, JPEG, PNG } from '../src/asset';
 import { BinaryHelper } from '../src/util';
 
@@ -20,8 +21,6 @@ for (const buffer of Object.values(manifestData)) {
 }
 
 describe('Asset Manifest Data Insertion Tests', function () {
-    this.timeout(0);
-
     const assetTypes = [
         {
             name: 'PNG',
@@ -51,13 +50,13 @@ describe('Asset Manifest Data Insertion Tests', function () {
             });
 
             it('ensure no existing JUMBF', async function () {
-                if (!asset) this.skip();
+                if (!asset) return;
 
                 assert.ok(!asset.getManifestJUMBF());
             });
 
             it('try to add too large data', async function () {
-                if (!asset) this.skip();
+                if (!asset) return;
 
                 await asset.ensureManifestSpace(manifestData.small.length);
                 await assert.rejects(
@@ -70,7 +69,7 @@ describe('Asset Manifest Data Insertion Tests', function () {
                 it(`add ${dataType} data and re-read asset`, async function () {
                     const data = manifestData[dataType as keyof typeof manifestData];
 
-                    if (!asset) this.skip();
+                    if (!asset) return;
 
                     await asset.ensureManifestSpace(data.length);
 

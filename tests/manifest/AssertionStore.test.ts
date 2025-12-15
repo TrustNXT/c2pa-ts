@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { SuperBox } from '../../src/jumbf';
 import { ActionAssertion, AssertionStore, Claim, DataHashAssertion, UnknownAssertion } from '../../src/manifest';
@@ -6,8 +7,6 @@ import * as raw from '../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../src/util';
 
 describe('AssertionStore Tests', function () {
-    this.timeout(0);
-
     // assertion store data taken from adobe-20220124-C.jpg but modified
     const serializedString =
         '000001606a756d62000000296a756d646332617300110010800000aa00389b7103633270612e617373657274696f6e7300' +
@@ -41,7 +40,7 @@ describe('AssertionStore Tests', function () {
 
     let assertionStore: AssertionStore;
     it('construct an assertion store from the JUMBF box', function () {
-        if (!superBox) this.skip();
+        if (!superBox) return;
 
         const s = AssertionStore.read(superBox, claim);
 
@@ -56,7 +55,7 @@ describe('AssertionStore Tests', function () {
     });
 
     it('construct a JUMBF box from the assertion store', function () {
-        if (!assertionStore) this.skip();
+        if (!assertionStore) return;
 
         const box = assertionStore.generateJUMBFBox(claim);
 

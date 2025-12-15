@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { X509Certificate } from '@peculiar/x509';
+import { beforeEach, describe, it } from 'bun:test';
 import { CoseAlgorithmIdentifier, Signer } from '../src/cose';
 import { Signature } from '../src/cose/Signature';
 import { SigStructure } from '../src/cose/SigStructure';

@@ -1,4 +1,4 @@
-name: Mocha Tests
+name: Tests
 
 on:
   pull_request:
@@ -12,9 +12,8 @@ permissions:
   contents: read
 
 jobs:
-  # `Mocha`-based tests
-  run-mocha:
-    name: Run mocha test runner
+  run-bun:
+    name: Run test runner
     runs-on: ubuntu-latest
 
     steps:
@@ -29,22 +28,24 @@ jobs:
           repository: c2pa-org/public-testfiles
           path: ./tests/fixtures/public-testfiles
 
-      - name: Setup Node.js
-        id: setup-node
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
         with:
-          cache: npm
-          node-version: 22
+          bun-version: latest
 
       - name: Install Dependencies
-        id: npm-ci
-        run: npm ci
+        id: bun-install
+        run: bun install --frozen-lockfile
 
-      - name: Run Mocha Tests
-        id: mocha-tests
-        run: npx mocha --reporter mocha-ctrf-json-reporter --reporter-options outputDir=. 'tests/**/*.test.ts'
+      - name: Run Tests
+        id: bun-tests
+        run: bun test --reporter=junit --reporter-outfile=junit-report.xml
+
+      - name: Generate CTRF Report
+        id: junit-to-ctrf
+        run: bun x junit-to-ctrf junit-report.xml -o ctrf-report.json
 
       - name: Generate CTRF annotations
         id: ctrf-annotations
-        run: npx github-actions-ctrf ctrf-report.json
+        run: bun x github-actions-ctrf ctrf-report.json
         if: always()

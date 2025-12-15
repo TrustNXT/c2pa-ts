@@ -1,11 +1,10 @@
 import assert from 'assert';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { EmbeddedFileDescriptionBox } from '../../src/jumbf';
 import { BinaryHelper } from '../../src/util';
 
 describe('EmbeddedFileDescriptionBox Tests', function () {
-    this.timeout(0);
-
     describe('Without Filename', function () {
         const mediaType = 'video/mp4';
         const serializedString = '000000136266646200766964656f2f6d703400';

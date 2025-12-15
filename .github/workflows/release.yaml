@@ -26,33 +26,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
         with:
-          cache: npm
-          node-version: 22
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Update npm for trusted publishing
-        run: npm install -g npm@latest
+          bun-version: latest
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install Dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
-          version: npm run version
-          publish: npm run release
+          version: bun run version
+          publish: bun run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to GitHub Packages
         if: steps.changesets.outputs.published == 'true'
         run: |
-          npm config set @trustnxt:registry 'https://npm.pkg.github.com'
-          npm config set //npm.pkg.github.com/:_authToken '${NODE_AUTH_TOKEN}'
-          npm publish --no-git-checks
+          bun config set @trustnxt:registry 'https://npm.pkg.github.com'
+          bun config set //npm.pkg.github.com/:_authToken '${NODE_AUTH_TOKEN}'
+          bun publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}

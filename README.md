@@ -2,6 +2,8 @@
 
 # c2pa-ts
 
+[![Tests](https://github.com/TrustNXT/c2pa-ts/actions/workflows/test.yaml/badge.svg)](https://github.com/TrustNXT/c2pa-ts/actions/workflows/test.yaml)
+
 ## About
 
 `c2pa-ts` is a pure TypeScript implementation of [Coalition for Content Provenance and Authenticity (C2PA)](https://c2pa.org/) according to [specification version 2.1](https://c2pa.org/specifications/specifications/2.1/specs/C2PA_Specification.html).
@@ -148,13 +150,27 @@ For more information or a reference iOS implementation, <a href="mailto:mail@tru
 
 ## Contributing
 
-Contributions are welcome!
+Contributions are welcome! This project uses [Bun](https://bun.sh) for development, testing, and building.
+
+### Getting Started
+
+1. **Install Bun**: Follow the [official installation guide](https://bun.sh/docs/installation).
+2. **Install Dependencies**:
+    ```bash
+    bun install
+    ```
+3. **Run Tests**:
+    ```bash
+    bun test
+    ```
+
+### Workflow
 
 - [Create an issue](https://github.com/TrustNXT/c2pa-ts/issues)
 - [Fork this repository](https://github.com/TrustNXT/c2pa-ts/fork)
 - [Open a pull request](https://github.com/TrustNXT/c2pa-ts/pulls)
 
-When you're done with your changes, we use [changesets](https://github.com/changesets/changesets) to manage release notes. Run `npm run changeset` to autogenerate notes to be appended to your pull request.
+When you're done with your changes, we use [changesets](https://github.com/changesets/changesets) to manage release notes. Run `bun run changeset` to autogenerate notes to be appended to your pull request.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -187,7 +203,7 @@ The following resources were helpful during creation of this library:
 - [ASN1.js](https://github.com/PeculiarVentures/ASN1.js)
 - [MIPAMS JPEG Systems](https://github.com/nickft/mipams-jpeg-systems)
 - [cbor-x](https://github.com/kriszyp/cbor-x)
-- [mocha](https://mochajs.org)
+- [bun](https://bun.sh)
 - [typed-binary](https://github.com/iwoplaza/typed-binary)
 
 Thank you for providing them and keeping open source alive!

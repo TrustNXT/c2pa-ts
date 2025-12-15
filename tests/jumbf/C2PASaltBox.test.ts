@@ -1,11 +1,10 @@
 import assert from 'assert';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { C2PASaltBox } from '../../src/jumbf/C2PASaltBox';
 import { BinaryHelper } from '../../src/util';
 
 describe('C2PASaltBox Tests', function () {
-    this.timeout(0);
-
     describe('16 bit salt', function () {
         const saltString = '6332637300110010800000aa00389b71';
         const serializedString = '00000018633273686332637300110010800000aa00389b71';

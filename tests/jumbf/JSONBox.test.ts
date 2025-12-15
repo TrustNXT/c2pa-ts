@@ -1,11 +1,10 @@
 import assert from 'assert';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { JSONBox } from '../../src/jumbf';
 import { BinaryHelper } from '../../src/util';
 
 describe('JSONBox Tests', function () {
-    this.timeout(0);
-
     describe('Empty', function () {
         const serializedString = '000000086a736f6e';
 

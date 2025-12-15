@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { describe, it } from 'bun:test';
 import * as bin from 'typed-binary';
 import { CBORBox, SuperBox } from '../../../src/jumbf';
 import { Assertion, Claim, DataHashAssertion } from '../../../src/manifest';
@@ -6,8 +7,6 @@ import * as raw from '../../../src/manifest/rawTypes';
 import { BinaryHelper } from '../../../src/util';
 
 describe('DataHashAssertion Tests', function () {
-    this.timeout(0);
-
     const claim = new Claim();
 
     const serializedString =
@@ -51,7 +50,7 @@ describe('DataHashAssertion Tests', function () {
 
     let assertion: Assertion;
     it('construct an assertion from the JUMBF box', function () {
-        if (!superBox) this.skip();
+        if (!superBox) return;
 
         const dataHashAssertion = new DataHashAssertion();
 
@@ -69,7 +68,7 @@ describe('DataHashAssertion Tests', function () {
     });
 
     it('construct a JUMBF box from the assertion', function () {
-        if (!assertion) this.skip();
+        if (!assertion) return;
 
         const box = assertion.generateJUMBFBox(claim);
 
