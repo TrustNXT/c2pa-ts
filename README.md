@@ -150,13 +150,31 @@ For more information or a reference iOS implementation, <a href="mailto:mail@tru
 
 ## Contributing
 
-Contributions are welcome!
+Contributions are welcome! This project uses [Bun](https://bun.sh) for development, testing, and building.
+
+### Getting Started
+
+1. **Install Bun**: Follow the [official installation guide](https://bun.sh/docs/installation).
+    ```bash
+    # Example for macOS/Linux/WSL
+    curl -fsSL https://bun.sh/install | bash
+    # Example for Windows (PowerShell)
+    powershell -c "irm bun.sh/install.ps1 | iex"
+    ```
+2. **Install Dependencies**:
+    ```bash
+    bun install
+    ```
+3. **Run Tests**:
+    ```bash
+    bun test
+    ```
+
+### Workflow
 
 - [Create an issue](https://github.com/TrustNXT/c2pa-ts/issues)
 - [Fork this repository](https://github.com/TrustNXT/c2pa-ts/fork)
 - [Open a pull request](https://github.com/TrustNXT/c2pa-ts/pulls)
-
-You can run the test suite with `bun test`.
 
 When you're done with your changes, we use [changesets](https://github.com/changesets/changesets) to manage release notes. Run `bun run changeset` to autogenerate notes to be appended to your pull request.
 
