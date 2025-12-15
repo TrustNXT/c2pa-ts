@@ -155,12 +155,6 @@ Contributions are welcome! This project uses [Bun](https://bun.sh) for developme
 ### Getting Started
 
 1. **Install Bun**: Follow the [official installation guide](https://bun.sh/docs/installation).
-    ```bash
-    # Example for macOS/Linux/WSL
-    curl -fsSL https://bun.sh/install | bash
-    # Example for Windows (PowerShell)
-    powershell -c "irm bun.sh/install.ps1 | iex"
-    ```
 2. **Install Dependencies**:
     ```bash
     bun install
