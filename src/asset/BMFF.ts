@@ -1,8 +1,8 @@
 import { BinaryHelper } from '../util';
-import { BufferAsset } from './BufferAsset';
+import { BaseAsset } from './BaseAsset';
 import { Asset } from './types';
 
-export class BMFF extends BufferAsset implements Asset {
+export class BMFF extends BaseAsset implements Asset {
     public static readonly c2paBoxUserType = [
         0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
     ];
@@ -17,12 +17,12 @@ export class BMFF extends BufferAsset implements Asset {
 
     private readonly boxes: Box<object>[] = [];
 
-    public constructor(data: Uint8Array) {
+    public constructor(data: Uint8Array | Blob) {
         super(data);
-        if (!BMFF.canRead(data)) {
+        if (!BMFF.canRead(this.data)) {
             throw new Error('Not a readable BMFF file');
         }
-        this.boxes = Array.from(BoxReader.read(data, 0, data.length));
+        this.boxes = Array.from(BoxReader.read(this.data, 0, this.data.length));
     }
 
     public static canRead(buf: Uint8Array) {

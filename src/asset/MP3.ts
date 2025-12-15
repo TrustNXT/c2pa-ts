@@ -1,5 +1,5 @@
 import { BinaryHelper } from '../util/BinaryHelper';
-import { BufferAsset } from './BufferAsset';
+import { BaseAsset } from './BaseAsset';
 import { Asset } from './types';
 
 const C2PA_MIME = 'application/x-c2pa-manifest-store';
@@ -20,7 +20,7 @@ class Frame {
     }
 }
 
-export class MP3 extends BufferAsset implements Asset {
+export class MP3 extends BaseAsset implements Asset {
     public readonly mimeType = 'audio/mpeg';
 
     private tagHeader?: {
@@ -32,9 +32,9 @@ export class MP3 extends BufferAsset implements Asset {
     private manifestFrameIndex?: number;
     private hasUnsupportedTag = false;
 
-    constructor(data: Uint8Array) {
+    constructor(data: Uint8Array | Blob) {
         super(data);
-        if (!MP3.canRead(data)) {
+        if (!MP3.canRead(this.data)) {
             throw new Error('Not a valid MP3 file');
         }
         this.parse();

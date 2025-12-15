@@ -1,5 +1,5 @@
 import { BinaryHelper } from '../util/BinaryHelper';
-import { BufferAsset } from './BufferAsset';
+import { BaseAsset } from './BaseAsset';
 import { Asset } from './types';
 
 class Segment {
@@ -21,15 +21,15 @@ class Segment {
     }
 }
 
-export class JPEG extends BufferAsset implements Asset {
+export class JPEG extends BaseAsset implements Asset {
     public readonly mimeType = 'image/jpeg';
 
     private segments: Segment[];
     private manifestSegments?: { segmentIndex: number; skipBytes: number }[];
 
-    constructor(data: Uint8Array) {
+    constructor(data: Uint8Array | Blob) {
         super(data);
-        if (!JPEG.canRead(data)) throw new Error('Not a JPEG file');
+        if (!JPEG.canRead(this.data)) throw new Error('Not a JPEG file');
         this.segments = Array.from(this.readSegments());
         this.manifestSegments = this.findJUMBFSegments();
     }

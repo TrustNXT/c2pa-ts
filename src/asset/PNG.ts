@@ -1,6 +1,6 @@
 import { default as crc32 } from 'crc-32';
 import { BinaryHelper } from '../util/BinaryHelper';
-import { BufferAsset } from './BufferAsset';
+import { BaseAsset } from './BaseAsset';
 import { Asset } from './types';
 
 class Chunk {
@@ -35,16 +35,16 @@ class Chunk {
     }
 }
 
-export class PNG extends BufferAsset implements Asset {
+export class PNG extends BaseAsset implements Asset {
     public readonly mimeType = 'image/png';
 
     private static readonly pngSignature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     private readonly chunks: Chunk[] = [];
     private manifestChunkIndex: number | undefined;
 
-    constructor(data: Uint8Array) {
+    constructor(data: Uint8Array | Blob) {
         super(data);
-        if (!PNG.canRead(data)) throw new Error('Not a PNG file');
+        if (!PNG.canRead(this.data)) throw new Error('Not a PNG file');
         this.readChunks();
     }
 
