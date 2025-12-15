@@ -1,5 +1,5 @@
 import { BinaryHelper } from '../util/BinaryHelper';
-import { BaseAsset } from './BaseAsset';
+import { BufferAsset } from './BufferAsset';
 import { Asset } from './types';
 
 const C2PA_MIME = 'application/x-c2pa-manifest-store';
@@ -20,7 +20,7 @@ class Frame {
     }
 }
 
-export class MP3 extends BaseAsset implements Asset {
+export class MP3 extends BufferAsset implements Asset {
     public readonly mimeType = 'audio/mpeg';
 
     private tagHeader?: {

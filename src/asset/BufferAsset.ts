@@ -1,7 +1,7 @@
 /**
  * Base class for an asset based on a Uint8Array as its data buffer.
  */
-export abstract class BaseAsset {
+export abstract class BufferAsset {
     constructor(protected data: Uint8Array) {}
 
     public getDataLength(): number {

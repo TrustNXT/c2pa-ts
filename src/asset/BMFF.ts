@@ -1,8 +1,8 @@
 import { BinaryHelper } from '../util';
-import { BaseAsset } from './BaseAsset';
+import { BufferAsset } from './BufferAsset';
 import { Asset } from './types';
 
-export class BMFF extends BaseAsset implements Asset {
+export class BMFF extends BufferAsset implements Asset {
     public static readonly c2paBoxUserType = [
         0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
     ];

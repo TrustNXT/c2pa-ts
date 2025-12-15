@@ -1,5 +1,5 @@
 import { BinaryHelper } from '../util/BinaryHelper';
-import { BaseAsset } from './BaseAsset';
+import { BufferAsset } from './BufferAsset';
 import { Asset } from './types';
 
 class Segment {
@@ -21,7 +21,7 @@ class Segment {
     }
 }
 
-export class JPEG extends BaseAsset implements Asset {
+export class JPEG extends BufferAsset implements Asset {
     public readonly mimeType = 'image/jpeg';
 
     private segments: Segment[];
