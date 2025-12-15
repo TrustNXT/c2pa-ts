@@ -1,7 +1,7 @@
 import { AssetDataReader } from './AssetDataReader';
 
 export class BlobDataReader implements AssetDataReader {
-    constructor(private blob: Blob) {}
+    constructor(private readonly blob: Blob) {}
 
     getDataLength(): number {
         return this.blob.size;
