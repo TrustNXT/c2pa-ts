@@ -21,7 +21,6 @@ export abstract class BlobAsset {
         const effectiveStart = start ?? 0;
         const effectiveEnd = length !== undefined ? effectiveStart + length : this.blob.size;
 
-        // Blob.slice end is exclusive, like Array.slice
         return new Uint8Array(await this.blob.slice(effectiveStart, effectiveEnd).arrayBuffer());
     }
 
