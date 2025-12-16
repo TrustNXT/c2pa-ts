@@ -1,7 +1,7 @@
 import { default as crc32 } from 'crc-32';
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
-import { Asset } from './types';
+import { Asset, AssetSource } from './types';
 
 class Chunk {
     public get payloadOffset() {
@@ -42,7 +42,7 @@ export class PNG extends BaseAsset implements Asset {
     private readonly chunks: Chunk[] = [];
     private manifestChunkIndex: number | undefined;
 
-    constructor(data: Uint8Array | Blob) {
+    constructor(data: AssetSource) {
         super(data);
         if (!PNG.canRead(this.data)) throw new Error('Not a PNG file');
         this.readChunks();

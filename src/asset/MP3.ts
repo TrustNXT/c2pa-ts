@@ -1,6 +1,6 @@
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
-import { Asset } from './types';
+import { Asset, AssetSource } from './types';
 
 const C2PA_MIME = 'application/x-c2pa-manifest-store';
 
@@ -32,7 +32,7 @@ export class MP3 extends BaseAsset implements Asset {
     private manifestFrameIndex?: number;
     private hasUnsupportedTag = false;
 
-    constructor(data: Uint8Array | Blob) {
+    constructor(data: AssetSource) {
         super(data);
         if (!MP3.canRead(this.data)) {
             throw new Error('Not a valid MP3 file');

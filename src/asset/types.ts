@@ -51,7 +51,9 @@ export interface Asset {
     writeManifestJUMBF(jumbf: Uint8Array): Promise<void>;
 }
 
+export type AssetSource = Uint8Array | Blob;
+
 export interface AssetType {
-    new (data: Uint8Array): Asset;
+    new (data: AssetSource): Asset;
     canRead(data: Uint8Array): boolean;
 }

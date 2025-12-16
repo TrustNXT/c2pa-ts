@@ -1,6 +1,6 @@
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
-import { Asset } from './types';
+import { Asset, AssetSource } from './types';
 
 class Segment {
     public get payloadOffset() {
@@ -27,7 +27,7 @@ export class JPEG extends BaseAsset implements Asset {
     private segments: Segment[];
     private manifestSegments?: { segmentIndex: number; skipBytes: number }[];
 
-    constructor(data: Uint8Array | Blob) {
+    constructor(data: AssetSource) {
         super(data);
         if (!JPEG.canRead(this.data)) throw new Error('Not a JPEG file');
         this.segments = Array.from(this.readSegments());

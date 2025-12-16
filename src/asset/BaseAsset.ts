@@ -1,6 +1,7 @@
 import { AssetDataReader } from './reader/AssetDataReader';
 import { BlobDataReader } from './reader/BlobDataReader';
 import { BufferDataReader } from './reader/BufferDataReader';
+import { AssetSource } from './types';
 
 /**
  * Base class for an asset that can be backed by either a Uint8Array (memory) or a Blob (stream/disk).
@@ -8,7 +9,7 @@ import { BufferDataReader } from './reader/BufferDataReader';
 export abstract class BaseAsset {
     protected reader: AssetDataReader;
 
-    constructor(source: Uint8Array | Blob) {
+    constructor(source: AssetSource) {
         if (source instanceof Blob) {
             this.reader = new BlobDataReader(source);
         } else {
