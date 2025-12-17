@@ -25,4 +25,24 @@ export class BufferDataReader implements AssetDataReader {
     setData(data: Uint8Array): void {
         this.buffer = data;
     }
+
+    getBlob(): Blob | undefined {
+        return undefined;
+    }
+
+    assemble(parts: { position: number; data?: Uint8Array; length?: number }[]): AssetDataReader {
+        const totalLength = parts.reduce((acc, p) => Math.max(acc, p.position + (p.length ?? p.data?.length ?? 0)), 0);
+        const result = new Uint8Array(totalLength);
+
+        // Copy original data (preserves gaps)
+        result.set(this.buffer.subarray(0, totalLength));
+
+        // Apply patches
+        for (const part of parts) {
+            if (part.data) result.set(part.data, part.position);
+            else if (part.length) result.fill(0, part.position, part.position + part.length);
+        }
+
+        return new BufferDataReader(result);
+    }
 }

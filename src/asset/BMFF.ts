@@ -184,7 +184,7 @@ export class BMFF extends BaseAsset implements Asset {
             }
         }
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
     }
 
     public getHashExclusionRange(): { start: number; length: number } {

@@ -41,6 +41,47 @@ export class Crypto {
     }
 
     /**
+     * Calculates the hash of a Blob with exclusions
+     * @param blob
+     * @param algorithm
+     * @param exclusions
+     */
+    public static async calculateBlobHash(
+        blob: Blob,
+        algorithm: HashAlgorithm,
+        exclusions: { start: number; length: number }[],
+    ): Promise<Uint8Array> {
+        const parts: Blob[] = [];
+        let pos = 0;
+
+        // Map inclusions by skipping exclusions
+        [...exclusions]
+            .sort((a, b) => a.start - b.start)
+            .forEach(ex => {
+                if (ex.start > pos) parts.push(blob.slice(pos, ex.start));
+                pos = ex.start + ex.length;
+            });
+
+        if (pos < blob.size) parts.push(blob.slice(pos));
+
+        const composite = new Blob(parts);
+        const digest = this.streamingDigest(algorithm);
+
+        if (composite.stream) {
+            const reader = composite.stream().getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                digest.update(value);
+            }
+        } else {
+            digest.update(new Uint8Array(await composite.arrayBuffer()));
+        }
+
+        return digest.final();
+    }
+
+    /**
      * Verifies a cryptographic signature
      * @param payload
      * @param signature

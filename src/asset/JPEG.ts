@@ -304,7 +304,7 @@ export class JPEG extends BaseAsset implements Asset {
             data: this.data.subarray(originalEndOfLastSegment),
         });
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
     }
 
     public getHashExclusionRange(): { start: number; length: number } {

@@ -248,7 +248,7 @@ export class MP3 extends BaseAsset implements Asset {
             data: this.data.subarray(audioDataOffset),
         });
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
         this.parse();
     }
 

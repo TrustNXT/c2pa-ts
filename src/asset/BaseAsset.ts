@@ -28,24 +28,15 @@ export abstract class BaseAsset {
         return this.reader.getDataRange(start, length);
     }
 
-    /**
-     * Assembles a data buffer based on a list of parts with an optional source buffer.
-     * Each part has a target position and an optional data source. If there should be space left in the resulting
-     * buffer for more bytes than the provided data source, or no data source is provided, a length can also
-     * be specified.
-     */
-    protected assembleBuffer(parts: { position: number; data?: Uint8Array; length?: number }[]): Uint8Array {
-        const totalLength = parts.reduce(
-            (acc, cur) => Math.max(acc, cur.position + (cur.length ?? cur.data?.length ?? 0)),
-            0,
-        );
-        const result = new Uint8Array(totalLength);
+    public getBlob(): Blob | undefined {
+        return this.reader.getBlob();
+    }
 
-        for (const part of parts) {
-            if (part.data) {
-                result.set(part.data, part.position);
-            }
-        }
-        return result;
+    /**
+     * Assembles a data buffer or Blob based on a list of parts with an optional source buffer.
+     * Each part has a target position and an optional data source.
+     */
+    protected assembleAsset(parts: { position: number; data?: Uint8Array; length?: number }[]): void {
+        this.reader = this.reader.assemble(parts);
     }
 }

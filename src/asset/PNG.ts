@@ -40,7 +40,7 @@ export class PNG extends BaseAsset implements Asset {
     public readonly mimeType = 'image/png';
 
     private static readonly pngSignature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    private chunks: Chunk[] = [];
+    private readonly chunks: Chunk[] = [];
     private manifestChunkIndex: number | undefined;
 
     private constructor(source: AssetSource) {
@@ -170,7 +170,7 @@ export class PNG extends BaseAsset implements Asset {
             targetPosition += chunk.length;
         }
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
     }
 
     public getHashExclusionRange(): { start: number; length: number } {
