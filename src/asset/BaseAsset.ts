@@ -1,6 +1,5 @@
 import { AssetDataReader } from './reader/AssetDataReader';
-import { BlobDataReader } from './reader/BlobDataReader';
-import { BufferDataReader } from './reader/BufferDataReader';
+import { createReader } from './reader/createReader';
 import { AssetSource } from './types';
 
 /**
@@ -9,23 +8,16 @@ import { AssetSource } from './types';
 export abstract class BaseAsset {
     protected reader: AssetDataReader;
 
-    constructor(source: AssetSource) {
-        if (source instanceof Blob) {
-            this.reader = new BlobDataReader(source);
-        } else {
-            this.reader = new BufferDataReader(source);
-        }
+    protected constructor(source: AssetSource) {
+        this.reader = createReader(source);
     }
 
-    /**
-     * Gets the data as a Uint8Array. Throws if the source is a Blob (async access required).
-     */
     protected get data(): Uint8Array {
-        return this.reader.getSyncData();
+        return this.reader.getData();
     }
 
     protected set data(val: Uint8Array) {
-        this.reader.setSyncData(val);
+        this.reader.setData(val);
     }
 
     public getDataLength(): number {

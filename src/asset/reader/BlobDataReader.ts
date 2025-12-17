@@ -1,7 +1,13 @@
 import { AssetDataReader } from './AssetDataReader';
 
 export class BlobDataReader implements AssetDataReader {
+    private _buffer?: Uint8Array;
+
     constructor(private readonly blob: Blob) {}
+
+    async load(): Promise<void> {
+        this._buffer ??= new Uint8Array(await this.blob.arrayBuffer());
+    }
 
     getDataLength(): number {
         return this.blob.size;
@@ -18,11 +24,12 @@ export class BlobDataReader implements AssetDataReader {
         return new Uint8Array(await this.blob.slice(effectiveStart, effectiveEnd).arrayBuffer());
     }
 
-    getSyncData(): Uint8Array {
-        throw new Error('Synchronous data access not supported for Blob assets. Use getDataRange() instead.');
+    getData(): Uint8Array {
+        if (!this._buffer) throw new Error('Call load() first');
+        return this._buffer;
     }
 
-    setSyncData(data: Uint8Array): void {
-        throw new Error('Cannot set synchronous data on a Blob asset.');
+    setData(data: Uint8Array): void {
+        this._buffer = data;
     }
 }

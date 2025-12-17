@@ -1,6 +1,7 @@
 import { default as crc32 } from 'crc-32';
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
+import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
 class Chunk {
@@ -39,20 +40,37 @@ export class PNG extends BaseAsset implements Asset {
     public readonly mimeType = 'image/png';
 
     private static readonly pngSignature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    private readonly chunks: Chunk[] = [];
+    private chunks: Chunk[] = [];
     private manifestChunkIndex: number | undefined;
 
-    constructor(data: AssetSource) {
-        super(data);
-        if (!PNG.canRead(this.data)) throw new Error('Not a PNG file');
-        this.readChunks();
+    private constructor(source: AssetSource) {
+        super(source);
     }
 
-    public static canRead(buf: Uint8Array): boolean {
+    public static async create(source: AssetSource): Promise<PNG> {
+        const asset = new PNG(source);
+        const header = await asset.reader.getDataRange(0, PNG.pngSignature.length);
+        if (!PNG.hasSignature(header)) throw new Error('Not a PNG file');
+        await asset.reader.load();
+        asset.parse();
+        return asset;
+    }
+
+    public static async canRead(source: AssetSource): Promise<boolean> {
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, PNG.pngSignature.length);
+        return PNG.hasSignature(header);
+    }
+
+    private static hasSignature(buf: Uint8Array): boolean {
         return (
-            buf.length >= this.pngSignature.length &&
-            BinaryHelper.bufEqual(buf.subarray(0, this.pngSignature.length), this.pngSignature)
+            buf.length >= PNG.pngSignature.length &&
+            BinaryHelper.bufEqual(buf.subarray(0, PNG.pngSignature.length), PNG.pngSignature)
         );
+    }
+
+    private parse(): void {
+        this.readChunks();
     }
 
     public dumpInfo() {

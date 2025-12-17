@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { describe, it } from 'bun:test';
-import { Asset, BMFF, JPEG, PNG } from '../src/asset';
+import { Asset, AssetType, BMFF, JPEG, PNG } from '../src/asset';
 import { BinaryHelper } from '../src/util';
 
 const baseDir = 'tests/fixtures';
@@ -21,7 +21,7 @@ for (const buffer of Object.values(manifestData)) {
 }
 
 describe('Asset Manifest Data Insertion Tests', function () {
-    const assetTypes = [
+    const assetTypes: { name: string; assetClass: AssetType; testFile: string }[] = [
         {
             name: 'PNG',
             assetClass: PNG,
@@ -45,7 +45,7 @@ describe('Asset Manifest Data Insertion Tests', function () {
             it(`load ${assetType.name}`, async () => {
                 const buf = await fs.readFile(`${baseDir}/${assetType.testFile}`);
                 assert.ok(buf);
-                asset = new assetType.assetClass(buf);
+                asset = await assetType.assetClass.create(buf);
                 assert.ok(asset);
             });
 
@@ -85,7 +85,7 @@ describe('Asset Manifest Data Insertion Tests', function () {
                     assert.ok(manifest, 'No manifest data in asset after adding');
                     assert.ok(BinaryHelper.bufEqual(manifest, data), 'Manifest data does not have expected content');
 
-                    const newAsset = new assetType.assetClass(await asset.getDataRange());
+                    const newAsset = await assetType.assetClass.create(await asset.getDataRange());
                     const newManifest = newAsset.getManifestJUMBF();
                     assert.ok(newManifest, 'No manifest data in updated file');
                     assert.ok(

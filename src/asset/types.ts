@@ -54,6 +54,6 @@ export interface Asset {
 export type AssetSource = Uint8Array | Blob;
 
 export interface AssetType {
-    new (data: AssetSource): Asset;
-    canRead(data: Uint8Array): boolean;
+    create(data: AssetSource): Promise<Asset>;
+    canRead(data: AssetSource): Promise<boolean>;
 }

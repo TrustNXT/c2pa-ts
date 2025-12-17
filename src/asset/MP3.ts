@@ -1,5 +1,6 @@
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
+import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
 const C2PA_MIME = 'application/x-c2pa-manifest-store';
@@ -23,6 +24,9 @@ class Frame {
 export class MP3 extends BaseAsset implements Asset {
     public readonly mimeType = 'audio/mpeg';
 
+    private static readonly id3Signature = new Uint8Array([0x49, 0x44, 0x33]); // "ID3"
+    private static readonly frameSyncSignature = new Uint8Array([0xff, 0xfb]);
+
     private tagHeader?: {
         version: number;
         size: number; // size of tag data, excluding header
@@ -32,24 +36,38 @@ export class MP3 extends BaseAsset implements Asset {
     private manifestFrameIndex?: number;
     private hasUnsupportedTag = false;
 
-    constructor(data: AssetSource) {
-        super(data);
-        if (!MP3.canRead(this.data)) {
-            throw new Error('Not a valid MP3 file');
-        }
-        this.parse();
+    private constructor(source: AssetSource) {
+        super(source);
     }
 
-    public static canRead(buf: Uint8Array): boolean {
+    public static async create(source: AssetSource): Promise<MP3> {
+        const asset = new MP3(source);
+        const header = await asset.reader.getDataRange(0, MP3.id3Signature.length);
+        if (!MP3.hasSignature(header)) throw new Error('Not a valid MP3 file');
+        await asset.reader.load();
+        asset.parse();
+        return asset;
+    }
+
+    public static async canRead(source: AssetSource): Promise<boolean> {
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, MP3.id3Signature.length);
+        return MP3.hasSignature(header);
+    }
+
+    private static hasSignature(buf: Uint8Array): boolean {
         if (buf.length < 3) {
             return false;
         }
         // Check for ID3 tag
-        if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) {
+        if (BinaryHelper.bufEqual(buf.subarray(0, MP3.id3Signature.length), MP3.id3Signature)) {
             return true;
         }
         // Check for MP3 frame sync
-        if (buf.length >= 2 && buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0) {
+        if (
+            buf.length >= MP3.frameSyncSignature.length &&
+            BinaryHelper.bufEqual(buf.subarray(0, MP3.frameSyncSignature.length), MP3.frameSyncSignature)
+        ) {
             return true;
         }
         return false;

@@ -1,5 +1,6 @@
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
+import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
 class Segment {
@@ -24,18 +25,40 @@ class Segment {
 export class JPEG extends BaseAsset implements Asset {
     public readonly mimeType = 'image/jpeg';
 
-    private segments: Segment[];
+    private static readonly jpegSignature = new Uint8Array([0xff, 0xd8]);
+
+    private segments: Segment[] = [];
     private manifestSegments?: { segmentIndex: number; skipBytes: number }[];
 
-    constructor(data: AssetSource) {
-        super(data);
-        if (!JPEG.canRead(this.data)) throw new Error('Not a JPEG file');
-        this.segments = Array.from(this.readSegments());
-        this.manifestSegments = this.findJUMBFSegments();
+    private constructor(source: AssetSource) {
+        super(source);
     }
 
-    public static canRead(buf: Uint8Array): boolean {
-        return buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8;
+    public static async create(source: AssetSource): Promise<JPEG> {
+        const asset = new JPEG(source);
+        const header = await asset.reader.getDataRange(0, JPEG.jpegSignature.length);
+        if (!JPEG.hasSignature(header)) throw new Error('Not a JPEG file');
+        await asset.reader.load();
+        asset.parse();
+        return asset;
+    }
+
+    public static async canRead(source: AssetSource): Promise<boolean> {
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, JPEG.jpegSignature.length);
+        return JPEG.hasSignature(header);
+    }
+
+    private static hasSignature(buf: Uint8Array): boolean {
+        return (
+            buf.length >= JPEG.jpegSignature.length &&
+            BinaryHelper.bufEqual(buf.subarray(0, JPEG.jpegSignature.length), JPEG.jpegSignature)
+        );
+    }
+
+    private parse(): void {
+        this.segments = Array.from(this.readSegments());
+        this.manifestSegments = this.findJUMBFSegments();
     }
 
     public dumpInfo() {
