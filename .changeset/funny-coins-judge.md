@@ -1,5 +1,5 @@
 ---
-'@trustnxt/c2pa-ts': patch
+'@trustnxt/c2pa-ts': minor
 ---
 
-Large Asset Support Phase 1 - Asset Abstraction
+Large Asset Support - Asset Abstraction
