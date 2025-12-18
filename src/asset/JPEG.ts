@@ -1,5 +1,6 @@
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
+import { AssemblePart } from './reader/AssetDataReader';
 import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
@@ -255,11 +256,7 @@ export class JPEG extends BaseAsset implements Asset {
             remainingLengthNeeded -= segmentPayloadLength - headerLength;
         }
 
-        const parts: {
-            position: number;
-            data: Uint8Array;
-            length?: number;
-        }[] = [
+        const parts: AssemblePart[] = [
             {
                 position: 0,
                 data: new Uint8Array([0xff, 0xd8]),

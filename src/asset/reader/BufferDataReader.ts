@@ -1,4 +1,4 @@
-import { AssetDataReader } from './AssetDataReader';
+import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 export class BufferDataReader implements AssetDataReader {
     constructor(private buffer: Uint8Array) {}
@@ -30,17 +30,14 @@ export class BufferDataReader implements AssetDataReader {
         return undefined;
     }
 
-    assemble(parts: { position: number; data?: Uint8Array; length?: number }[]): AssetDataReader {
+    assemble(parts: AssemblePart[]): AssetDataReader {
         const totalLength = parts.reduce((acc, p) => Math.max(acc, p.position + (p.length ?? p.data?.length ?? 0)), 0);
         const result = new Uint8Array(totalLength);
 
-        // Copy original data (preserves gaps)
-        result.set(this.buffer.subarray(0, totalLength));
-
-        // Apply patches
         for (const part of parts) {
-            if (part.data) result.set(part.data, part.position);
-            else if (part.length) result.fill(0, part.position, part.position + part.length);
+            if (part.data) {
+                result.set(part.data, part.position);
+            }
         }
 
         return new BufferDataReader(result);

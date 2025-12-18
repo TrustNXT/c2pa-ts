@@ -1,4 +1,4 @@
-import { AssetDataReader } from './reader/AssetDataReader';
+import { AssemblePart, AssetDataReader } from './reader/AssetDataReader';
 import { createReader } from './reader/createReader';
 import { AssetSource } from './types';
 
@@ -33,10 +33,9 @@ export abstract class BaseAsset {
     }
 
     /**
-     * Assembles a data buffer or Blob based on a list of parts with an optional source buffer.
-     * Each part has a target position and an optional data source.
+     * @see {@link AssetDataReader.assemble}
      */
-    protected assembleAsset(parts: { position: number; data?: Uint8Array; length?: number }[]): void {
+    protected assembleAsset(parts: AssemblePart[]): void {
         this.reader = this.reader.assemble(parts);
     }
 }

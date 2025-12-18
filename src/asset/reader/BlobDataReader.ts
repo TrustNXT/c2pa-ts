@@ -1,4 +1,4 @@
-import { AssetDataReader } from './AssetDataReader';
+import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 export class BlobDataReader implements AssetDataReader {
     private _buffer?: Uint8Array;
@@ -37,7 +37,7 @@ export class BlobDataReader implements AssetDataReader {
         return this.blob;
     }
 
-    assemble(parts: { position: number; data?: Uint8Array; length?: number }[]): AssetDataReader {
+    assemble(parts: AssemblePart[]): AssetDataReader {
         const totalLength = parts.reduce((acc, p) => Math.max(acc, p.position + (p.length ?? p.data?.length ?? 0)), 0);
         const blobParts: BlobPart[] = [];
         let pos = 0;

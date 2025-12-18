@@ -1,5 +1,6 @@
 import { BinaryHelper } from '../util';
 import { BaseAsset } from './BaseAsset';
+import { AssemblePart } from './reader/AssetDataReader';
 import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
@@ -138,11 +139,7 @@ export class BMFF extends BaseAsset implements Asset {
         if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) === length)
             return;
 
-        const parts: {
-            position: number;
-            data: Uint8Array;
-            length?: number;
-        }[] = [];
+        const parts: AssemblePart[] = [];
 
         let targetPosition = 0;
         let shiftAmount = 0;

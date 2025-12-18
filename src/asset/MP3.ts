@@ -1,5 +1,6 @@
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
+import { AssemblePart } from './reader/AssetDataReader';
 import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
@@ -205,7 +206,7 @@ export class MP3 extends BaseAsset implements Asset {
 
         const newTagSize = newFramesConfig.reduce((sum, f) => sum + 10 + f.size, 0);
 
-        const parts: { position: number; data?: Uint8Array; length?: number }[] = [];
+        const parts: AssemblePart[] = [];
 
         // Part 1: New ID3 tag header
         const newTagHeader = new Uint8Array(10);

@@ -1,6 +1,7 @@
 import { default as crc32 } from 'crc-32';
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
+import { AssemblePart } from './reader/AssetDataReader';
 import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
@@ -136,11 +137,7 @@ export class PNG extends BaseAsset implements Asset {
             this.chunks.splice(this.manifestChunkIndex, 0, new Chunk(0, 0, 'caBX', 0));
         }
 
-        const parts: {
-            position: number;
-            data: Uint8Array;
-            length?: number;
-        }[] = [
+        const parts: AssemblePart[] = [
             {
                 position: 0,
                 data: PNG.pngSignature,
