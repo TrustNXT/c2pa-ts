@@ -32,8 +32,8 @@ export class WebCryptoProvider implements CryptoProvider {
             update(data: Uint8Array) {
                 hash.update(data);
             },
-            final() {
-                return Promise.resolve(new Uint8Array(hash.digest()));
+            async final() {
+                return new Uint8Array(hash.digest());
             },
         };
     }

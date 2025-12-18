@@ -51,32 +51,19 @@ export class Crypto {
         algorithm: HashAlgorithm,
         exclusions: { start: number; length: number }[],
     ): Promise<Uint8Array> {
-        const parts: Blob[] = [];
+        const digest = this.streamingDigest(algorithm);
         let pos = 0;
 
-        // Map inclusions by skipping exclusions
-        [...exclusions]
-            .sort((a, b) => a.start - b.start)
-            .forEach(ex => {
-                if (ex.start > pos) parts.push(blob.slice(pos, ex.start));
-                pos = ex.start + ex.length;
-            });
+        const updateDigest = async (part: Blob) => {
+            digest.update(new Uint8Array(await part.arrayBuffer()));
+        };
 
-        if (pos < blob.size) parts.push(blob.slice(pos));
-
-        const composite = new Blob(parts);
-        const digest = this.streamingDigest(algorithm);
-
-        if (composite.stream) {
-            const reader = composite.stream().getReader();
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                digest.update(value);
-            }
-        } else {
-            digest.update(new Uint8Array(await composite.arrayBuffer()));
+        for (const ex of [...exclusions].sort((a, b) => a.start - b.start)) {
+            if (ex.start > pos) await updateDigest(blob.slice(pos, ex.start));
+            pos = ex.start + ex.length;
         }
+
+        if (pos < blob.size) await updateDigest(blob.slice(pos));
 
         return digest.final();
     }
