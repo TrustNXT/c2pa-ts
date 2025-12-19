@@ -32,6 +32,11 @@ jobs:
           bun-version: latest
           registry-url: "https://registry.npmjs.org"
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
@@ -40,15 +45,15 @@ jobs:
         uses: changesets/action@v1
         with:
           version: bun run version
-          publish: bun run release
+          publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to GitHub Packages
         if: steps.changesets.outputs.published == 'true'
         run: |
-          bun config set @trustnxt:registry 'https://npm.pkg.github.com'
-          bun config set //npm.pkg.github.com/:_authToken '${NODE_AUTH_TOKEN}'
-          bun publish --no-git-checks
+          npm config set @trustnxt:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken ${NODE_AUTH_TOKEN}
+          npm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
