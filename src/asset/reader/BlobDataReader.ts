@@ -45,6 +45,13 @@ export class BlobDataReader implements AssetDataReader {
         parts
             .sort((a, b) => a.position - b.position)
             .forEach(part => {
+                if (part.position < pos) {
+                    throw new Error(
+                        `BlobDataReader does not support overlapping parts. ` +
+                            `Part at ${part.position} overlaps with previous data ending at ${pos}.`,
+                    );
+                }
+
                 if (part.position > pos) {
                     const gapSize = part.position - pos;
                     blobParts.push(new Uint8Array(gapSize));

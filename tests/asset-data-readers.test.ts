@@ -79,3 +79,23 @@ runAssemblyTests('BufferDataReader Assembly (Zeroes Gaps)', data => new BufferDa
     gapsAndZeros: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     extended: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11],
 });
+
+describe('BlobDataReader Specifics', () => {
+    it('should throw an error when parts overlap', async () => {
+        const reader = new BlobDataReader(new Blob([new Uint8Array(100)]));
+        const parts: AssemblePart[] = [
+            { position: 0, data: new Uint8Array(50) },
+            { position: 10, data: new Uint8Array(20) }, // Overlaps with the previous part (ends at 50)
+        ];
+
+        let error: Error | undefined;
+        try {
+            reader.assemble(parts);
+        } catch (e) {
+            error = e as Error;
+        }
+
+        expect(error).toBeDefined();
+        expect(error?.message).toContain('BlobDataReader does not support overlapping parts');
+    });
+});
