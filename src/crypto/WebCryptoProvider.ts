@@ -64,15 +64,7 @@ export class WebCryptoProvider implements CryptoProvider {
 
     public async sign(payload: Uint8Array, privateKey: Uint8Array, algorithm: SigningAlgorithm): Promise<Uint8Array> {
         const key = await crypto.subtle.importKey('pkcs8', privateKey as BufferSource, algorithm, true, ['sign']);
-        let signature = await crypto.subtle.sign(algorithm, key, payload as BufferSource);
-
-        // Convert ECDSA signature from IEEE P1363 representation to ASN.1 representation
-        if (algorithm.name === 'ECDSA') {
-            const convertedSignature = new AsnEcSignatureFormatter().toAsnSignature(algorithm, signature);
-            if (convertedSignature) signature = convertedSignature;
-        }
-
-        return new Uint8Array(signature);
+        return new Uint8Array(await crypto.subtle.sign(algorithm, key, payload as BufferSource));
     }
 
     public getRandomValues(count: number): Uint8Array {
