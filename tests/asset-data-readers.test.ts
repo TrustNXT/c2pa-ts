@@ -63,13 +63,13 @@ const runAssemblyTests = (
 };
 
 runAssemblyTests(
-    'BlobDataReader Assembly (Preserves Gaps)',
+    'BlobDataReader Assembly (Zeroes Gaps)',
     data => new BlobDataReader(new Blob([data as unknown as BlobPart])),
     {
-        ordered: [10, 11, 2, 3, 4, 5, 6, 7, 8, 99],
+        ordered: [10, 11, 0, 0, 0, 0, 0, 0, 0, 99],
         reordered: [5, 6, 7, 8, 9, 0, 1, 2, 3, 4],
-        gapsAndZeros: [0, 1, 2, 3, 4, 5, 0, 7, 8, 9],
-        extended: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        gapsAndZeros: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        extended: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11],
     },
 );
 

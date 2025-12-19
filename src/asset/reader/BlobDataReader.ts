@@ -45,7 +45,10 @@ export class BlobDataReader implements AssetDataReader {
         parts
             .sort((a, b) => a.position - b.position)
             .forEach(part => {
-                if (part.position > pos) blobParts.push(this.blob.slice(pos, part.position));
+                if (part.position > pos) {
+                    const gapSize = part.position - pos;
+                    blobParts.push(new Uint8Array(gapSize));
+                }
                 blobParts.push(
                     part.data ? (part.data as unknown as BlobPart) : (new Uint8Array(part.length!) as BlobPart),
                 );
