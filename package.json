@@ -71,6 +71,7 @@
     "typescript-eslint": "^8.26.0"
   },
   "dependencies": {
+    "@noble/hashes": "^2.0.1",
     "@peculiar/x509": "^1.12.2",
     "cbor-x": "^1.6.0",
     "crc-32": "^1.2.2",

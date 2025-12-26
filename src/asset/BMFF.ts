@@ -1,6 +1,8 @@
 import { BinaryHelper } from '../util';
 import { BaseAsset } from './BaseAsset';
-import { Asset } from './types';
+import { AssemblePart } from './reader/AssetDataReader';
+import { createReader } from './reader/createReader';
+import { Asset, AssetSource } from './types';
 
 export class BMFF extends BaseAsset implements Asset {
     public static readonly c2paBoxUserType = [
@@ -13,19 +15,35 @@ export class BMFF extends BaseAsset implements Asset {
     /** Non-exhaustive list of boxes that may not appear before a FileType box, otherwise it's not a valid file */
     private static readonly mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
 
+    private static readonly canReadPeekLength = 4096;
+
     public readonly mimeType = 'image/heic'; // Could technically also be image/heif if the brand is mif1
 
-    private readonly boxes: Box<object>[] = [];
+    private boxes: Box<object>[] = [];
 
-    public constructor(data: Uint8Array) {
-        super(data);
-        if (!BMFF.canRead(data)) {
-            throw new Error('Not a readable BMFF file');
-        }
-        this.boxes = Array.from(BoxReader.read(data, 0, data.length));
+    private constructor(source: AssetSource) {
+        super(source);
     }
 
-    public static canRead(buf: Uint8Array) {
+    public static async create(source: AssetSource): Promise<BMFF> {
+        const asset = new BMFF(source);
+        const header = await asset.reader.getDataRange(
+            0,
+            Math.min(BMFF.canReadPeekLength, asset.reader.getDataLength()),
+        );
+        if (!BMFF.hasSupportedBrand(header)) throw new Error('Not a readable BMFF file');
+        await asset.reader.load();
+        asset.parse();
+        return asset;
+    }
+
+    public static async canRead(source: AssetSource): Promise<boolean> {
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, Math.min(BMFF.canReadPeekLength, reader.getDataLength()));
+        return BMFF.hasSupportedBrand(header);
+    }
+
+    private static hasSupportedBrand(buf: Uint8Array): boolean {
         try {
             // BoxReader.read() is a generator function so this will only read as far into the file as necessary
             for (const box of BoxReader.read(buf, 0, buf.length)) {
@@ -42,6 +60,10 @@ export class BMFF extends BaseAsset implements Asset {
         } catch {
             return false;
         }
+    }
+
+    private parse(): void {
+        this.boxes = Array.from(BoxReader.read(this.data, 0, this.data.length));
     }
 
     public dumpInfo() {
@@ -117,11 +139,7 @@ export class BMFF extends BaseAsset implements Asset {
         if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) === length)
             return;
 
-        const parts: {
-            position: number;
-            data: Uint8Array;
-            length?: number;
-        }[] = [];
+        const parts: AssemblePart[] = [];
 
         let targetPosition = 0;
         let shiftAmount = 0;
@@ -163,7 +181,7 @@ export class BMFF extends BaseAsset implements Asset {
             }
         }
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
     }
 
     public getHashExclusionRange(): { start: number; length: number } {

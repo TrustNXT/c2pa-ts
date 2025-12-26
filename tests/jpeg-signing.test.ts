@@ -24,10 +24,10 @@ describe('Functional Signing Tests', function () {
                 assert.ok(buf);
 
                 // ensure it's a JPEG
-                assert.ok(JPEG.canRead(buf));
+                assert.ok(await JPEG.canRead(buf));
 
                 // construct the asset
-                const asset = new JPEG(buf);
+                const asset = await JPEG.create(buf);
 
                 // create a new manifest store and append a new manifest
                 const manifestStore = new ManifestStore();
@@ -66,10 +66,10 @@ describe('Functional Signing Tests', function () {
                 if (!buf) return;
 
                 // ensure it's a JPEG
-                assert.ok(JPEG.canRead(buf));
+                assert.ok(await JPEG.canRead(buf));
 
                 // construct the asset
-                const asset = new JPEG(buf);
+                const asset = await JPEG.create(buf);
 
                 // extract the C2PA manifest store in binary JUMBF format
                 const jumbf = asset.getManifestJUMBF();

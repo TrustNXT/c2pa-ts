@@ -1,7 +1,9 @@
 import { default as crc32 } from 'crc-32';
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
-import { Asset } from './types';
+import { AssemblePart } from './reader/AssetDataReader';
+import { createReader } from './reader/createReader';
+import { Asset, AssetSource } from './types';
 
 class Chunk {
     public get payloadOffset() {
@@ -42,17 +44,34 @@ export class PNG extends BaseAsset implements Asset {
     private readonly chunks: Chunk[] = [];
     private manifestChunkIndex: number | undefined;
 
-    constructor(data: Uint8Array) {
-        super(data);
-        if (!PNG.canRead(data)) throw new Error('Not a PNG file');
-        this.readChunks();
+    private constructor(source: AssetSource) {
+        super(source);
     }
 
-    public static canRead(buf: Uint8Array): boolean {
+    public static async create(source: AssetSource): Promise<PNG> {
+        const asset = new PNG(source);
+        const header = await asset.reader.getDataRange(0, PNG.pngSignature.length);
+        if (!PNG.hasSignature(header)) throw new Error('Not a PNG file');
+        await asset.reader.load();
+        asset.parse();
+        return asset;
+    }
+
+    public static async canRead(source: AssetSource): Promise<boolean> {
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, PNG.pngSignature.length);
+        return PNG.hasSignature(header);
+    }
+
+    private static hasSignature(buf: Uint8Array): boolean {
         return (
-            buf.length >= this.pngSignature.length &&
-            BinaryHelper.bufEqual(buf.subarray(0, this.pngSignature.length), this.pngSignature)
+            buf.length >= PNG.pngSignature.length &&
+            BinaryHelper.bufEqual(buf.subarray(0, PNG.pngSignature.length), PNG.pngSignature)
         );
+    }
+
+    private parse(): void {
+        this.readChunks();
     }
 
     public dumpInfo() {
@@ -118,11 +137,7 @@ export class PNG extends BaseAsset implements Asset {
             this.chunks.splice(this.manifestChunkIndex, 0, new Chunk(0, 0, 'caBX', 0));
         }
 
-        const parts: {
-            position: number;
-            data: Uint8Array;
-            length?: number;
-        }[] = [
+        const parts: AssemblePart[] = [
             {
                 position: 0,
                 data: PNG.pngSignature,
@@ -152,7 +167,7 @@ export class PNG extends BaseAsset implements Asset {
             targetPosition += chunk.length;
         }
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
     }
 
     public getHashExclusionRange(): { start: number; length: number } {

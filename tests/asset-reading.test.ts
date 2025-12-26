@@ -210,10 +210,10 @@ describe('Functional Asset Reading Tests', function () {
                 if (!buf) return;
 
                 // ensure it's a JPEG
-                assert.ok(data.assetType.canRead(buf));
+                assert.ok(await data.assetType.canRead(buf));
 
                 // construct the asset
-                asset = new data.assetType(buf);
+                asset = await data.assetType.create(buf);
             });
 
             let jumbf: Uint8Array | undefined = undefined;

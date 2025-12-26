@@ -49,9 +49,16 @@ export interface Asset {
      * Fills in the manifest store JUMBF into the previously created space.
      */
     writeManifestJUMBF(jumbf: Uint8Array): Promise<void>;
+
+    /**
+     * Returns the underlying Blob, if available
+     */
+    getBlob(): Blob | undefined;
 }
 
+export type AssetSource = Uint8Array | Blob;
+
 export interface AssetType {
-    new (data: Uint8Array): Asset;
-    canRead(data: Uint8Array): boolean;
+    create(data: AssetSource): Promise<Asset>;
+    canRead(data: AssetSource): Promise<boolean>;
 }

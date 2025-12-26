@@ -15,7 +15,7 @@ const getFixturePath = (fixture: string) => path.join(fixturesPath, fixture);
 
 async function createAssetWithManifest(manifestData: Uint8Array): Promise<MP3> {
     const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-    const asset = new MP3(mp3Buffer);
+    const asset = await MP3.create(mp3Buffer);
     await asset.ensureManifestSpace(manifestData.length);
     await asset.writeManifestJUMBF(manifestData);
     return asset;
@@ -23,23 +23,23 @@ async function createAssetWithManifest(manifestData: Uint8Array): Promise<MP3> {
 
 async function verifyManifestInNewInstance(asset: MP3, expectedManifest: Uint8Array | undefined): Promise<void> {
     const modifiedBuffer = await asset.getDataRange();
-    const newAsset = new MP3(modifiedBuffer);
+    const newAsset = await MP3.create(modifiedBuffer);
     const newRetrievedManifest = newAsset.getManifestJUMBF();
     assert.deepEqual(newRetrievedManifest, expectedManifest, 'manifest should match in new asset instance');
 }
 
 describe('MP3', function () {
-    it('should identify a valid MP3 file', () => {
+    it('should identify a valid MP3 file', async () => {
         const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        assert.ok(MP3.canRead(mp3Buffer), 'canRead should be true for a valid MP3');
+        assert.ok(await MP3.canRead(mp3Buffer), 'canRead should be true for a valid MP3');
 
         const notMp3Buffer = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-        assert.ok(!MP3.canRead(notMp3Buffer), 'canRead should be false for an invalid MP3');
+        assert.ok(!(await MP3.canRead(notMp3Buffer)), 'canRead should be false for an invalid MP3');
     });
 
-    it('should read an MP3 file without a manifest', () => {
+    it('should read an MP3 file without a manifest', async () => {
         const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        const asset = new MP3(mp3Buffer);
+        const asset = await MP3.create(mp3Buffer);
         assert.equal(asset.getManifestJUMBF(), undefined, 'should not have a manifest');
     });
 
@@ -97,7 +97,7 @@ describe('MP3', function () {
         const modifiedBuffer = Uint8Array.from(mp3Buffer);
         modifiedBuffer[3] = 1; // Version 2.1 is not supported by this library for modification
 
-        const asset = new MP3(modifiedBuffer);
+        const asset = await MP3.create(modifiedBuffer);
         const manifestData = new Uint8Array([1, 2, 3, 4, 5]);
 
         await assert.rejects(
@@ -121,10 +121,10 @@ describe('MP3 Signing Tests', function () {
                 assert.ok(buf);
 
                 // ensure it's an MP3
-                assert.ok(MP3.canRead(buf));
+                assert.ok(await MP3.canRead(buf));
 
                 // construct the asset
-                const asset = new MP3(buf);
+                const asset = await MP3.create(buf);
 
                 // create a new manifest store and append a new manifest
                 const manifestStore = new ManifestStore();
@@ -163,10 +163,10 @@ describe('MP3 Signing Tests', function () {
                 if (!buf) return;
 
                 // ensure it's an MP3
-                assert.ok(MP3.canRead(buf));
+                assert.ok(await MP3.canRead(buf));
 
                 // construct the asset
-                const asset = new MP3(buf);
+                const asset = await MP3.create(buf);
 
                 // extract the C2PA manifest store in binary JUMBF format
                 const jumbf = asset.getManifestJUMBF();
