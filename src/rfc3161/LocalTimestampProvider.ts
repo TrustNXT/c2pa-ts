@@ -17,6 +17,9 @@ import {
 import { Crypto, HashAlgorithm } from '../crypto';
 import { TimestampProvider } from './TimestampProvider';
 
+/** Dummy TSA policy OID from the TrustNXT space */
+const DUMMY_POLICY_OID = '1.3.6.1.4.1.63572.999.999.999';
+
 /**
  * Timestamp provider that creates a signed timestamp based on the local machine's current time
  * and the supplied certificate and private key.
@@ -43,7 +46,7 @@ export class LocalTimestampProvider implements TimestampProvider {
 
         const tstInfo = new TSTInfo({
             version: 1,
-            policy: request.reqPolicy,
+            policy: request.reqPolicy ?? DUMMY_POLICY_OID,
             messageImprint: request.messageImprint,
             serialNumber: new asn1js.Integer({ valueHex: serialNumber }),
             genTime: new Date(),
@@ -83,12 +86,20 @@ export class LocalTimestampProvider implements TimestampProvider {
             });
         }
 
+        const encapContentInfo = new EncapsulatedContentInfo({
+            eContentType: '1.2.840.113549.1.9.16.1.4', // "tSTInfo" content type
+        });
+        // Passing eContent to the EncapsulatedContentInfo constructor causes it to be split into 64 kB chunks,
+        // thereby converting it into a "constructed" octet string instead of a "primitive" octet string. Some
+        // timestamp response parsers expect DER encoded content here only, which disallows constructed strings.
+        // To work around this, we set the eContent _after_ constructing the EncapsulatedContentInfo to ensure
+        // that it remains untouched. This is fine for our use case as our content (TSTInfo) will always be
+        // small enough for a primitive string.
+        encapContentInfo.eContent = new asn1js.OctetString({ valueHex: payload.buffer });
+
         const cmsSigned = new SignedData({
             version: 3,
-            encapContentInfo: new EncapsulatedContentInfo({
-                eContentType: '1.2.840.113549.1.9.16.1.4', // "tSTInfo" content type
-                eContent: new asn1js.OctetString({ valueHex: payload.buffer }),
-            }),
+            encapContentInfo,
             signerInfos: [
                 new SignerInfo({
                     version: 1,
