@@ -12,14 +12,6 @@ export abstract class BaseAsset {
         this.reader = createReader(source);
     }
 
-    protected get data(): Uint8Array {
-        return this.reader.getData();
-    }
-
-    protected set data(val: Uint8Array) {
-        this.reader.setData(val);
-    }
-
     public getDataLength(): number {
         return this.reader.getDataLength();
     }
@@ -28,8 +20,37 @@ export abstract class BaseAsset {
         return this.reader.getDataRange(start, length);
     }
 
-    public getBlob(): Blob | undefined {
+    /**
+     * Returns the underlying Blob, if available.
+     * For BlobDataReader, this materializes all segments into a single Blob.
+     * WARNING: For large files, prefer writeToFile() to avoid memory allocation.
+     */
+    public async getBlob(): Promise<Blob | undefined> {
         return this.reader.getBlob();
+    }
+
+    /**
+     * Writes the asset data to a file using streaming I/O.
+     * This is the preferred method for large files as it avoids loading everything into memory.
+     */
+    public async writeToFile(path: string): Promise<void> {
+        return this.reader.writeToFile(path);
+    }
+
+    /**
+     * Replaces a range of bytes at the given position with new data.
+     * Works for both buffer and streaming blob modes.
+     */
+    protected replaceRange(position: number, data: Uint8Array): void {
+        this.reader.replaceRange(position, data);
+    }
+
+    /**
+     * Creates a part that references a range from the original source.
+     * Works uniformly for both buffer and blob modes.
+     */
+    protected sourceRef(position: number, sourceOffset: number, length: number): AssemblePart {
+        return { position, sourceOffset, length };
     }
 
     /**

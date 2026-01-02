@@ -17,15 +17,6 @@ export class AssertionUtils {
         // Sort exclusions by start position only
         exclusions.sort((a, b) => a.start - b.start);
 
-        const blob = asset.getBlob();
-        if (blob && !exclusions.some(e => e.offsetMarker)) {
-            // Use optimized Blob streaming if available and no special offset markers are needed
-            // (Offset markers require inserting synthetic bytes, which calculateBlobHash doesn't support yet,
-            // or we would need to insert them as Blobs/Buffers in the parts list.
-            // For now, if offsetMarker is used, fallback to manual reading).
-            return Crypto.calculateBlobHash(blob, algorithm, exclusions);
-        }
-
         const digest = Crypto.streamingDigest(algorithm);
         let currentPosition = 0;
         const CHUNK_SIZE = 1024 * 1024; // 1MB

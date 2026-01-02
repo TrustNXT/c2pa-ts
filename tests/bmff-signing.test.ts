@@ -80,7 +80,7 @@ describe('BMFF Signing Tests', function () {
         const buf = await fs.readFile(targetFileV2);
         const asset = await BMFF.create(buf);
 
-        const jumbf = asset.getManifestJUMBF();
+        const jumbf = await asset.getManifestJUMBF();
         assert.ok(jumbf, 'no JUMBF found');
 
         const superBox = SuperBox.fromBuffer(jumbf);
@@ -102,7 +102,7 @@ describe('BMFF Signing Tests', function () {
         const buf = await fs.readFile(targetFileV3);
         const asset = await BMFF.create(buf);
 
-        const jumbf = asset.getManifestJUMBF();
+        const jumbf = await asset.getManifestJUMBF();
         assert.ok(jumbf, 'no JUMBF found');
 
         const superBox = SuperBox.fromBuffer(jumbf);

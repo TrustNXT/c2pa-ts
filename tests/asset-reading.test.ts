@@ -221,7 +221,7 @@ describe('Functional Asset Reading Tests', function () {
                 if (!asset) return;
 
                 // extract the C2PA manifest store in binary JUMBF format
-                jumbf = asset.getManifestJUMBF();
+                jumbf = await asset.getManifestJUMBF();
                 if (data.jumbf) {
                     assert.ok(jumbf, 'no JUMBF found');
                 } else {

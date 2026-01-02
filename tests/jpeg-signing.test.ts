@@ -72,11 +72,11 @@ describe('Functional Signing Tests', function () {
                 const asset = await JPEG.create(buf);
 
                 // extract the C2PA manifest store in binary JUMBF format
-                const jumbf = asset.getManifestJUMBF();
+                const jumbf = await asset.getManifestJUMBF();
                 assert.ok(jumbf, 'no JUMBF found');
 
                 // deserialize the JUMBF box structure
-                const superBox = SuperBox.fromBuffer(jumbf as Uint8Array<ArrayBuffer>);
+                const superBox = SuperBox.fromBuffer(jumbf);
 
                 // construct the manifest store from the JUMBF box
                 const manifestStore = ManifestStore.read(superBox);

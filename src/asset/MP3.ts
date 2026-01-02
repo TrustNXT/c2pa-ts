@@ -27,6 +27,7 @@ export class MP3 extends BaseAsset implements Asset {
 
     private static readonly id3Signature = new Uint8Array([0x49, 0x44, 0x33]); // "ID3"
     private static readonly frameSyncSignature = new Uint8Array([0xff, 0xfb]);
+    private static readonly textEncoder = new TextEncoder();
 
     private tagHeader?: {
         version: number;
@@ -45,8 +46,7 @@ export class MP3 extends BaseAsset implements Asset {
         const asset = new MP3(source);
         const header = await asset.reader.getDataRange(0, MP3.id3Signature.length);
         if (!MP3.hasSignature(header)) throw new Error('Not a valid MP3 file');
-        await asset.reader.load();
-        asset.parse();
+        await asset.parse();
         return asset;
     }
 
@@ -74,41 +74,41 @@ export class MP3 extends BaseAsset implements Asset {
         return false;
     }
 
-    private parse() {
+    private async parse(): Promise<void> {
+        const data = await this.reader.getDataRange();
+        this.parseFromBuffer(data);
+    }
+
+    private parseFromBuffer(data: Uint8Array) {
         this.frames = [];
         this.manifestFrameIndex = undefined;
         this.tagHeader = undefined;
         this.hasUnsupportedTag = false;
 
-        // Check for ID3 tag
-        if (this.data.length < 10 || this.data[0] !== 0x49 || this.data[1] !== 0x44 || this.data[2] !== 0x33) {
-            return;
-        }
-
-        const versionMajor = this.data[3];
+        const versionMajor = data[3];
         if (versionMajor < 2 || versionMajor > 4) {
             // Unsupported version, we can't safely parse or modify this tag.
             this.hasUnsupportedTag = true;
             return;
         }
 
-        const size = BinaryHelper.readSynchsafe(this.data, 6);
+        const size = BinaryHelper.readSynchsafe(data, 6);
         this.tagHeader = { version: versionMajor, size };
 
         let offset = 10;
         const end = 10 + size;
 
-        while (offset < end && offset + 10 <= this.data.length) {
-            const frameId = BinaryHelper.readString(this.data, offset, 4);
+        while (offset < end && offset + 10 <= data.length) {
+            const frameId = BinaryHelper.readString(data, offset, 4);
             if (frameId.codePointAt(0) === 0) {
                 break; // Padding
             }
 
             let frameSize: number;
             if (versionMajor >= 4) {
-                frameSize = BinaryHelper.readSynchsafe(this.data, offset + 4);
+                frameSize = BinaryHelper.readSynchsafe(data, offset + 4);
             } else {
-                frameSize = BinaryHelper.readUInt32(this.data, offset + 4);
+                frameSize = BinaryHelper.readUInt32(data, offset + 4);
             }
 
             if (offset + 10 + frameSize > end) {
@@ -119,21 +119,17 @@ export class MP3 extends BaseAsset implements Asset {
             this.frames.push(frame);
 
             if (frameId === 'GEOB') {
-                this.checkManifestFrame(this.frames.length - 1);
+                this.checkManifestFrame(this.frames.length - 1, data);
             }
-
             offset += 10 + frameSize;
         }
     }
 
-    private checkManifestFrame(index: number) {
+    private checkManifestFrame(index: number, data: Uint8Array) {
         const frame = this.frames[index];
-        let offset = frame.dataOffset;
+        const offset = frame.dataOffset + 1; // skip encoding byte
 
-        // encoding byte
-        offset += 1;
-
-        const mime = BinaryHelper.readNullTerminatedString(this.data, offset);
+        const mime = BinaryHelper.readNullTerminatedString(data, offset);
         if (mime.string === C2PA_MIME) {
             if (this.manifestFrameIndex !== undefined) {
                 // Multiple manifests not allowed, invalidate by unsetting index
@@ -144,32 +140,20 @@ export class MP3 extends BaseAsset implements Asset {
         }
     }
 
-    private getManifestFramePayload(): Uint8Array | undefined {
+    public async getManifestJUMBF(): Promise<Uint8Array | undefined> {
         if (this.manifestFrameIndex === undefined) return undefined;
-
         const frame = this.frames[this.manifestFrameIndex];
-        let offset = frame.dataOffset;
+        const frameData = await this.getDataRange(frame.dataOffset, frame.size);
 
-        // encoding
-        offset += 1;
-
-        // mime type
-        const mime = BinaryHelper.readNullTerminatedString(this.data, offset);
+        let offset = 1; // skip encoding
+        const mime = BinaryHelper.readNullTerminatedString(frameData, offset);
         offset += mime.bytesRead;
-
-        // filename
-        const filename = BinaryHelper.readNullTerminatedString(this.data, offset);
+        const filename = BinaryHelper.readNullTerminatedString(frameData, offset);
         offset += filename.bytesRead;
-
-        // description
-        const description = BinaryHelper.readNullTerminatedString(this.data, offset);
+        const description = BinaryHelper.readNullTerminatedString(frameData, offset);
         offset += description.bytesRead;
 
-        return this.data.subarray(offset, frame.dataOffset + frame.size);
-    }
-
-    public getManifestJUMBF(): Uint8Array | undefined {
-        return this.getManifestFramePayload();
+        return frameData.subarray(offset);
     }
 
     public getHashExclusionRange(): { start: number; length: number } {
@@ -180,9 +164,8 @@ export class MP3 extends BaseAsset implements Asset {
     }
 
     public async ensureManifestSpace(length: number): Promise<void> {
-        if (this.getManifestJUMBF()?.length === length) {
-            return;
-        }
+        const currentManifest = await this.getManifestJUMBF();
+        if (currentManifest?.length === length) return;
 
         if (this.hasUnsupportedTag) {
             throw new Error('Cannot add a manifest to an MP3 with an unsupported ID3 tag version.');
@@ -190,25 +173,24 @@ export class MP3 extends BaseAsset implements Asset {
 
         const otherFrames = this.frames.filter((_, i) => i !== this.manifestFrameIndex);
 
-        const newFramesConfig: {
-            id: string;
-            size: number;
-            isC2pa: boolean;
-            originalFrame: Frame | undefined;
-        }[] = otherFrames.map(f => ({ id: f.id, size: f.size, isC2pa: false, originalFrame: f }));
+        const newFramesConfig: { id: string; size: number; isC2pa: boolean; originalFrame: Frame | undefined }[] =
+            otherFrames.map(f => ({ id: f.id, size: f.size, isC2pa: false, originalFrame: f }));
 
         let c2paGeobHeader: Uint8Array | undefined;
         if (length > 0) {
             c2paGeobHeader = this.createC2paGeobHeader();
-            const newC2paFrameSize = c2paGeobHeader.length + length;
-            newFramesConfig.unshift({ id: 'GEOB', size: newC2paFrameSize, isC2pa: true, originalFrame: undefined });
+            newFramesConfig.unshift({
+                id: 'GEOB',
+                size: c2paGeobHeader.length + length,
+                isC2pa: true,
+                originalFrame: undefined,
+            });
         }
 
         const newTagSize = newFramesConfig.reduce((sum, f) => sum + 10 + f.size, 0);
-
         const parts: AssemblePart[] = [];
 
-        // Part 1: New ID3 tag header
+        // ID3 header
         const newTagHeader = new Uint8Array(10);
         const newTagHeaderView = new DataView(newTagHeader.buffer);
         newTagHeader.set([0x49, 0x44, 0x33, 0x04, 0x00, 0x00]); // ID3 v2.4.0
@@ -216,12 +198,9 @@ export class MP3 extends BaseAsset implements Asset {
         parts.push({ position: 0, data: newTagHeader });
 
         let currentPosition = 10;
-
-        // Part 2: All frames
         for (const frameInfo of newFramesConfig) {
             const frameHeader = new Uint8Array(10);
-            const textEncoder = new TextEncoder();
-            const idBytes = textEncoder.encode(frameInfo.id);
+            const idBytes = MP3.textEncoder.encode(frameInfo.id);
             frameHeader.set(idBytes.subarray(0, 4));
             const frameHeaderView = new DataView(frameHeader.buffer);
             BinaryHelper.writeSynchsafe(frameHeaderView, 4, frameInfo.size);
@@ -231,33 +210,29 @@ export class MP3 extends BaseAsset implements Asset {
 
             if (frameInfo.isC2pa) {
                 parts.push({ position: currentPosition, data: c2paGeobHeader, length: frameInfo.size });
-                currentPosition += frameInfo.size;
             } else {
-                const originalFrame = frameInfo.originalFrame!;
-                parts.push({
-                    position: currentPosition,
-                    data: originalFrame.getFrameData(this.data),
-                });
-                currentPosition += frameInfo.size;
+                const origFrame = frameInfo.originalFrame!;
+                parts.push(this.sourceRef(currentPosition, origFrame.dataOffset, origFrame.size));
             }
+            currentPosition += frameInfo.size;
         }
 
-        // Part 3: Audio data
+        // Audio data
         const audioDataOffset = this.tagHeader ? 10 + this.tagHeader.size : 0;
-        parts.push({
-            position: 10 + newTagSize,
-            data: this.data.subarray(audioDataOffset),
-        });
+        const audioLength = this.getDataLength() - audioDataOffset;
+        parts.push(this.sourceRef(currentPosition, audioDataOffset, audioLength));
 
         this.assembleAsset(parts);
-        this.parse();
+
+        // Re-parse after assembly
+        const newData = await this.reader.getDataRange();
+        this.parseFromBuffer(newData);
     }
 
     private createC2paGeobHeader(): Uint8Array {
-        const textEncoder = new TextEncoder();
-        const mimeBytes = textEncoder.encode(C2PA_MIME);
-        const filenameBytes = textEncoder.encode('c2pa');
-        const descriptionBytes = textEncoder.encode('c2pa manifest store');
+        const mimeBytes = MP3.textEncoder.encode(C2PA_MIME);
+        const filenameBytes = MP3.textEncoder.encode('c2pa');
+        const descriptionBytes = MP3.textEncoder.encode('c2pa manifest store');
 
         const buffer = new Uint8Array(
             1 + mimeBytes.length + 1 + filenameBytes.length + 1 + descriptionBytes.length + 1,
@@ -280,31 +255,26 @@ export class MP3 extends BaseAsset implements Asset {
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         if (this.manifestFrameIndex === undefined) {
-            if (jumbf.length === 0) {
-                return;
-            }
+            if (jumbf.length === 0) return;
             throw new Error('No manifest storage reserved');
         }
-        if (this.getManifestJUMBF()?.length !== jumbf.length) {
+        const currentManifest = await this.getManifestJUMBF();
+        if (currentManifest?.length !== jumbf.length) {
             throw new Error('Wrong amount of space in asset');
         }
 
         const frame = this.frames[this.manifestFrameIndex];
-        let offset = frame.dataOffset;
+        const frameData = await this.getDataRange(frame.dataOffset, frame.size);
 
-        // encoding
-        offset += 1;
-        // mime type
-        const mime = BinaryHelper.readNullTerminatedString(this.data, offset);
+        let offset = 1; // skip encoding
+        const mime = BinaryHelper.readNullTerminatedString(frameData, offset);
         offset += mime.bytesRead;
-        // filename
-        const filename = BinaryHelper.readNullTerminatedString(this.data, offset);
+        const filename = BinaryHelper.readNullTerminatedString(frameData, offset);
         offset += filename.bytesRead;
-        // description
-        const description = BinaryHelper.readNullTerminatedString(this.data, offset);
+        const description = BinaryHelper.readNullTerminatedString(frameData, offset);
         offset += description.bytesRead;
 
-        this.data.set(jumbf, offset);
+        this.replaceRange(frame.dataOffset + offset, jumbf);
     }
 
     public dumpInfo(): string {

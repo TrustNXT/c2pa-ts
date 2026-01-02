@@ -1,17 +1,26 @@
 export interface AssetDataReader {
-    load(): Promise<void>;
     getDataLength(): number;
     getDataRange(start?: number, length?: number): Promise<Uint8Array>;
-    getData(): Uint8Array;
-    /**
-     * Sets the synchronous data, if supported
-     */
-    setData(data: Uint8Array): void;
 
     /**
-     * Returns the underlying Blob, if available
+     * Replaces a range of bytes at the given position with new data.
+     * For streaming readers, this updates segments without loading the entire file.
      */
-    getBlob(): Blob | undefined;
+    replaceRange(position: number, data: Uint8Array): void;
+
+    /**
+     * Returns the underlying Blob, if available.
+     * For BlobDataReader, this materializes all segments into a single Blob.
+     * WARNING: For large files, prefer writeToFile() to avoid memory allocation.
+     */
+    getBlob(): Promise<Blob | undefined>;
+
+    /**
+     * Writes the reader's data to a file using streaming I/O.
+     * This is the preferred method for large files as it avoids loading everything into memory.
+     * @param path The file path to write to
+     */
+    writeToFile(path: string): Promise<void>;
 
     /**
      * Assembles a new reader based on a list of parts with an optional source buffer.
@@ -24,6 +33,10 @@ export interface AssetDataReader {
 
 export interface AssemblePart {
     position: number;
+    /** Explicit data to include at this position */
     data?: Uint8Array;
+    /** Total length to reserve. If data is shorter, remaining space is zero-filled */
     length?: number;
+    /** Reference to source reader data at this offset (for lazy blob slicing) */
+    sourceOffset?: number;
 }

@@ -306,7 +306,7 @@ describe('BMFFHashAssertion v3 Tests', function () {
         const signedHeicData = new Uint8Array(await fs.readFile(filePath));
         const signedHeicAsset = await BMFF.create(signedHeicData);
 
-        const jumbf = signedHeicAsset.getManifestJUMBF();
+        const jumbf = await signedHeicAsset.getManifestJUMBF();
         assert.ok(jumbf, 'No JUMBF found in signed HEIC');
 
         const manifestBox = SuperBox.fromBuffer(jumbf);

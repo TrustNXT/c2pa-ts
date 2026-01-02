@@ -1,75 +1,212 @@
 import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
+/** A segment: either a lazy blob slice or an eager buffer for new/modified data */
+type Segment = { start: number; length: number } & (
+    | { type: 'slice'; blob: Blob; blobStart: number }
+    | { type: 'data'; data: Uint8Array }
+);
+
+/**
+ * Streaming blob reader - never loads entire file into memory.
+ * Uses lazy blob slices for original data and eager buffers only for modifications.
+ */
 export class BlobDataReader implements AssetDataReader {
-    private _buffer?: Uint8Array;
+    private segments: Segment[];
+    private _totalLength: number;
 
-    constructor(private readonly blob: Blob) {}
+    constructor(blob: Blob) {
+        this.segments = [{ type: 'slice', start: 0, length: blob.size, blob, blobStart: 0 }];
+        this._totalLength = blob.size;
+    }
 
-    async load(): Promise<void> {
-        this._buffer ??= new Uint8Array(await this.blob.arrayBuffer());
+    private static fromSegments(segments: Segment[], totalLength: number): BlobDataReader {
+        const reader = Object.create(BlobDataReader.prototype) as BlobDataReader;
+        reader.segments = segments;
+        reader._totalLength = totalLength;
+        return reader;
     }
 
     getDataLength(): number {
-        return this.blob.size;
+        return this._totalLength;
     }
 
     async getDataRange(start?: number, length?: number): Promise<Uint8Array> {
-        if (start === undefined && length === undefined) {
-            return new Uint8Array(await this.blob.arrayBuffer());
-        }
-
         const effectiveStart = start ?? 0;
-        const effectiveEnd = length === undefined ? this.blob.size : effectiveStart + length;
+        const effectiveEnd = Math.min(
+            this._totalLength,
+            length === undefined ? this._totalLength : effectiveStart + length,
+        );
+        const result = new Uint8Array(effectiveEnd - effectiveStart);
+        let resultOffset = 0;
 
-        return new Uint8Array(await this.blob.slice(effectiveStart, effectiveEnd).arrayBuffer());
+        for (const seg of this.segments) {
+            const segEnd = seg.start + seg.length;
+            if (segEnd <= effectiveStart || seg.start >= effectiveEnd) continue;
+
+            const overlapStart = Math.max(seg.start, effectiveStart);
+            const overlapEnd = Math.min(segEnd, effectiveEnd);
+            const overlapLength = overlapEnd - overlapStart;
+            const segOffset = overlapStart - seg.start;
+
+            if (seg.type === 'data') {
+                result.set(seg.data.subarray(segOffset, segOffset + overlapLength), resultOffset);
+            } else {
+                const slice = seg.blob.slice(seg.blobStart + segOffset, seg.blobStart + segOffset + overlapLength);
+                result.set(new Uint8Array(await slice.arrayBuffer()), resultOffset);
+            }
+            resultOffset += overlapLength;
+        }
+        return result;
     }
 
-    getData(): Uint8Array {
-        if (!this._buffer) throw new Error('Call load() first');
-        return this._buffer;
+    async getBlob(): Promise<Blob> {
+        // Workaround for Bun bug: BunFile slices are ignored when mixed with Uint8Array in new Blob([...])
+        // So we must materialize slices into Uint8Array first
+        const parts: BlobPart[] = [];
+        for (const seg of this.segments) {
+            if (seg.type === 'data') {
+                parts.push(seg.data);
+            } else {
+                const slice = seg.blob.slice(seg.blobStart, seg.blobStart + seg.length);
+                parts.push(new Uint8Array(await slice.arrayBuffer()));
+            }
+        }
+        return new Blob(parts);
     }
 
-    setData(data: Uint8Array): void {
-        this._buffer = data;
-    }
+    /**
+     * Writes segments to a file using streaming I/O.
+     * Streams data in chunks to avoid loading the entire file into memory.
+     */
+    async writeToFile(path: string): Promise<void> {
+        const CHUNK_SIZE = 64 * 1024 * 1024; // 64MB chunks
+        const file = Bun.file(path);
+        const writer = file.writer();
 
-    getBlob(): Blob | undefined {
-        return this.blob;
-    }
-
-    assemble(parts: AssemblePart[]): AssetDataReader {
-        const totalLength = parts.reduce((acc, p) => Math.max(acc, p.position + (p.length ?? p.data?.length ?? 0)), 0);
-        const blobParts: BlobPart[] = [];
-        let pos = 0;
-
-        parts
-            .sort((a, b) => a.position - b.position)
-            .forEach(part => {
-                if (part.position < pos) {
-                    throw new Error(
-                        `BlobDataReader does not support overlapping parts. ` +
-                            `Part at ${part.position} overlaps with previous data ending at ${pos}.`,
-                    );
+        try {
+            for (const seg of this.segments) {
+                if (seg.type === 'data') {
+                    writer.write(seg.data);
+                } else {
+                    // Stream blob slice in chunks to avoid memory issues
+                    let offset = 0;
+                    while (offset < seg.length) {
+                        const chunkSize = Math.min(CHUNK_SIZE, seg.length - offset);
+                        const slice = seg.blob.slice(seg.blobStart + offset, seg.blobStart + offset + chunkSize);
+                        const chunk = new Uint8Array(await slice.arrayBuffer());
+                        writer.write(chunk);
+                        offset += chunkSize;
+                    }
                 }
+            }
+        } finally {
+            await writer.end();
+        }
+    }
 
-                if (part.position > pos) {
-                    const gapSize = part.position - pos;
-                    blobParts.push(new Uint8Array(gapSize));
-                }
-                blobParts.push(
-                    part.data ? (part.data as unknown as BlobPart) : (new Uint8Array(part.length!) as BlobPart),
-                );
-                pos = part.position + (part.length ?? part.data?.length ?? 0);
-            });
+    /**
+     * Creates a segment that represents a slice of the original segment.
+     */
+    private sliceSegment(seg: Segment, start: number, length: number): Segment {
+        const offset = start - seg.start;
+        if (seg.type === 'slice') {
+            return { type: 'slice', start, length, blob: seg.blob, blobStart: seg.blobStart + offset };
+        }
+        return { type: 'data', start, length, data: seg.data.subarray(offset, offset + length) };
+    }
 
-        if (pos < totalLength) {
-            if (pos < this.blob.size) blobParts.push(this.blob.slice(pos, totalLength));
-            // Explicitly fill trailing expansion with zeros
-            if (totalLength > Math.max(pos, this.blob.size)) {
-                blobParts.push(new Uint8Array(totalLength - Math.max(pos, this.blob.size)) as BlobPart);
+    /**
+     * Replaces a range of bytes at the given position with new data.
+     * Updates segments efficiently without loading the entire blob.
+     */
+    replaceRange(position: number, data: Uint8Array): void {
+        const end = position + data.length;
+        const newSegments: Segment[] = [];
+
+        for (const seg of this.segments) {
+            const segEnd = seg.start + seg.length;
+
+            // Segment doesn't overlap with replacement range
+            if (segEnd <= position || seg.start >= end) {
+                newSegments.push(seg);
+                continue;
+            }
+
+            // Keep part before replacement
+            if (seg.start < position) {
+                newSegments.push(this.sliceSegment(seg, seg.start, position - seg.start));
+            }
+
+            // Keep part after replacement
+            if (segEnd > end) {
+                newSegments.push(this.sliceSegment(seg, end, segEnd - end));
             }
         }
 
-        return new BlobDataReader(new Blob(blobParts, { type: this.blob.type }));
+        // Insert replacement and sort
+        newSegments.push({ type: 'data', start: position, length: data.length, data });
+        newSegments.sort((a, b) => a.start - b.start);
+        this.segments = newSegments;
+    }
+
+    assemble(parts: AssemblePart[]): AssetDataReader {
+        const sorted = [...parts].sort((a, b) => a.position - b.position);
+        const totalLength = sorted.reduce((acc, p) => Math.max(acc, p.position + (p.data?.length ?? p.length ?? 0)), 0);
+        const newSegments: Segment[] = [];
+        let pos = 0;
+
+        // Find the original blob from current segments (for sourceOffset references)
+        const sliceSeg = this.segments.find((s): s is Segment & { type: 'slice' } => s.type === 'slice');
+        const originalBlob = sliceSeg?.blob;
+
+        for (const part of sorted) {
+            if (part.position < pos) throw new Error('BlobDataReader does not support overlapping parts');
+
+            // Fill gap with zeros
+            if (part.position > pos) {
+                newSegments.push({
+                    type: 'data',
+                    start: pos,
+                    length: part.position - pos,
+                    data: new Uint8Array(part.position - pos),
+                });
+            }
+
+            // Determine the actual size this part occupies
+            const effectiveLength = part.length ?? part.data?.length ?? 0;
+
+            if (part.data) {
+                // Explicit data provided
+                if (part.length && part.length > part.data.length) {
+                    // Data is shorter than reserved length - need to zero-fill
+                    const paddedData = new Uint8Array(part.length);
+                    paddedData.set(part.data);
+                    newSegments.push({ type: 'data', start: part.position, length: part.length, data: paddedData });
+                } else {
+                    // Data fills the entire space
+                    newSegments.push({ type: 'data', start: part.position, length: part.data.length, data: part.data });
+                }
+            } else if (part.sourceOffset !== undefined && originalBlob && part.length) {
+                // Lazy reference to original blob
+                newSegments.push({
+                    type: 'slice',
+                    start: part.position,
+                    length: part.length,
+                    blob: originalBlob,
+                    blobStart: part.sourceOffset,
+                });
+            } else if (part.length) {
+                // Reserve empty space
+                newSegments.push({
+                    type: 'data',
+                    start: part.position,
+                    length: part.length,
+                    data: new Uint8Array(part.length),
+                });
+            }
+            pos = part.position + effectiveLength;
+        }
+
+        return BlobDataReader.fromSegments(newSegments, totalLength);
     }
 }

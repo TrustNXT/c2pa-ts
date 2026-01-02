@@ -18,10 +18,8 @@ const runAssemblyTests = (
             const originalData = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
             const reader = createReader(originalData);
             const newReader = reader.assemble(parts);
-            const data =
-                newReader.getBlob() ?
-                    new Uint8Array(await newReader.getBlob()!.arrayBuffer())
-                :   await newReader.getDataRange();
+            const blob = await newReader.getBlob();
+            const data = blob ? new Uint8Array(await blob.arrayBuffer()) : await newReader.getDataRange();
             expect(Array.from(data)).toEqual(expected);
         };
 

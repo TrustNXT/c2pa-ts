@@ -55,24 +55,4 @@ describe('Streaming Hash Verification', () => {
 
         expect(streamingHash).toEqual(standardHash);
     });
-    it('should calculate correct hash using calculateBlobHash', async () => {
-        const size = 1024 * 1024;
-        const buffer = new Uint8Array(size);
-        for (let i = 0; i < size; i++) buffer[i] = i % 256;
-        const blob = new Blob([buffer]);
-
-        // Define an exclusion in the middle
-        const exclusion = { start: 1000, length: 100 };
-
-        // Standard manual calculation: concat parts before and after
-        const part1 = buffer.subarray(0, 1000);
-        const part2 = buffer.subarray(1100);
-        const combined = new Uint8Array(part1.length + part2.length);
-        combined.set(part1);
-        combined.set(part2, part1.length);
-        const expectedHash = await Crypto.digest(combined, 'SHA-256');
-
-        const blobHash = await Crypto.calculateBlobHash(blob, 'SHA-256', [exclusion]);
-        expect(blobHash).toEqual(expectedHash);
-    });
 });

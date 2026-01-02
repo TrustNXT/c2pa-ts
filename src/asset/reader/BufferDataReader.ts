@@ -3,10 +3,6 @@ import { AssemblePart, AssetDataReader } from './AssetDataReader';
 export class BufferDataReader implements AssetDataReader {
     constructor(private buffer: Uint8Array) {}
 
-    async load(): Promise<void> {
-        /* no-op - buffer already available */
-    }
-
     getDataLength(): number {
         return this.buffer.length;
     }
@@ -18,25 +14,28 @@ export class BufferDataReader implements AssetDataReader {
         return this.buffer.subarray(start, start + length);
     }
 
-    getData(): Uint8Array {
-        return this.buffer;
+    replaceRange(position: number, data: Uint8Array): void {
+        this.buffer.set(data, position);
     }
 
-    setData(data: Uint8Array): void {
-        this.buffer = data;
-    }
-
-    getBlob(): Blob | undefined {
+    async getBlob(): Promise<Blob | undefined> {
         return undefined;
     }
 
+    async writeToFile(path: string): Promise<void> {
+        await Bun.write(path, this.buffer);
+    }
+
     assemble(parts: AssemblePart[]): AssetDataReader {
-        const totalLength = parts.reduce((acc, p) => Math.max(acc, p.position + (p.length ?? p.data?.length ?? 0)), 0);
+        const sorted = [...parts].sort((a, b) => a.position - b.position);
+        const totalLength = sorted.reduce((acc, p) => Math.max(acc, p.position + (p.data?.length ?? p.length ?? 0)), 0);
         const result = new Uint8Array(totalLength);
 
-        for (const part of parts) {
+        for (const part of sorted) {
             if (part.data) {
                 result.set(part.data, part.position);
+            } else if (part.sourceOffset !== undefined && part.length) {
+                result.set(this.buffer.subarray(part.sourceOffset, part.sourceOffset + part.length), part.position);
             }
         }
 

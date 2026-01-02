@@ -52,7 +52,7 @@ describe('Asset Manifest Data Insertion Tests', function () {
             it('ensure no existing JUMBF', async function () {
                 if (!asset) return;
 
-                assert.ok(!asset.getManifestJUMBF());
+                assert.ok(!(await asset.getManifestJUMBF()));
             });
 
             it('try to add too large data', async function () {
@@ -81,12 +81,12 @@ describe('Asset Manifest Data Insertion Tests', function () {
                     assert.ok(start + length <= asset.getDataLength());
 
                     await asset.writeManifestJUMBF(data);
-                    const manifest = asset.getManifestJUMBF();
+                    const manifest = await asset.getManifestJUMBF();
                     assert.ok(manifest, 'No manifest data in asset after adding');
                     assert.ok(BinaryHelper.bufEqual(manifest, data), 'Manifest data does not have expected content');
 
                     const newAsset = await assetType.assetClass.create(await asset.getDataRange());
-                    const newManifest = newAsset.getManifestJUMBF();
+                    const newManifest = await newAsset.getManifestJUMBF();
                     assert.ok(newManifest, 'No manifest data in updated file');
                     assert.ok(
                         BinaryHelper.bufEqual(newManifest, data),

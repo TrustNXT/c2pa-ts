@@ -103,7 +103,7 @@ if (await JPEG.canRead(buf)) {
 console.log(asset.dumpInfo());
 
 // Extract the C2PA manifest store in binary JUMBF format
-const jumbf = asset.getManifestJUMBF();
+const jumbf = await asset.getManifestJUMBF();
 
 if (jumbf) {
     let validationResult: ValidationResult;

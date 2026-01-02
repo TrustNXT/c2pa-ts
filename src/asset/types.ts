@@ -17,7 +17,7 @@ export interface Asset {
     /**
      * Returns the manifest store JUMBF in the asset, if any
      */
-    getManifestJUMBF(): Uint8Array | undefined;
+    getManifestJUMBF(): Promise<Uint8Array | undefined>;
 
     /**
      * Returns diagnostic info about the asset structure
@@ -51,9 +51,18 @@ export interface Asset {
     writeManifestJUMBF(jumbf: Uint8Array): Promise<void>;
 
     /**
-     * Returns the underlying Blob, if available
+     * Returns the underlying Blob, if available.
+     * For streaming readers, this materializes all segments into a single Blob.
+     * WARNING: For large files, prefer writeToFile() to avoid memory allocation.
      */
-    getBlob(): Blob | undefined;
+    getBlob(): Promise<Blob | undefined>;
+
+    /**
+     * Writes the asset data to a file using streaming I/O.
+     * This is the preferred method for large files as it avoids loading everything into memory.
+     * @param path The file path to write to
+     */
+    writeToFile(path: string): Promise<void>;
 }
 
 export type AssetSource = Uint8Array | Blob;

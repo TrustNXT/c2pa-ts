@@ -9,7 +9,6 @@ class TestAsset extends BaseAsset {
 
     public static async create(source: AssetSource): Promise<TestAsset> {
         const asset = new TestAsset(source);
-        await asset.reader.load();
         return asset;
     }
 }
