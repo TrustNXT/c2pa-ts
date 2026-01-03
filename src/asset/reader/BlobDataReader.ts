@@ -65,7 +65,7 @@ export class BlobDataReader implements AssetDataReader {
         const parts: BlobPart[] = [];
         for (const seg of this.segments) {
             if (seg.type === 'data') {
-                parts.push(seg.data);
+                parts.push(seg.data as BlobPart);
             } else {
                 const slice = seg.blob.slice(seg.blobStart, seg.blobStart + seg.length);
                 parts.push(new Uint8Array(await slice.arrayBuffer()));

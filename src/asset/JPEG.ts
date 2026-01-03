@@ -4,6 +4,20 @@ import { AssemblePart } from './reader/AssetDataReader';
 import { createReader } from './reader/createReader';
 import { Asset, AssetSource } from './types';
 
+interface JUMBFHeader {
+    boxInstance: number;
+    sequenceNumber: number;
+    lBox: number;
+    buf: Uint8Array;
+}
+
+interface JUMBFParseState {
+    currentBoxInstance?: number;
+    currentSequence?: number;
+    jumbfLength?: number;
+    manifestSegments?: { segmentIndex: number; skipBytes: number }[];
+}
+
 class Segment {
     public get payloadOffset() {
         return this.length >= 4 ? this.offset + 4 : this.offset + 2;
@@ -141,64 +155,60 @@ export class JPEG extends BaseAsset implements Asset {
     }
 
     private findJUMBFSegments(data: Uint8Array): typeof this.manifestSegments {
-        let currentBoxInstance: number | undefined;
-        let currentSequence: number | undefined;
-        let jumbfLength: number | undefined;
-
-        let manifestSegments: typeof this.manifestSegments;
+        const state: JUMBFParseState = {};
 
         for (let i = 0; i < this.segments.length; i++) {
             const header = this.getJUMBFHeader(this.segments[i], data);
             if (!header) continue;
 
-            if (header.boxInstance === currentBoxInstance) {
-                // This is a continuation of the previous segment
-                if (
-                    currentSequence === undefined ||
-                    header.sequenceNumber !== currentSequence + 1 || // Out of order sequence number
-                    header.lBox !== jumbfLength // Length mismatch between segments
-                ) {
-                    // Malformed content – ignore and start over
-                    currentBoxInstance = undefined;
-                    currentSequence = undefined;
-                    manifestSegments = [];
-                    continue;
-                }
-
-                if (!manifestSegments) {
-                    throw new Error('Manifest continuation without start. This should never happen.');
-                }
-                manifestSegments.push({ segmentIndex: i, skipBytes: 16 });
-                currentSequence = header.sequenceNumber;
-                continue;
-            }
-
-            // We found a superbox!
-            if (header.lBox <= 8) {
-                // Box is too short to be useful
-                continue;
-            }
-
-            if (!this.isC2PAStore(header.buf, header.sequenceNumber)) continue;
-
-            if (manifestSegments) {
-                // There was already a valid manifest store started before. If there are multiple stores in an asset,
-                // according to C2PA spec they should be treated as invalid and missing.
+            if (!this.processJumbfSegment(state, header, i)) {
                 return undefined;
             }
-
-            currentBoxInstance = header.boxInstance;
-            currentSequence = header.sequenceNumber;
-            jumbfLength = header.lBox;
-            manifestSegments = [{ segmentIndex: i, skipBytes: 8 }];
         }
 
-        if (!manifestSegments) return undefined;
+        if (!state.manifestSegments || state.manifestSegments.length === 0) return undefined;
 
         // Does the length of the combined payloads match the expected total JUMBF length?
-        if (this.getJUMBFLength(manifestSegments) !== jumbfLength) return undefined;
+        if (this.getJUMBFLength(state.manifestSegments) !== state.jumbfLength) return undefined;
 
-        return manifestSegments;
+        return state.manifestSegments;
+    }
+
+    private processJumbfSegment(state: JUMBFParseState, header: JUMBFHeader, index: number): boolean {
+        if (header.boxInstance === state.currentBoxInstance) {
+            // This is a continuation of the previous segment
+            if (
+                state.currentSequence !== undefined &&
+                header.sequenceNumber === state.currentSequence + 1 && // Out of order sequence number
+                header.lBox === state.jumbfLength // Length mismatch between segments
+            ) {
+                state.manifestSegments!.push({ segmentIndex: index, skipBytes: 16 });
+                state.currentSequence = header.sequenceNumber;
+            } else {
+                // Malformed content – ignore and start over
+                state.currentBoxInstance = undefined;
+                state.currentSequence = undefined;
+                state.manifestSegments = [];
+            }
+            return true;
+        }
+
+        // We found a superbox!
+        // Check if box is too short to be useful (<= 8)
+        if (header.lBox > 8 && this.isC2PAStore(header.buf, header.sequenceNumber)) {
+            if (state.manifestSegments) {
+                // There was already a valid manifest store started before. If there are multiple stores in an asset,
+                // according to C2PA spec they should be treated as invalid and missing.
+                return false;
+            }
+
+            state.currentBoxInstance = header.boxInstance;
+            state.currentSequence = header.sequenceNumber;
+            state.jumbfLength = header.lBox;
+            state.manifestSegments = [{ segmentIndex: index, skipBytes: 8 }];
+        }
+
+        return true;
     }
 
     private getJUMBFLength(manifestSegments: typeof this.manifestSegments): number {
