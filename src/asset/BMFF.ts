@@ -85,8 +85,8 @@ export class BMFF extends BaseAsset implements Asset {
                 const boxData = await this.reader.getDataRange(pos, size);
                 box = BoxReader.read(boxData, 0, size).next().value as Box<object>;
                 if (!box) throw new Error('Failed to parse box');
-                box.offset += pos;
-                box.payloadOffset += pos;
+                // Adjust all box offsets to be file-absolute (BoxReader returns 0-based offsets)
+                this.adjustBoxOffsets(box, pos);
             }
 
             this.boxes.push(box);
@@ -105,6 +105,18 @@ export class BMFF extends BaseAsset implements Asset {
             const xpath = prefix + box.type;
             into.push(xpath);
             this.dumpBoxArray(box.childBoxes, xpath + '/', into);
+        }
+    }
+
+    /**
+     * Recursively adjusts all box offsets by the given amount.
+     * This converts 0-based buffer offsets to file-absolute offsets.
+     */
+    private adjustBoxOffsets(box: Box<object>, adjustment: number): void {
+        box.offset += adjustment;
+        box.payloadOffset += adjustment;
+        for (const child of box.childBoxes) {
+            this.adjustBoxOffsets(child, adjustment);
         }
     }
 
@@ -171,12 +183,25 @@ export class BMFF extends BaseAsset implements Asset {
         if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) === length)
             return;
 
+        // First pass: calculate the C2PA box size and find existing C2PA box to remove
+        let existingC2PASize = 0;
+        for (const box of this.boxes) {
+            if (box instanceof C2PABox) {
+                existingC2PASize = box.size;
+                break;
+            }
+        }
+
+        // Calculate new C2PA box size (header + inner header + manifest)
+        const newC2PABox = C2PABox.createManifestBox(0, length);
+        const offsetAdjustment = newC2PABox.size - existingC2PASize;
+
         const parts: AssemblePart[] = [];
         let targetPosition = 0;
+        let afterFtyp = false;
 
         // Go through boxes, remove any existing C2PA box, and add a new one right after ftyp,
-        // assembling them into a new file structure as we go. We currently only care about
-        // top-level boxes. (`box.shiftPosition()` does update child boxes recursively.)
+        // assembling them into a new file structure as we go.
         for (let i = 0; i < this.boxes.length; i++) {
             const box = this.boxes[i];
 
@@ -187,8 +212,21 @@ export class BMFF extends BaseAsset implements Asset {
                 continue;
             }
 
-            // Add box reference to new file structure
-            parts.push(this.sourceRef(targetPosition, box.offset, box.size));
+            // For boxes after ftyp that contain offset-sensitive data, we need to patch
+            // the binary data to adjust internal offsets. This is critical for iloc boxes
+            // which store file offsets to mdat content.
+            if (afterFtyp && offsetAdjustment !== 0 && this.containsOffsetSensitiveData(box)) {
+                // Read the box data and patch it
+                const boxData = await this.reader.getDataRange(box.offset, box.size);
+                // Pass box.offset as bufferOffset since the buffer starts at that file position
+                box.shiftPosition(offsetAdjustment, boxData, box.offset);
+                // Use the patched data instead of a source reference
+                parts.push({ position: targetPosition, data: boxData, length: box.size });
+            } else {
+                // Add box reference to new file structure
+                parts.push(this.sourceRef(targetPosition, box.offset, box.size));
+            }
+
             const oldOffset = box.offset;
             box.offset = targetPosition;
             box.payloadOffset += targetPosition - oldOffset;
@@ -196,6 +234,7 @@ export class BMFF extends BaseAsset implements Asset {
 
             // Insert new C2PABox after FileTypeBox
             if (box instanceof FileTypeBox) {
+                afterFtyp = true;
                 const c2paBox = C2PABox.createManifestBox(targetPosition, length);
                 this.boxes.splice(i + 1, 0, c2paBox);
                 i++;
@@ -205,6 +244,21 @@ export class BMFF extends BaseAsset implements Asset {
         }
 
         this.assembleAsset(parts);
+    }
+
+    /**
+     * Checks if a box contains offset-sensitive data that needs patching when
+     * the file structure changes (e.g., iloc box which stores file offsets).
+     */
+    private containsOffsetSensitiveData(box: Box<object>): boolean {
+        // Meta box contains iloc which has file offsets
+        if (box instanceof MetaBox) return true;
+        // Check child boxes recursively
+        for (const child of box.childBoxes) {
+            if (child instanceof ItemLocationBox) return true;
+            if (this.containsOffsetSensitiveData(child)) return true;
+        }
+        return false;
     }
 
     public getHashExclusionRange(): { start: number; length: number } {
@@ -346,13 +400,17 @@ class Box<T extends object> implements BMFFBox<T> {
      * actually move the data around, it only adjusts the box's properties.
      * It does, however, patch any values contained inside the box at the box's original
      * position in `buf`.
+     *
+     * @param amount The number of bytes to shift by (positive = forward, negative = backward)
+     * @param buf The buffer containing the box data to patch
+     * @param bufferOffset The file position where the buffer starts (default 0 = buffer starts at file position 0)
      */
-    public shiftPosition(amount: number, buf: Uint8Array) {
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0) {
         if (amount === 0) return;
 
         this.offset += amount;
         this.payloadOffset += amount;
-        for (const box of this.childBoxes) box.shiftPosition(amount, buf);
+        for (const box of this.childBoxes) box.shiftPosition(amount, buf, bufferOffset);
     }
 }
 
@@ -582,8 +640,10 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
         }
     }
 
-    public shiftPosition(amount: number, buf: Uint8Array): void {
-        const dataView = new DataView(buf.buffer, this.payloadOffset);
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0): void {
+        // Calculate relative position within the buffer
+        const relativePayloadOffset = this.payloadOffset - bufferOffset;
+        const dataView = new DataView(buf.buffer, buf.byteOffset + relativePayloadOffset);
         let pos = this.payload.version === 2 ? 6 : 4;
 
         for (const item of this.payload.items) {
@@ -621,7 +681,7 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
             }
         }
 
-        super.shiftPosition(amount, buf);
+        super.shiftPosition(amount, buf, bufferOffset);
     }
 }
 
