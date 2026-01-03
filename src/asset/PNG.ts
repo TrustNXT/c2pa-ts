@@ -132,7 +132,7 @@ export class PNG extends BaseAsset implements Asset {
                 const header = new Uint8Array(8);
                 const dv = new DataView(header.buffer);
                 dv.setUint32(0, chunk.payloadLength);
-                chunk.type.split('').forEach((c, j) => dv.setUint8(4 + j, c.charCodeAt(0)));
+                chunk.type.split('').forEach((c, j) => dv.setUint8(4 + j, c.codePointAt(0)!));
                 chunk.offset = targetPosition;
                 parts.push({ position: targetPosition, data: header, length: chunk.length });
             } else {
@@ -165,7 +165,7 @@ export class PNG extends BaseAsset implements Asset {
 
         // Calculate CRC over type + data
         const crcInput = new Uint8Array(4 + jumbf.length);
-        chunk.type.split('').forEach((c, i) => (crcInput[i] = c.charCodeAt(0)));
+        chunk.type.split('').forEach((c, i) => (crcInput[i] = c.codePointAt(0)!));
         crcInput.set(jumbf, 4);
         const crc = crc32.buf(crcInput) >>> 0;
 

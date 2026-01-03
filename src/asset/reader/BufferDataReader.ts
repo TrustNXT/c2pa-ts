@@ -1,7 +1,7 @@
 import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 export class BufferDataReader implements AssetDataReader {
-    constructor(private buffer: Uint8Array) {}
+    constructor(private readonly buffer: Uint8Array) {}
 
     getDataLength(): number {
         return this.buffer.length;

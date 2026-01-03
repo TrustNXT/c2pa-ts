@@ -105,6 +105,41 @@ export class JPEG extends BaseAsset implements Asset {
         }
     }
 
+    private getJUMBFHeader(segment: Segment, data: Uint8Array) {
+        if (segment.type !== 0xeb) return null;
+        if (segment.payloadLength < 16) return null;
+
+        const buf = segment.getSubBuffer(data);
+        if (buf[0] !== 0x4a || buf[1] !== 0x50) return null;
+
+        const tBox = BinaryHelper.readString(buf, 12, 4);
+        if (tBox !== 'jumb') return null;
+
+        return {
+            boxInstance: BinaryHelper.readUInt16(buf, 2),
+            sequenceNumber: BinaryHelper.readUInt32(buf, 4),
+            lBox: BinaryHelper.readUInt32(buf, 8),
+            buf,
+        };
+    }
+
+    private isC2PAStore(buf: Uint8Array, sequenceNumber: number): boolean {
+        // First inside the superbox should be a jumd box – check if it's a valid c2pa descriptor
+        const jumdLBox = BinaryHelper.readUInt32(buf, 16);
+        if (jumdLBox < 17) return false; // Must be at least 4 bytes LBox + 4 bytes TBox + 8 bytes UUID + 1 byte toggles
+        const jumdTBox = BinaryHelper.readString(buf, 20, 4);
+        if (jumdTBox !== 'jumd') return false;
+        const jumdMarker = BinaryHelper.readString(buf, 24, 4);
+        if (jumdMarker !== 'c2pa') return false; // Only check first 4 bytes of UUID here, they all start with 'c2pa'
+
+        if (sequenceNumber !== 1) {
+            // Sequence does not start with 1
+            return false;
+        }
+
+        return true;
+    }
+
     private findJUMBFSegments(data: Uint8Array): typeof this.manifestSegments {
         let currentBoxInstance: number | undefined;
         let currentSequence: number | undefined;
@@ -113,25 +148,15 @@ export class JPEG extends BaseAsset implements Asset {
         let manifestSegments: typeof this.manifestSegments;
 
         for (let i = 0; i < this.segments.length; i++) {
-            const segment = this.segments[i];
-            if (segment.type !== 0xeb) continue;
-            if (segment.payloadLength < 16) continue;
+            const header = this.getJUMBFHeader(this.segments[i], data);
+            if (!header) continue;
 
-            const buf = segment.getSubBuffer(data);
-            if (buf[0] !== 0x4a || buf[1] !== 0x50) continue;
-
-            const boxInstance = BinaryHelper.readUInt16(buf, 2);
-            const sequenceNumber = BinaryHelper.readUInt32(buf, 4);
-            const lBox = BinaryHelper.readUInt32(buf, 8);
-            const tBox = BinaryHelper.readString(buf, 12, 4);
-            if (tBox !== 'jumb') continue;
-
-            if (boxInstance === currentBoxInstance) {
+            if (header.boxInstance === currentBoxInstance) {
                 // This is a continuation of the previous segment
                 if (
                     currentSequence === undefined ||
-                    sequenceNumber !== currentSequence + 1 || // Out of order sequence number
-                    lBox !== jumbfLength // Length mismatch between segments
+                    header.sequenceNumber !== currentSequence + 1 || // Out of order sequence number
+                    header.lBox !== jumbfLength // Length mismatch between segments
                 ) {
                     // Malformed content – ignore and start over
                     currentBoxInstance = undefined;
@@ -144,29 +169,17 @@ export class JPEG extends BaseAsset implements Asset {
                     throw new Error('Manifest continuation without start. This should never happen.');
                 }
                 manifestSegments.push({ segmentIndex: i, skipBytes: 16 });
-                currentSequence = sequenceNumber;
-
+                currentSequence = header.sequenceNumber;
                 continue;
             }
 
             // We found a superbox!
-            if (lBox <= 8) {
+            if (header.lBox <= 8) {
                 // Box is too short to be useful
                 continue;
             }
 
-            // First inside the superbox should be a jumd box – check if it's a valid c2pa descriptor
-            const jumdLBox = BinaryHelper.readUInt32(buf, 16);
-            if (jumdLBox < 17) continue; // Must be at least 4 bytes LBox + 4 bytes TBox + 8 bytes UUID + 1 byte toggles
-            const jumdTBox = BinaryHelper.readString(buf, 20, 4);
-            if (jumdTBox !== 'jumd') continue;
-            const jumdMarker = BinaryHelper.readString(buf, 24, 4);
-            if (jumdMarker !== 'c2pa') continue; // Only check first 4 bytes of UUID here, they all start with 'c2pa'
-
-            if (sequenceNumber !== 1) {
-                // Sequence does not start with 1
-                continue;
-            }
+            if (!this.isC2PAStore(header.buf, header.sequenceNumber)) continue;
 
             if (manifestSegments) {
                 // There was already a valid manifest store started before. If there are multiple stores in an asset,
@@ -174,9 +187,9 @@ export class JPEG extends BaseAsset implements Asset {
                 return undefined;
             }
 
-            currentBoxInstance = boxInstance;
-            currentSequence = sequenceNumber;
-            jumbfLength = lBox;
+            currentBoxInstance = header.boxInstance;
+            currentSequence = header.sequenceNumber;
+            jumbfLength = header.lBox;
             manifestSegments = [{ segmentIndex: i, skipBytes: 8 }];
         }
 
