@@ -641,47 +641,65 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
     }
 
     public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0): void {
-        // Calculate relative position within the buffer
         const relativePayloadOffset = this.payloadOffset - bufferOffset;
         const dataView = new DataView(buf.buffer, buf.byteOffset + relativePayloadOffset);
         let pos = this.payload.version === 2 ? 6 : 4;
 
         for (const item of this.payload.items) {
-            pos += this.payload.version === 2 ? 4 : 2; // item_ID
-            if (this.payload.version > 0) pos += 2; // reserved, construction_method
-            pos += 2; // data_reference_index
-            if (this.payload.baseOffsetSize === 8) {
-                item.baseOffset = (item.baseOffset as bigint) + BigInt(amount);
-                dataView.setBigUint64(pos, item.baseOffset);
-            } else if (this.payload.baseOffsetSize === 4) {
-                item.baseOffset = (item.baseOffset as number) + amount;
-                dataView.setUint32(pos, item.baseOffset);
-            }
-            pos += this.payload.baseOffsetSize;
-
-            pos += 2; // extent_count
-            for (const extent of item.extents) {
-                if (this.payload.indexSize) pos += this.payload.indexSize;
-                if (
-                    (item.constructionMethod ?? ItemLocationConstructionMethod.file) ===
-                        ItemLocationConstructionMethod.file &&
-                    item.baseOffset === 0 &&
-                    extent.offset !== 0
-                ) {
-                    if (this.payload.offsetSize === 8) {
-                        extent.offset = (extent.offset as bigint) + BigInt(amount);
-                        dataView.setBigUint64(pos, extent.offset);
-                    } else if (this.payload.offsetSize === 4) {
-                        extent.offset = (extent.offset as number) + amount;
-                        dataView.setUint32(pos, extent.offset);
-                    }
-                }
-                pos += this.payload.offsetSize;
-                pos += this.payload.lengthSize;
-            }
+            pos = this.patchItemOffsets(item, amount, dataView, pos);
         }
 
         super.shiftPosition(amount, buf, bufferOffset);
+    }
+
+    private patchItemOffsets(item: ItemLocationItem, amount: number, dataView: DataView, pos: number): number {
+        let currentPos = pos + (this.payload.version === 2 ? 4 : 2); // item_ID
+        if (this.payload.version > 0) currentPos += 2; // reserved, construction_method
+        currentPos += 2; // data_reference_index
+
+        // Patch base offset
+        if (this.payload.baseOffsetSize === 8) {
+            item.baseOffset = (item.baseOffset as bigint) + BigInt(amount);
+            dataView.setBigUint64(currentPos, item.baseOffset);
+        } else if (this.payload.baseOffsetSize === 4) {
+            item.baseOffset = (item.baseOffset as number) + amount;
+            dataView.setUint32(currentPos, item.baseOffset);
+        }
+        currentPos += this.payload.baseOffsetSize;
+
+        // Patch extents
+        currentPos += 2; // extent_count field length
+        for (const extent of item.extents) {
+            currentPos = this.patchExtentOffsets(item, extent, amount, dataView, currentPos);
+        }
+
+        return currentPos;
+    }
+
+    private patchExtentOffsets(
+        item: ItemLocationItem,
+        extent: ItemLocationExtent,
+        amount: number,
+        dataView: DataView,
+        pos: number,
+    ): number {
+        let currentPos = pos;
+        if (this.payload.indexSize) currentPos += this.payload.indexSize;
+
+        const isFileMethod =
+            (item.constructionMethod ?? ItemLocationConstructionMethod.file) === ItemLocationConstructionMethod.file;
+
+        if (isFileMethod && item.baseOffset === 0 && extent.offset !== 0) {
+            if (this.payload.offsetSize === 8) {
+                extent.offset = (extent.offset as bigint) + BigInt(amount);
+                dataView.setBigUint64(currentPos, extent.offset);
+            } else if (this.payload.offsetSize === 4) {
+                extent.offset = (extent.offset as number) + amount;
+                dataView.setUint32(currentPos, extent.offset);
+            }
+        }
+
+        return currentPos + this.payload.offsetSize + this.payload.lengthSize;
     }
 }
 
