@@ -131,68 +131,68 @@ describe('BMFF Signing Tests', function () {
     });
 });
 
+async function signMP4AndVerify(version: 2 | 3) {
+    const targetFile = version === 2 ? mp4TargetFileV2 : mp4TargetFileV3;
+
+    const { signer, timestampProvider } = await loadTestCertificate({
+        name: 'ES256 sample certificate',
+        certificateFile: 'tests/fixtures/sample_es256.pem',
+        privateKeyFile: 'tests/fixtures/sample_es256.key',
+        algorithm: CoseAlgorithmIdentifier.ES256,
+    });
+
+    // load and verify the file
+    const buf = await fs.readFile(mp4SourceFile);
+    assert.ok(await BMFF.canRead(buf), 'MP4 should be readable as BMFF');
+    const asset = await BMFF.create(buf);
+
+    // Verify it's an MP4 (has stco box)
+    const topBoxes = asset.getTopLevelBoxes();
+    const moov = topBoxes.find(b => b.type === 'moov');
+    assert.ok(moov, 'MP4 should have moov box');
+
+    // create manifest store and manifest
+    const manifestStore = new ManifestStore();
+    const manifest = manifestStore.createManifest({
+        assetFormat: 'video/mp4',
+        instanceID: 'mp4-test-xyz',
+        defaultHashAlgorithm: 'SHA-256',
+        signer,
+    });
+
+    // create hash assertion with appropriate version
+    const bmffHashAssertion =
+        version === 2 ?
+            BMFFHashAssertion.createV2('jumbf manifest', 'SHA-256')
+        :   BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
+    manifest.addAssertion(bmffHashAssertion);
+
+    // Record original stco offset for patching verification
+    const origBuf = await fs.readFile(mp4SourceFile);
+    const origAsset = await BMFF.create(origBuf);
+
+    // make space in the asset
+    await asset.ensureManifestSpace(manifestStore.measureSize());
+
+    // update the hard binding
+    await bmffHashAssertion.updateWithAsset(asset);
+
+    // create the signature
+    await manifest.sign(signer, timestampProvider);
+
+    // write the JUMBF box to the asset
+    await asset.writeManifestJUMBF(manifestStore.getBytes());
+
+    // write the asset to the target file
+    const outputData = await asset.getDataRange();
+    await fs.writeFile(targetFile, outputData);
+
+    return { manifest, asset: await BMFF.create(await fs.readFile(targetFile)), origAsset };
+}
+
 describe('MP4 Video Signing Tests', function () {
     let mp4ManifestV2: Manifest | undefined;
     let mp4ManifestV3: Manifest | undefined;
-
-    async function signMP4AndVerify(version: 2 | 3) {
-        const targetFile = version === 2 ? mp4TargetFileV2 : mp4TargetFileV3;
-
-        const { signer, timestampProvider } = await loadTestCertificate({
-            name: 'ES256 sample certificate',
-            certificateFile: 'tests/fixtures/sample_es256.pem',
-            privateKeyFile: 'tests/fixtures/sample_es256.key',
-            algorithm: CoseAlgorithmIdentifier.ES256,
-        });
-
-        // load and verify the file
-        const buf = await fs.readFile(mp4SourceFile);
-        assert.ok(await BMFF.canRead(buf), 'MP4 should be readable as BMFF');
-        const asset = await BMFF.create(buf);
-
-        // Verify it's an MP4 (has stco box)
-        const topBoxes = asset.getTopLevelBoxes();
-        const moov = topBoxes.find(b => b.type === 'moov');
-        assert.ok(moov, 'MP4 should have moov box');
-
-        // create manifest store and manifest
-        const manifestStore = new ManifestStore();
-        const manifest = manifestStore.createManifest({
-            assetFormat: 'video/mp4',
-            instanceID: 'mp4-test-xyz',
-            defaultHashAlgorithm: 'SHA-256',
-            signer,
-        });
-
-        // create hash assertion with appropriate version
-        const bmffHashAssertion =
-            version === 2 ?
-                BMFFHashAssertion.createV2('jumbf manifest', 'SHA-256')
-            :   BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
-        manifest.addAssertion(bmffHashAssertion);
-
-        // Record original stco offset for patching verification
-        const origBuf = await fs.readFile(mp4SourceFile);
-        const origAsset = await BMFF.create(origBuf);
-
-        // make space in the asset
-        await asset.ensureManifestSpace(manifestStore.measureSize());
-
-        // update the hard binding
-        await bmffHashAssertion.updateWithAsset(asset);
-
-        // create the signature
-        await manifest.sign(signer, timestampProvider);
-
-        // write the JUMBF box to the asset
-        await asset.writeManifestJUMBF(manifestStore.getBytes());
-
-        // write the asset to the target file
-        const outputData = await asset.getDataRange();
-        await fs.writeFile(targetFile, outputData);
-
-        return { manifest, asset: await BMFF.create(await fs.readFile(targetFile)), origAsset };
-    }
 
     it('should recognize MP4 as BMFF format', async function () {
         const buf = await fs.readFile(mp4SourceFile);
