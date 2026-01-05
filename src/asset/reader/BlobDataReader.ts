@@ -69,7 +69,7 @@ export class BlobDataReader implements AssetDataReader {
 
     getBlob(): Promise<Blob> {
         const parts: BlobPart[] = this.segments.map(seg =>
-            seg.type === 'data' ? seg.data : seg.blob.slice(seg.blobStart, seg.blobStart + seg.length),
+            seg.type === 'data' ? (seg.data as BlobPart) : seg.blob.slice(seg.blobStart, seg.blobStart + seg.length),
         );
         return Promise.resolve(new Blob(parts));
     }
