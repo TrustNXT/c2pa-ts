@@ -22,8 +22,8 @@ export abstract class BaseAsset {
 
     /**
      * Returns the underlying Blob, if available.
-     * For BlobDataReader, this materializes all segments into a single Blob.
-     * WARNING: For large files, prefer writeToFile() to avoid memory allocation.
+     * For BlobDataReader, this composes all segments into a single Blob using lazy references.
+     * NOTE: For writing large files to disk, prefer writeToFile() for chunked streaming I/O.
      */
     public async getBlob(): Promise<Blob | undefined> {
         return this.reader.getBlob();

@@ -67,19 +67,11 @@ export class BlobDataReader implements AssetDataReader {
         return result;
     }
 
-    async getBlob(): Promise<Blob> {
-        // Workaround for Bun bug: BunFile slices are ignored when mixed with Uint8Array in new Blob([...])
-        // So we must materialize slices into Uint8Array first
-        const parts: BlobPart[] = [];
-        for (const seg of this.segments) {
-            if (seg.type === 'data') {
-                parts.push(seg.data as BlobPart);
-            } else {
-                const slice = seg.blob.slice(seg.blobStart, seg.blobStart + seg.length);
-                parts.push(new Uint8Array(await slice.arrayBuffer()));
-            }
-        }
-        return new Blob(parts);
+    getBlob(): Promise<Blob> {
+        const parts: BlobPart[] = this.segments.map(seg =>
+            seg.type === 'data' ? seg.data : seg.blob.slice(seg.blobStart, seg.blobStart + seg.length),
+        );
+        return Promise.resolve(new Blob(parts));
     }
 
     /**
