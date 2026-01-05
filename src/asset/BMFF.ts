@@ -244,9 +244,9 @@ export class BMFF extends BaseAsset implements Asset {
      * the file structure changes (e.g., iloc box which stores file offsets).
      */
     private containsOffsetSensitiveData(box: Box<object>): boolean {
-        // Meta box contains iloc which has file offsets (HEIF)
+        // Meta box contains iloc which has file offsets
         if (box instanceof MetaBox) return true;
-        // Check child boxes recursively for offset-sensitive boxes
+        // Check child boxes recursively
         for (const child of box.childBoxes) {
             if (child instanceof ItemLocationBox) return true; // HEIF
             if (child instanceof StcoBox) return true; // MP4 32-bit chunk offsets
