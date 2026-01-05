@@ -99,12 +99,11 @@ export class MetadataAssertion extends Assertion {
                 name = parts[1];
 
                 namespace = content['@context'][prefix];
-                if (!namespace)
-                    throw new ValidationError(
-                        ValidationStatusCode.AssertionJSONInvalid,
-                        this.sourceBox,
-                        `Missing @context entry for prefix ${namespace}`,
-                    );
+                // If prefix is not in @context, use it as the namespace directly
+                // This allows handling of non-standard metadata keys like "QuickTime:Duration"
+                if (!namespace) {
+                    namespace = prefix;
+                }
             } else {
                 const slashIndex = key.lastIndexOf('/');
                 if (slashIndex !== -1 && slashIndex < key.length - 1) {

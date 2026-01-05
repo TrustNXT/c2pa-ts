@@ -10,7 +10,7 @@ export class BMFF extends BaseAsset implements Asset {
     ];
 
     /** Currently supported major brand identifiers */
-    private static readonly canReadBrands = new Set(['heic', 'mif1']);
+    private static readonly canReadBrands = new Set(['heic', 'mif1', 'mp41', 'mp42', 'isom']);
 
     /** Non-exhaustive list of boxes that may not appear before a FileType box, otherwise it's not a valid file */
     private static readonly mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
@@ -113,8 +113,15 @@ export class BMFF extends BaseAsset implements Asset {
      */
     public async getManifestJUMBF(): Promise<Uint8Array | undefined> {
         const box = this.getManifestStoreBox();
-        if (!box?.isManifest()) return undefined;
-        return this.getDataRange(box.payload.manifestOffset, box.payload.manifestContent.length);
+        if (!box) return undefined;
+        const payload = box.payload as C2PAManifestBoxPayload;
+
+        // Read the JUMBF box size from its header (first 4 bytes)
+        // The manifestContent may include padding bytes, so we need to get the actual size
+        const jumbfHeader = await this.getDataRange(payload.manifestOffset, 4);
+        const jumbfSize = BinaryHelper.readUInt32(jumbfHeader, 0);
+
+        return this.getDataRange(payload.manifestOffset, jumbfSize);
     }
 
     private getManifestStoreBox(): C2PABox | undefined {
@@ -237,11 +244,13 @@ export class BMFF extends BaseAsset implements Asset {
      * the file structure changes (e.g., iloc box which stores file offsets).
      */
     private containsOffsetSensitiveData(box: Box<object>): boolean {
-        // Meta box contains iloc which has file offsets
+        // Meta box contains iloc which has file offsets (HEIF)
         if (box instanceof MetaBox) return true;
-        // Check child boxes recursively
+        // Check child boxes recursively for offset-sensitive boxes
         for (const child of box.childBoxes) {
-            if (child instanceof ItemLocationBox) return true;
+            if (child instanceof ItemLocationBox) return true; // HEIF
+            if (child instanceof StcoBox) return true; // MP4 32-bit chunk offsets
+            if (child instanceof Co64Box) return true; // MP4 64-bit chunk offsets
             if (this.containsOffsetSensitiveData(child)) return true;
         }
         return false;
@@ -322,6 +331,10 @@ class BoxReader {
                 box = new MetaBox(pos, size, payloadPos, payloadSize, boxType);
             } else if (boxType === 'iloc') {
                 box = new ItemLocationBox(pos, size, payloadPos, payloadSize, boxType);
+            } else if (boxType === 'stco') {
+                box = new StcoBox(pos, size, payloadPos, payloadSize, boxType);
+            } else if (boxType === 'co64') {
+                box = new Co64Box(pos, size, payloadPos, payloadSize, boxType);
             } else if (SimpleContainerBox.boxTypes.has(boxType)) {
                 box = new SimpleContainerBox(pos, size, payloadPos, payloadSize, boxType);
             } else {
@@ -491,9 +504,36 @@ interface MetaBoxPayload extends FullBoxPayload {
     boxes: Box<object>[];
 }
 
+/**
+ * MetaBox can be either:
+ * - ISO BMFF style (FullBox with version/flags header) - used in HEIF/HEIC
+ * - QuickTime style (no version/flags, directly contains child boxes) - used in MP4/MOV
+ *
+ * We detect which style by checking if the first 4 bytes after the header look like
+ * a valid box size (>= 8 and <= remaining payload).
+ */
 class MetaBox extends FullBox<MetaBoxPayload> {
     public readContents(buf: Uint8Array): void {
         super.readContents(buf);
+        if (this.payloadSize >= 8) {
+            const potentialSize = BinaryHelper.readUInt32(buf, this.payloadOffset);
+            if (potentialSize >= 8 && potentialSize <= this.payloadSize) {
+                // QuickTime style - no version/flags, child boxes start immediately
+                this.payload.version = 0;
+                this.payload.flags = 0;
+            } else {
+                // ISO BMFF style - read version/flags
+                if (this.payloadSize < 4) throw new Error('Malformed BMFF (full box too small)');
+                this.payload.version = buf[this.payloadOffset];
+                this.payload.flags =
+                    (buf[this.payloadOffset + 1] << 16) |
+                    (buf[this.payloadOffset + 2] << 8) |
+                    buf[this.payloadOffset + 3];
+                this.payloadOffset += 4;
+                this.payloadSize -= 4;
+            }
+        }
+
         if (this.payload.version !== 0) {
             this.payload.boxes = [];
             return;
@@ -696,6 +736,84 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
         }
 
         return currentPos + this.payload.offsetSize + this.payload.lengthSize;
+    }
+}
+
+/**
+ * Sample Table Chunk Offset box (stco) - contains 32-bit file offsets to chunks of media data.
+ * These offsets point to data in the mdat box and need to be adjusted when content is inserted.
+ */
+interface StcoBoxPayload extends FullBoxPayload {
+    entryCount: number;
+    chunkOffsets: number[];
+}
+
+class StcoBox extends FullBox<StcoBoxPayload> {
+    public readContents(buf: Uint8Array): void {
+        super.readContents(buf);
+        if (this.payloadSize < 4) throw new Error('Malformed BMFF (stco box too small)');
+
+        this.payload.entryCount = BinaryHelper.readUInt32(buf, this.payloadOffset);
+        this.payload.chunkOffsets = [];
+
+        let pos = this.payloadOffset + 4;
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            this.payload.chunkOffsets.push(BinaryHelper.readUInt32(buf, pos));
+            pos += 4;
+        }
+    }
+
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0): void {
+        const relativePayloadOffset = this.payloadOffset - bufferOffset;
+        const dataView = new DataView(buf.buffer, buf.byteOffset + relativePayloadOffset);
+
+        // Patch each chunk offset (starts at offset 4 after entry_count)
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            const pos = 4 + i * 4;
+            this.payload.chunkOffsets[i] += amount;
+            dataView.setUint32(pos, this.payload.chunkOffsets[i]);
+        }
+
+        super.shiftPosition(amount, buf, bufferOffset);
+    }
+}
+
+/**
+ * 64-bit Chunk Offset box (co64) - contains 64-bit file offsets to chunks of media data.
+ * Used instead of stco when file offsets exceed 32-bit range.
+ */
+interface Co64BoxPayload extends FullBoxPayload {
+    entryCount: number;
+    chunkOffsets: bigint[];
+}
+
+class Co64Box extends FullBox<Co64BoxPayload> {
+    public readContents(buf: Uint8Array): void {
+        super.readContents(buf);
+        if (this.payloadSize < 4) throw new Error('Malformed BMFF (co64 box too small)');
+
+        this.payload.entryCount = BinaryHelper.readUInt32(buf, this.payloadOffset);
+        this.payload.chunkOffsets = [];
+
+        let pos = this.payloadOffset + 4;
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            this.payload.chunkOffsets.push(BinaryHelper.readUInt64(buf, pos));
+            pos += 8;
+        }
+    }
+
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0): void {
+        const relativePayloadOffset = this.payloadOffset - bufferOffset;
+        const dataView = new DataView(buf.buffer, buf.byteOffset + relativePayloadOffset);
+
+        // Patch each chunk offset (starts at offset 4 after entry_count)
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            const pos = 4 + i * 8;
+            this.payload.chunkOffsets[i] += BigInt(amount);
+            dataView.setBigUint64(pos, this.payload.chunkOffsets[i]);
+        }
+
+        super.shiftPosition(amount, buf, bufferOffset);
     }
 }
 

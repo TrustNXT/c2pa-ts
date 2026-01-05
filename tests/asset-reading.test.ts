@@ -171,6 +171,11 @@ const testFiles: Record<string, TestExpectations> = {
         jumbf: true,
         valid: true,
     },
+    'public-testfiles/legacy/1.4/video/mp4/truepic-20230212-zoetrope.mp4': {
+        assetType: BMFF,
+        jumbf: true,
+        valid: true,
+    },
     'amazon-titan-g1.png': {
         assetType: PNG,
         jumbf: true,
@@ -209,7 +214,7 @@ describe('Functional Asset Reading Tests', function () {
             it(`constructing the asset`, async function () {
                 if (!buf) return;
 
-                // ensure it's a JPEG
+                // ensure it's a valid asset
                 assert.ok(await data.assetType.canRead(buf));
 
                 // construct the asset
