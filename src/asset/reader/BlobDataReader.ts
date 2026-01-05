@@ -1,3 +1,4 @@
+import { createWriteStream, WriteStream } from 'node:fs';
 import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 /** A segment: either a lazy blob slice or an eager buffer for new/modified data */
@@ -12,18 +13,25 @@ type Segment = { start: number; length: number } & (
  */
 export class BlobDataReader implements AssetDataReader {
     private segments: Segment[];
-    private _totalLength: number;
+    private readonly _totalLength: number;
+    private readonly sourceBlob: Blob;
 
-    constructor(blob: Blob) {
-        this.segments = [{ type: 'slice', start: 0, length: blob.size, blob, blobStart: 0 }];
-        this._totalLength = blob.size;
+    private constructor(segments: Segment[], totalLength: number, sourceBlob: Blob) {
+        this.segments = segments;
+        this._totalLength = totalLength;
+        this.sourceBlob = sourceBlob;
     }
 
-    private static fromSegments(segments: Segment[], totalLength: number): BlobDataReader {
-        const reader = Object.create(BlobDataReader.prototype) as BlobDataReader;
-        reader.segments = segments;
-        reader._totalLength = totalLength;
-        return reader;
+    static fromBlob(blob: Blob): BlobDataReader {
+        return new BlobDataReader(
+            [{ type: 'slice', start: 0, length: blob.size, blob, blobStart: 0 }],
+            blob.size,
+            blob,
+        );
+    }
+
+    private static fromSegments(segments: Segment[], totalLength: number, sourceBlob: Blob): BlobDataReader {
+        return new BlobDataReader(segments, totalLength, sourceBlob);
     }
 
     getDataLength(): number {
@@ -80,13 +88,12 @@ export class BlobDataReader implements AssetDataReader {
      */
     async writeToFile(path: string): Promise<void> {
         const CHUNK_SIZE = 64 * 1024 * 1024; // 64MB chunks
-        const file = Bun.file(path);
-        const writer = file.writer();
+        const stream = createWriteStream(path);
 
         try {
             for (const seg of this.segments) {
                 if (seg.type === 'data') {
-                    writer.write(seg.data);
+                    await this.writeToStream(stream, seg.data);
                 } else {
                     // Stream blob slice in chunks to avoid memory issues
                     let offset = 0;
@@ -94,14 +101,29 @@ export class BlobDataReader implements AssetDataReader {
                         const chunkSize = Math.min(CHUNK_SIZE, seg.length - offset);
                         const slice = seg.blob.slice(seg.blobStart + offset, seg.blobStart + offset + chunkSize);
                         const chunk = new Uint8Array(await slice.arrayBuffer());
-                        writer.write(chunk);
+                        await this.writeToStream(stream, chunk);
                         offset += chunkSize;
                     }
                 }
             }
         } finally {
-            await writer.end();
+            await new Promise<void>((resolve, reject) => {
+                stream.end((err: Error | null) => (err ? reject(err) : resolve()));
+            });
         }
+    }
+
+    private writeToStream(stream: WriteStream, data: Uint8Array): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const canContinue = stream.write(data, err => {
+                if (err) reject(err);
+            });
+            if (canContinue) {
+                resolve();
+            } else {
+                stream.once('drain', resolve);
+            }
+        });
     }
 
     /**
@@ -155,10 +177,6 @@ export class BlobDataReader implements AssetDataReader {
         const newSegments: Segment[] = [];
         let pos = 0;
 
-        // Find the original blob from current segments (for sourceOffset references)
-        const sliceSeg = this.segments.find((s): s is Segment & { type: 'slice' } => s.type === 'slice');
-        const originalBlob = sliceSeg?.blob;
-
         for (const part of sorted) {
             if (part.position < pos) throw new Error('BlobDataReader does not support overlapping parts');
 
@@ -186,13 +204,13 @@ export class BlobDataReader implements AssetDataReader {
                     // Data fills the entire space
                     newSegments.push({ type: 'data', start: part.position, length: part.data.length, data: part.data });
                 }
-            } else if (part.sourceOffset !== undefined && originalBlob && part.length) {
-                // Lazy reference to original blob
+            } else if (part.sourceOffset !== undefined && part.length) {
+                // Lazy reference to original source blob
                 newSegments.push({
                     type: 'slice',
                     start: part.position,
                     length: part.length,
-                    blob: originalBlob,
+                    blob: this.sourceBlob,
                     blobStart: part.sourceOffset,
                 });
             } else if (part.length) {
@@ -207,6 +225,6 @@ export class BlobDataReader implements AssetDataReader {
             pos = part.position + effectiveLength;
         }
 
-        return BlobDataReader.fromSegments(newSegments, totalLength);
+        return BlobDataReader.fromSegments(newSegments, totalLength, this.sourceBlob);
     }
 }

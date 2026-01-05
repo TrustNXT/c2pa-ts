@@ -62,7 +62,7 @@ const runAssemblyTests = (
 
 runAssemblyTests(
     'BlobDataReader Assembly (Zeroes Gaps)',
-    data => new BlobDataReader(new Blob([data as unknown as BlobPart])),
+    data => BlobDataReader.fromBlob(new Blob([data as unknown as BlobPart])),
     {
         ordered: [10, 11, 0, 0, 0, 0, 0, 0, 0, 99],
         reordered: [5, 6, 7, 8, 9, 0, 1, 2, 3, 4],
@@ -80,7 +80,7 @@ runAssemblyTests('BufferDataReader Assembly (Zeroes Gaps)', data => new BufferDa
 
 describe('BlobDataReader Specifics', () => {
     it('should throw an error when parts overlap', async () => {
-        const reader = new BlobDataReader(new Blob([new Uint8Array(100)]));
+        const reader = BlobDataReader.fromBlob(new Blob([new Uint8Array(100)]));
         const parts: AssemblePart[] = [
             { position: 0, data: new Uint8Array(50) },
             { position: 10, data: new Uint8Array(20) }, // Overlaps with the previous part (ends at 50)
