@@ -85,8 +85,6 @@
     "test": "bun test",
     "build": "tsup",
     "changeset": "changeset",
-    "version": "changeset version && bun install",
-    "release": "bun run build && npm exec changeset -- publish",
-    "prepublishOnly": "bun run build"
+    "version": "changeset version && bun update"
   }
 }
