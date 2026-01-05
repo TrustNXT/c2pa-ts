@@ -7,19 +7,17 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   release:
-    name: Release
+    name: Create Release PR or Publish
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
       pull-requests: write
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -30,25 +28,48 @@ jobs:
         uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
         with:
           bun-version: latest
-          registry-url: "https://registry.npmjs.org"
 
       - name: Install Dependencies
         run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
           version: bun run version
-          publish: bun run release
+          publish: bun pm pack && bunx npm@latest publish ./*.tgz --access public
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  publish-github-packages:
+    name: Publish to GitHub Packages
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
       - name: Publish to GitHub Packages
-        if: steps.changesets.outputs.published == 'true'
         run: |
-          bun config set @trustnxt:registry 'https://npm.pkg.github.com'
-          bun config set //npm.pkg.github.com/:_authToken '${NODE_AUTH_TOKEN}'
-          bun publish --no-git-checks
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          bun pm pack && bunx npm@latest publish ./*.tgz --access public --registry https://npm.pkg.github.com
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
