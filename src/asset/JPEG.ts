@@ -1,6 +1,22 @@
 import { BinaryHelper } from '../util/BinaryHelper';
 import { BaseAsset } from './BaseAsset';
-import { Asset } from './types';
+import { AssemblePart } from './reader/AssetDataReader';
+import { createReader } from './reader/createReader';
+import { Asset, AssetSource } from './types';
+
+interface JUMBFHeader {
+    boxInstance: number;
+    sequenceNumber: number;
+    lBox: number;
+    buf: Uint8Array;
+}
+
+interface JUMBFParseState {
+    currentBoxInstance?: number;
+    currentSequence?: number;
+    jumbfLength?: number;
+    manifestSegments?: { segmentIndex: number; skipBytes: number }[];
+}
 
 class Segment {
     public get payloadOffset() {
@@ -24,18 +40,40 @@ class Segment {
 export class JPEG extends BaseAsset implements Asset {
     public readonly mimeType = 'image/jpeg';
 
-    private segments: Segment[];
+    private static readonly jpegSignature = new Uint8Array([0xff, 0xd8]);
+
+    private segments: Segment[] = [];
     private manifestSegments?: { segmentIndex: number; skipBytes: number }[];
 
-    constructor(data: Uint8Array) {
-        super(data);
-        if (!JPEG.canRead(data)) throw new Error('Not a JPEG file');
-        this.segments = Array.from(this.readSegments());
-        this.manifestSegments = this.findJUMBFSegments();
+    private constructor(source: AssetSource) {
+        super(source);
     }
 
-    public static canRead(buf: Uint8Array): boolean {
-        return buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8;
+    public static async create(source: AssetSource): Promise<JPEG> {
+        const asset = new JPEG(source);
+        const header = await asset.reader.getDataRange(0, JPEG.jpegSignature.length);
+        if (!JPEG.hasSignature(header)) throw new Error('Not a JPEG file');
+        await asset.parse();
+        return asset;
+    }
+
+    public static async canRead(source: AssetSource): Promise<boolean> {
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, JPEG.jpegSignature.length);
+        return JPEG.hasSignature(header);
+    }
+
+    private static hasSignature(buf: Uint8Array): boolean {
+        return (
+            buf.length >= JPEG.jpegSignature.length &&
+            BinaryHelper.bufEqual(buf.subarray(0, JPEG.jpegSignature.length), JPEG.jpegSignature)
+        );
+    }
+
+    private async parse(): Promise<void> {
+        const data = await this.reader.getDataRange();
+        this.segments = Array.from(this.readSegments(data));
+        this.manifestSegments = this.findJUMBFSegments(data);
     }
 
     public dumpInfo() {
@@ -45,30 +83,29 @@ export class JPEG extends BaseAsset implements Asset {
         ].join('\n');
     }
 
-    private *readSegments() {
+    private *readSegments(data: Uint8Array) {
         let pos = 2;
 
         while (true) {
-            if (pos + 2 > this.data.length) {
+            if (pos + 2 > data.length) {
                 throw new Error('Malformed JPEG (buffer underrun before end marker)');
             }
 
-            if (this.data[pos] !== 0xff) {
+            if (data[pos] !== 0xff) {
                 throw new Error('Malformed JPEG (invalid marker)');
             }
-            const type = this.data[pos + 1];
+            const type = data[pos + 1];
 
             let length: number;
 
             if (type === 0xda) {
-                // Start of scan
                 length = 2;
             } else {
-                if (pos + 4 > this.data.length) {
+                if (pos + 4 > data.length) {
                     throw new Error('Malformed JPEG (buffer underrun during length scan)');
                 }
 
-                length = BinaryHelper.readUInt16(this.data, pos + 2) + 2;
+                length = BinaryHelper.readUInt16(data, pos + 2) + 2;
             }
 
             yield new Segment(pos, length, type);
@@ -82,87 +119,96 @@ export class JPEG extends BaseAsset implements Asset {
         }
     }
 
-    private findJUMBFSegments(): typeof this.manifestSegments {
-        let currentBoxInstance: number | undefined;
-        let currentSequence: number | undefined;
-        let jumbfLength: number | undefined;
+    private getJUMBFHeader(segment: Segment, data: Uint8Array) {
+        if (segment.type !== 0xeb) return null;
+        if (segment.payloadLength < 16) return null;
 
-        let manifestSegments: typeof this.manifestSegments;
+        const buf = segment.getSubBuffer(data);
+        if (buf[0] !== 0x4a || buf[1] !== 0x50) return null;
 
-        for (let i = 0; i < this.segments.length; i++) {
-            const segment = this.segments[i];
-            if (segment.type !== 0xeb) continue;
-            if (segment.payloadLength < 16) continue;
+        const tBox = BinaryHelper.readString(buf, 12, 4);
+        if (tBox !== 'jumb') return null;
 
-            const buf = segment.getSubBuffer(this.data);
-            if (buf[0] !== 0x4a || buf[1] !== 0x50) continue;
+        return {
+            boxInstance: BinaryHelper.readUInt16(buf, 2),
+            sequenceNumber: BinaryHelper.readUInt32(buf, 4),
+            lBox: BinaryHelper.readUInt32(buf, 8),
+            buf,
+        };
+    }
 
-            const boxInstance = BinaryHelper.readUInt16(buf, 2);
-            const sequenceNumber = BinaryHelper.readUInt32(buf, 4);
-            const lBox = BinaryHelper.readUInt32(buf, 8);
-            const tBox = BinaryHelper.readString(buf, 12, 4);
-            if (tBox !== 'jumb') continue;
+    private isC2PAStore(buf: Uint8Array, sequenceNumber: number): boolean {
+        // First inside the superbox should be a jumd box – check if it's a valid c2pa descriptor
+        const jumdLBox = BinaryHelper.readUInt32(buf, 16);
+        if (jumdLBox < 17) return false; // Must be at least 4 bytes LBox + 4 bytes TBox + 8 bytes UUID + 1 byte toggles
+        const jumdTBox = BinaryHelper.readString(buf, 20, 4);
+        if (jumdTBox !== 'jumd') return false;
+        const jumdMarker = BinaryHelper.readString(buf, 24, 4);
+        if (jumdMarker !== 'c2pa') return false; // Only check first 4 bytes of UUID here, they all start with 'c2pa'
 
-            if (boxInstance === currentBoxInstance) {
-                // This is a continuation of the previous segment
-                if (
-                    currentSequence === undefined ||
-                    sequenceNumber !== currentSequence + 1 || // Out of order sequence number
-                    lBox !== jumbfLength // Length mismatch between segments
-                ) {
-                    // Malformed content – ignore and start over
-                    currentBoxInstance = undefined;
-                    currentSequence = undefined;
-                    manifestSegments = [];
-                    continue;
-                }
-
-                if (!manifestSegments) {
-                    throw new Error('Manifest continuation without start. This should never happen.');
-                }
-                manifestSegments.push({ segmentIndex: i, skipBytes: 16 });
-                currentSequence = sequenceNumber;
-
-                continue;
-            }
-
-            // We found a superbox!
-            if (lBox <= 8) {
-                // Box is too short to be useful
-                continue;
-            }
-
-            // First inside the superbox should be a jumd box – check if it's a valid c2pa descriptor
-            const jumdLBox = BinaryHelper.readUInt32(buf, 16);
-            if (jumdLBox < 17) continue; // Must be at least 4 bytes LBox + 4 bytes TBox + 8 bytes UUID + 1 byte toggles
-            const jumdTBox = BinaryHelper.readString(buf, 20, 4);
-            if (jumdTBox !== 'jumd') continue;
-            const jumdMarker = BinaryHelper.readString(buf, 24, 4);
-            if (jumdMarker !== 'c2pa') continue; // Only check first 4 bytes of UUID here, they all start with 'c2pa'
-
-            if (sequenceNumber !== 1) {
-                // Sequence does not start with 1
-                continue;
-            }
-
-            if (manifestSegments) {
-                // There was already a valid manifest store started before. If there are multiple stores in an asset,
-                // according to C2PA spec they should be treated as invalid and missing.
-                return undefined;
-            }
-
-            currentBoxInstance = boxInstance;
-            currentSequence = sequenceNumber;
-            jumbfLength = lBox;
-            manifestSegments = [{ segmentIndex: i, skipBytes: 8 }];
+        if (sequenceNumber !== 1) {
+            // Sequence does not start with 1
+            return false;
         }
 
-        if (!manifestSegments) return undefined;
+        return true;
+    }
+
+    private findJUMBFSegments(data: Uint8Array): typeof this.manifestSegments {
+        const state: JUMBFParseState = {};
+
+        for (let i = 0; i < this.segments.length; i++) {
+            const header = this.getJUMBFHeader(this.segments[i], data);
+            if (!header) continue;
+
+            if (!this.processJumbfSegment(state, header, i)) {
+                return undefined;
+            }
+        }
+
+        if (!state.manifestSegments || state.manifestSegments.length === 0) return undefined;
 
         // Does the length of the combined payloads match the expected total JUMBF length?
-        if (this.getJUMBFLength(manifestSegments) !== jumbfLength) return undefined;
+        if (this.getJUMBFLength(state.manifestSegments) !== state.jumbfLength) return undefined;
 
-        return manifestSegments;
+        return state.manifestSegments;
+    }
+
+    private processJumbfSegment(state: JUMBFParseState, header: JUMBFHeader, index: number): boolean {
+        if (header.boxInstance === state.currentBoxInstance) {
+            // This is a continuation of the previous segment
+            if (
+                state.currentSequence !== undefined &&
+                header.sequenceNumber === state.currentSequence + 1 && // Out of order sequence number
+                header.lBox === state.jumbfLength // Length mismatch between segments
+            ) {
+                state.manifestSegments!.push({ segmentIndex: index, skipBytes: 16 });
+                state.currentSequence = header.sequenceNumber;
+            } else {
+                // Malformed content – ignore and start over
+                state.currentBoxInstance = undefined;
+                state.currentSequence = undefined;
+                state.manifestSegments = [];
+            }
+            return true;
+        }
+
+        // We found a superbox!
+        // Check if box is too short to be useful (<= 8)
+        if (header.lBox > 8 && this.isC2PAStore(header.buf, header.sequenceNumber)) {
+            if (state.manifestSegments) {
+                // There was already a valid manifest store started before. If there are multiple stores in an asset,
+                // according to C2PA spec they should be treated as invalid and missing.
+                return false;
+            }
+
+            state.currentBoxInstance = header.boxInstance;
+            state.currentSequence = header.sequenceNumber;
+            state.jumbfLength = header.lBox;
+            state.manifestSegments = [{ segmentIndex: index, skipBytes: 8 }];
+        }
+
+        return true;
     }
 
     private getJUMBFLength(manifestSegments: typeof this.manifestSegments): number {
@@ -177,17 +223,18 @@ export class JPEG extends BaseAsset implements Asset {
     /**
      * Extracts the manifest store in raw JUMBF format from JPEG XT style APP11 segments.
      */
-    public getManifestJUMBF(): Uint8Array | undefined {
+    public async getManifestJUMBF(): Promise<Uint8Array | undefined> {
         if (!this.manifestSegments) return undefined;
 
         const jumbfLength = this.getJUMBFLength(this.manifestSegments);
         const jumbfBuffer = new Uint8Array(jumbfLength);
 
         let offset = 0;
-        for (const segment of this.manifestSegments) {
-            const payload = this.segments[segment.segmentIndex].getSubBuffer(this.data).subarray(segment.skipBytes);
-            jumbfBuffer.set(payload, offset);
-            offset += payload.length;
+        for (const segmentRef of this.manifestSegments) {
+            const segment = this.segments[segmentRef.segmentIndex];
+            const segmentData = await this.getDataRange(segment.payloadOffset, segment.payloadLength);
+            jumbfBuffer.set(segmentData.subarray(segmentRef.skipBytes), offset);
+            offset += segment.payloadLength - segmentRef.skipBytes;
         }
 
         return jumbfBuffer;
@@ -223,65 +270,46 @@ export class JPEG extends BaseAsset implements Asset {
             const newSegment = new Segment(0, segmentPayloadLength + 4, 0xeb);
             this.segments.splice(newSegmentIndex, 0, newSegment);
 
-            this.manifestSegments.push({
-                segmentIndex: newSegmentIndex,
-                skipBytes: headerLength,
-            });
-
+            this.manifestSegments.push({ segmentIndex: newSegmentIndex, skipBytes: headerLength });
             newSegmentIndex++;
             remainingLengthNeeded -= segmentPayloadLength - headerLength;
         }
 
-        const parts: {
-            position: number;
-            data: Uint8Array;
-            length?: number;
-        }[] = [
-            {
-                position: 0,
-                data: new Uint8Array([0xff, 0xd8]),
-            },
-        ];
+        const parts: AssemblePart[] = [{ position: 0, data: new Uint8Array([0xff, 0xd8]) }];
 
         // Go through all segments, update their positions, and gather payload for the new JPEG
         let targetPosition = 2;
         let sequence = 1;
         for (let i = 0; i < this.segments.length; i++) {
             const segment = this.segments[i];
-            let data: Uint8Array;
+            const segOffset = segment.offset;
 
             if (this.manifestSegments.some(s => s.segmentIndex === i)) {
                 // This is a newly created segment, write its header
-                data = new Uint8Array(12);
-                const dataView = new DataView(data.buffer);
-                dataView.setUint8(0, 0xff);
-                dataView.setUint8(1, segment.type);
-                dataView.setUint16(2, segment.length - 2);
-                dataView.setUint16(4, 0x4a50); // Common Identifier
-                dataView.setUint16(6, 0x0211); // Instance Number – just needs to be non-conflicting; this is what other implementations use
-                dataView.setUint32(8, sequence++);
+                const data = new Uint8Array(12);
+                const dv = new DataView(data.buffer);
+                dv.setUint8(0, 0xff);
+                dv.setUint8(1, segment.type);
+                dv.setUint16(2, segment.length - 2);
+                dv.setUint16(4, 0x4a50); // Common Identifier
+                dv.setUint16(6, 0x0211); // Instance Number – just needs to be non-conflicting; this is what other implementations use
+                dv.setUint32(8, sequence++);
+                segment.offset = targetPosition;
+                parts.push({ position: targetPosition, data, length: segment.length });
             } else {
-                data = this.data.subarray(segment.offset, segment.offset + segment.length);
+                segment.offset = targetPosition;
+                parts.push(this.sourceRef(targetPosition, segOffset, segment.length));
             }
-
-            segment.offset = targetPosition;
-
-            parts.push({
-                position: targetPosition,
-                data,
-                length: segment.length,
-            });
-
             targetPosition += segment.length;
         }
 
         // Append remainder of original image data
-        parts.push({
-            position: targetPosition,
-            data: this.data.subarray(originalEndOfLastSegment),
-        });
+        const remainderLength = this.getDataLength() - originalEndOfLastSegment;
+        if (remainderLength > 0) {
+            parts.push(this.sourceRef(targetPosition, originalEndOfLastSegment, remainderLength));
+        }
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
     }
 
     public getHashExclusionRange(): { start: number; length: number } {
@@ -297,21 +325,24 @@ export class JPEG extends BaseAsset implements Asset {
         if (this.getJUMBFLength(this.manifestSegments) !== jumbf.length)
             throw new Error('Wrong amount of space in asset');
 
-        let offset = 0;
-        for (const segmentReference of this.manifestSegments!) {
-            const segment = this.segments[segmentReference.segmentIndex];
-            const payload = segment.getSubBuffer(this.data);
+        let jumbfOffset = 0;
+        for (const segmentRef of this.manifestSegments!) {
+            const segment = this.segments[segmentRef.segmentIndex];
+            const payloadLength = segment.payloadLength;
 
-            // Continuation segments also start with the beginning of the JUMBF header
-            if (segmentReference.skipBytes > 8) {
-                payload.set(jumbf.subarray(0, segmentReference.skipBytes - 8), 8);
+            // Read existing payload to preserve the JP header bytes (0-7)
+            const payloadData = await this.getDataRange(segment.payloadOffset, payloadLength);
+
+            // Continuation segments start with JUMBF header duplicate
+            if (segmentRef.skipBytes > 8) {
+                payloadData.set(jumbf.subarray(0, segmentRef.skipBytes - 8), 8);
             }
 
-            payload.set(
-                jumbf.subarray(offset, offset + segment.payloadLength - segmentReference.skipBytes),
-                segmentReference.skipBytes,
-            );
-            offset += segment.payloadLength - segmentReference.skipBytes;
+            const contentLength = payloadLength - segmentRef.skipBytes;
+            payloadData.set(jumbf.subarray(jumbfOffset, jumbfOffset + contentLength), segmentRef.skipBytes);
+            jumbfOffset += contentLength;
+
+            this.replaceRange(segment.payloadOffset, payloadData);
         }
     }
 }

@@ -1,3 +1,4 @@
+import { sha256, sha384, sha512 } from '@noble/hashes/sha2.js';
 import { id_rsaEncryption, id_RSASSA_PSS } from '@peculiar/asn1-rsa';
 import { AsnConvert } from '@peculiar/asn1-schema';
 import { AlgorithmIdentifier, SubjectPublicKeyInfo } from '@peculiar/asn1-x509';
@@ -11,20 +12,28 @@ export class WebCryptoProvider implements CryptoProvider {
     }
 
     public streamingDigest(algorithm: HashAlgorithm): StreamingDigest {
-        const fragments: Uint8Array[] = [];
+        let hash: { update(data: Uint8Array): void; digest(): Uint8Array };
+
+        switch (algorithm) {
+            case 'SHA-256':
+                hash = sha256.create();
+                break;
+            case 'SHA-384':
+                hash = sha384.create();
+                break;
+            case 'SHA-512':
+                hash = sha512.create();
+                break;
+            default:
+                throw new Error(`Unsupported hash algorithm: ${algorithm as string}`);
+        }
+
         return {
             update(data: Uint8Array) {
-                fragments.push(data);
+                hash.update(data);
             },
             async final() {
-                // WebCrypto does not support streaming digests so we need to copy everything into one big buffer
-                const hashSource = new Uint8Array(fragments.reduce((acc, cur) => acc + cur.length, 0));
-                let offset = 0;
-                for (const fragment of fragments) {
-                    hashSource.set(fragment, offset);
-                    offset += fragment.length;
-                }
-                return new Uint8Array(await crypto.subtle.digest(algorithm, hashSource as BufferSource));
+                return new Uint8Array(hash.digest());
             },
         };
     }

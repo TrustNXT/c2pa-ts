@@ -100,7 +100,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should validate matching hash against asset', async () => {
-        const mockAsset = new BMFF(createBMFFMock());
+        const mockAsset = await BMFF.create(createBMFFMock());
         assertion.algorithm = 'SHA-256' as HashAlgorithm;
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
         assertion.exclusions = [{ xpath: '/uuid' }];
@@ -119,7 +119,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should fail validation with mismatched hash', async () => {
-        const mockAsset = new BMFF(createBMFFMock());
+        const mockAsset = await BMFF.create(createBMFFMock());
         assertion.algorithm = 'SHA-256' as HashAlgorithm;
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
         assertion.exclusions = [{ xpath: '/uuid' }];
@@ -138,7 +138,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should handle exclusions with subset ranges', async () => {
-        const mockAsset = new BMFF(createBMFFMock());
+        const mockAsset = await BMFF.create(createBMFFMock());
         assertion.algorithm = 'SHA-256' as HashAlgorithm;
         assertion.exclusions = [
             {
@@ -172,7 +172,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should fail validation if algorithm is missing', async () => {
-        const mockAsset = new BMFF(createBMFFMock());
+        const mockAsset = await BMFF.create(createBMFFMock());
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
 
         const result = await assertion.validateAgainstAsset(mockAsset);
@@ -191,7 +191,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should fail validation when hash does not match', async () => {
-        const mockAsset = new BMFF(createBMFFMock());
+        const mockAsset = await BMFF.create(createBMFFMock());
         assertion.algorithm = 'SHA-256' as HashAlgorithm;
         assertion.hash = new Uint8Array([0, 0, 0, 0]);
 
@@ -201,7 +201,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should correctly handle v3 merkle tree validation', async () => {
-        const mockAsset = new BMFF(createBMFFMock());
+        const mockAsset = await BMFF.create(createBMFFMock());
         const v3Assertion = new BMFFHashAssertion(3);
         v3Assertion.algorithm = 'SHA-256' as HashAlgorithm;
 
@@ -230,7 +230,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should handle variable block sizes in merkle tree', async () => {
-        const mockAsset = new BMFF(createBMFFMock());
+        const mockAsset = await BMFF.create(createBMFFMock());
         assertion.algorithm = 'SHA-256' as HashAlgorithm;
 
         // Get the mdat box to find its correct offset
@@ -262,7 +262,7 @@ describe('BMFFHashAssertion v2 Tests', function () {
     it('should correctly hash HEIC file with v2 assertion', async () => {
         const filePath = path.join(baseDir, 'trustnxt-icon.heic');
         const heicData = new Uint8Array(await fs.readFile(filePath));
-        const asset = new BMFF(heicData);
+        const asset = await BMFF.create(heicData);
         const v2Assertion = new BMFFHashAssertion(2);
         v2Assertion.algorithm = 'SHA-256' as HashAlgorithm;
         v2Assertion.exclusions = [{ xpath: '/uuid' }];
@@ -304,9 +304,9 @@ describe('BMFFHashAssertion v3 Tests', function () {
     it('should validate v3 hash assertion from signed HEIC', async () => {
         const filePath = path.join(baseDir, 'trustnxt-icon-signed-v2-bmff.heic');
         const signedHeicData = new Uint8Array(await fs.readFile(filePath));
-        const signedHeicAsset = new BMFF(signedHeicData);
+        const signedHeicAsset = await BMFF.create(signedHeicData);
 
-        const jumbf = signedHeicAsset.getManifestJUMBF();
+        const jumbf = await signedHeicAsset.getManifestJUMBF();
         assert.ok(jumbf, 'No JUMBF found in signed HEIC');
 
         const manifestBox = SuperBox.fromBuffer(jumbf);

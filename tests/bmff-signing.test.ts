@@ -27,8 +27,8 @@ describe('BMFF Signing Tests', function () {
 
         // load and verify the file
         const buf = await fs.readFile(sourceFile);
-        assert.ok(BMFF.canRead(buf));
-        const asset = new BMFF(buf);
+        assert.ok(await BMFF.canRead(buf));
+        const asset = await BMFF.create(buf);
 
         // create manifest store and manifest
         const manifestStore = new ManifestStore();
@@ -61,7 +61,7 @@ describe('BMFF Signing Tests', function () {
         // write the asset to the target file
         await fs.writeFile(targetFile, await asset.getDataRange());
 
-        return { manifest, asset: new BMFF(await fs.readFile(targetFile)) };
+        return { manifest, asset: await BMFF.create(await fs.readFile(targetFile)) };
     }
 
     it('add a v2 manifest to a BMFF test file', async function () {
@@ -78,9 +78,9 @@ describe('BMFF Signing Tests', function () {
         if (!manifestV2) return;
 
         const buf = await fs.readFile(targetFileV2);
-        const asset = new BMFF(buf);
+        const asset = await BMFF.create(buf);
 
-        const jumbf = asset.getManifestJUMBF();
+        const jumbf = await asset.getManifestJUMBF();
         assert.ok(jumbf, 'no JUMBF found');
 
         const superBox = SuperBox.fromBuffer(jumbf);
@@ -100,9 +100,9 @@ describe('BMFF Signing Tests', function () {
         if (!manifestV3) return;
 
         const buf = await fs.readFile(targetFileV3);
-        const asset = new BMFF(buf);
+        const asset = await BMFF.create(buf);
 
-        const jumbf = asset.getManifestJUMBF();
+        const jumbf = await asset.getManifestJUMBF();
         assert.ok(jumbf, 'no JUMBF found');
 
         const superBox = SuperBox.fromBuffer(jumbf);

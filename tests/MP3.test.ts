@@ -15,7 +15,7 @@ const getFixturePath = (fixture: string) => path.join(fixturesPath, fixture);
 
 async function createAssetWithManifest(manifestData: Uint8Array): Promise<MP3> {
     const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-    const asset = new MP3(mp3Buffer);
+    const asset = await MP3.create(mp3Buffer);
     await asset.ensureManifestSpace(manifestData.length);
     await asset.writeManifestJUMBF(manifestData);
     return asset;
@@ -23,31 +23,31 @@ async function createAssetWithManifest(manifestData: Uint8Array): Promise<MP3> {
 
 async function verifyManifestInNewInstance(asset: MP3, expectedManifest: Uint8Array | undefined): Promise<void> {
     const modifiedBuffer = await asset.getDataRange();
-    const newAsset = new MP3(modifiedBuffer);
-    const newRetrievedManifest = newAsset.getManifestJUMBF();
+    const newAsset = await MP3.create(modifiedBuffer);
+    const newRetrievedManifest = await newAsset.getManifestJUMBF();
     assert.deepEqual(newRetrievedManifest, expectedManifest, 'manifest should match in new asset instance');
 }
 
 describe('MP3', function () {
-    it('should identify a valid MP3 file', () => {
+    it('should identify a valid MP3 file', async () => {
         const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        assert.ok(MP3.canRead(mp3Buffer), 'canRead should be true for a valid MP3');
+        assert.ok(await MP3.canRead(mp3Buffer), 'canRead should be true for a valid MP3');
 
         const notMp3Buffer = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-        assert.ok(!MP3.canRead(notMp3Buffer), 'canRead should be false for an invalid MP3');
+        assert.ok(!(await MP3.canRead(notMp3Buffer)), 'canRead should be false for an invalid MP3');
     });
 
-    it('should read an MP3 file without a manifest', () => {
+    it('should read an MP3 file without a manifest', async () => {
         const mp3Buffer = fs.readFileSync(getFixturePath('sample1.mp3'));
-        const asset = new MP3(mp3Buffer);
-        assert.equal(asset.getManifestJUMBF(), undefined, 'should not have a manifest');
+        const asset = await MP3.create(mp3Buffer);
+        assert.equal(await asset.getManifestJUMBF(), undefined, 'should not have a manifest');
     });
 
     it('should add a manifest to an MP3 file', async () => {
         const manifestData = new Uint8Array(Array.from({ length: 100 }, (_, i) => i));
         const asset = await createAssetWithManifest(manifestData);
 
-        const retrievedManifest = asset.getManifestJUMBF();
+        const retrievedManifest = await asset.getManifestJUMBF();
         assert.deepEqual(retrievedManifest, manifestData, 'retrieved manifest should match the original');
 
         await verifyManifestInNewInstance(asset, manifestData);
@@ -56,38 +56,38 @@ describe('MP3', function () {
     it('should replace an existing manifest with a larger one', async () => {
         const initialManifest = new Uint8Array([1, 2, 3, 4, 5]);
         const asset = await createAssetWithManifest(initialManifest);
-        assert.deepEqual(asset.getManifestJUMBF(), initialManifest);
+        assert.deepEqual(await asset.getManifestJUMBF(), initialManifest);
 
         const newManifest = new Uint8Array([10, 20, 30, 40, 50, 60, 70]);
         await asset.ensureManifestSpace(newManifest.length);
         await asset.writeManifestJUMBF(newManifest);
 
-        assert.deepEqual(asset.getManifestJUMBF(), newManifest, 'should have the new manifest');
+        assert.deepEqual(await asset.getManifestJUMBF(), newManifest, 'should have the new manifest');
         await verifyManifestInNewInstance(asset, newManifest);
     });
 
     it('should replace an existing manifest with a smaller one', async () => {
         const initialManifest = new Uint8Array([1, 2, 3, 4, 5, 6, 7]);
         const asset = await createAssetWithManifest(initialManifest);
-        assert.deepEqual(asset.getManifestJUMBF(), initialManifest);
+        assert.deepEqual(await asset.getManifestJUMBF(), initialManifest);
 
         const newManifest = new Uint8Array([10, 20, 30]);
         await asset.ensureManifestSpace(newManifest.length);
         await asset.writeManifestJUMBF(newManifest);
 
-        assert.deepEqual(asset.getManifestJUMBF(), newManifest, 'should have the new manifest');
+        assert.deepEqual(await asset.getManifestJUMBF(), newManifest, 'should have the new manifest');
         await verifyManifestInNewInstance(asset, newManifest);
     });
 
     it('should remove a manifest from an MP3 file', async () => {
         const manifestData = new Uint8Array([1, 2, 3, 4, 5]);
         const asset = await createAssetWithManifest(manifestData);
-        assert.ok(asset.getManifestJUMBF(), 'manifest should exist');
+        assert.ok(await asset.getManifestJUMBF(), 'manifest should exist');
 
         await asset.ensureManifestSpace(0);
         await asset.writeManifestJUMBF(new Uint8Array(0));
 
-        assert.equal(asset.getManifestJUMBF(), undefined, 'manifest should be removed');
+        assert.equal(await asset.getManifestJUMBF(), undefined, 'manifest should be removed');
         await verifyManifestInNewInstance(asset, undefined);
     });
 
@@ -97,7 +97,7 @@ describe('MP3', function () {
         const modifiedBuffer = Uint8Array.from(mp3Buffer);
         modifiedBuffer[3] = 1; // Version 2.1 is not supported by this library for modification
 
-        const asset = new MP3(modifiedBuffer);
+        const asset = await MP3.create(modifiedBuffer);
         const manifestData = new Uint8Array([1, 2, 3, 4, 5]);
 
         await assert.rejects(
@@ -121,10 +121,10 @@ describe('MP3 Signing Tests', function () {
                 assert.ok(buf);
 
                 // ensure it's an MP3
-                assert.ok(MP3.canRead(buf));
+                assert.ok(await MP3.canRead(buf));
 
                 // construct the asset
-                const asset = new MP3(buf);
+                const asset = await MP3.create(buf);
 
                 // create a new manifest store and append a new manifest
                 const manifestStore = new ManifestStore();
@@ -163,17 +163,17 @@ describe('MP3 Signing Tests', function () {
                 if (!buf) return;
 
                 // ensure it's an MP3
-                assert.ok(MP3.canRead(buf));
+                assert.ok(await MP3.canRead(buf));
 
                 // construct the asset
-                const asset = new MP3(buf);
+                const asset = await MP3.create(buf);
 
                 // extract the C2PA manifest store in binary JUMBF format
-                const jumbf = asset.getManifestJUMBF();
+                const jumbf = await asset.getManifestJUMBF();
                 assert.ok(jumbf, 'no JUMBF found');
 
                 // deserialize the JUMBF box structure
-                const superBox = SuperBox.fromBuffer(jumbf as Uint8Array<ArrayBuffer>);
+                const superBox = SuperBox.fromBuffer(jumbf);
 
                 // construct the manifest store from the JUMBF box
                 const manifestStore = ManifestStore.read(superBox);

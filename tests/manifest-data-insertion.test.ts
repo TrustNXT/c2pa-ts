@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { describe, it } from 'bun:test';
-import { Asset, BMFF, JPEG, PNG } from '../src/asset';
+import { Asset, AssetType, BMFF, JPEG, PNG } from '../src/asset';
 import { BinaryHelper } from '../src/util';
 
 const baseDir = 'tests/fixtures';
@@ -21,7 +21,7 @@ for (const buffer of Object.values(manifestData)) {
 }
 
 describe('Asset Manifest Data Insertion Tests', function () {
-    const assetTypes = [
+    const assetTypes: { name: string; assetClass: AssetType; testFile: string }[] = [
         {
             name: 'PNG',
             assetClass: PNG,
@@ -45,14 +45,14 @@ describe('Asset Manifest Data Insertion Tests', function () {
             it(`load ${assetType.name}`, async () => {
                 const buf = await fs.readFile(`${baseDir}/${assetType.testFile}`);
                 assert.ok(buf);
-                asset = new assetType.assetClass(buf);
+                asset = await assetType.assetClass.create(buf);
                 assert.ok(asset);
             });
 
             it('ensure no existing JUMBF', async function () {
                 if (!asset) return;
 
-                assert.ok(!asset.getManifestJUMBF());
+                assert.ok(!(await asset.getManifestJUMBF()));
             });
 
             it('try to add too large data', async function () {
@@ -81,12 +81,12 @@ describe('Asset Manifest Data Insertion Tests', function () {
                     assert.ok(start + length <= asset.getDataLength());
 
                     await asset.writeManifestJUMBF(data);
-                    const manifest = asset.getManifestJUMBF();
+                    const manifest = await asset.getManifestJUMBF();
                     assert.ok(manifest, 'No manifest data in asset after adding');
                     assert.ok(BinaryHelper.bufEqual(manifest, data), 'Manifest data does not have expected content');
 
-                    const newAsset = new assetType.assetClass(await asset.getDataRange());
-                    const newManifest = newAsset.getManifestJUMBF();
+                    const newAsset = await assetType.assetClass.create(await asset.getDataRange());
+                    const newManifest = await newAsset.getManifestJUMBF();
                     assert.ok(newManifest, 'No manifest data in updated file');
                     assert.ok(
                         BinaryHelper.bufEqual(newManifest, data),

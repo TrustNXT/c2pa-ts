@@ -90,12 +90,12 @@ const buf = await fs.readFile(process.argv[2]);
 
 // Read the asset file and dump some information about its structure
 let asset: Asset;
-if (JPEG.canRead(buf)) {
-    asset = new JPEG(buf);
-} else if (PNG.canRead(buf)) {
-    asset = new PNG(buf);
-} else if (BMFF.canRead(buf)) {
-    asset = new BMFF(buf);
+if (await JPEG.canRead(buf)) {
+    asset = await JPEG.create(buf);
+} else if (await PNG.canRead(buf)) {
+    asset = await PNG.create(buf);
+} else if (await BMFF.canRead(buf)) {
+    asset = await BMFF.create(buf);
 } else {
     console.error('Unknown file format');
     process.exit(1);
@@ -103,7 +103,7 @@ if (JPEG.canRead(buf)) {
 console.log(asset.dumpInfo());
 
 // Extract the C2PA manifest store in binary JUMBF format
-const jumbf = asset.getManifestJUMBF();
+const jumbf = await asset.getManifestJUMBF();
 
 if (jumbf) {
     let validationResult: ValidationResult;

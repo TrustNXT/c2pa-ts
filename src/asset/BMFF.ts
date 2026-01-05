@@ -1,6 +1,8 @@
 import { BinaryHelper } from '../util';
 import { BaseAsset } from './BaseAsset';
-import { Asset } from './types';
+import { AssemblePart } from './reader/AssetDataReader';
+import { createReader } from './reader/createReader';
+import { Asset, AssetSource } from './types';
 
 export class BMFF extends BaseAsset implements Asset {
     public static readonly c2paBoxUserType = [
@@ -13,19 +15,34 @@ export class BMFF extends BaseAsset implements Asset {
     /** Non-exhaustive list of boxes that may not appear before a FileType box, otherwise it's not a valid file */
     private static readonly mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
 
+    private static readonly canReadPeekLength = 4096;
+
     public readonly mimeType = 'image/heic'; // Could technically also be image/heif if the brand is mif1
 
-    private readonly boxes: Box<object>[] = [];
+    private boxes: Box<object>[] = [];
 
-    public constructor(data: Uint8Array) {
-        super(data);
-        if (!BMFF.canRead(data)) {
-            throw new Error('Not a readable BMFF file');
-        }
-        this.boxes = Array.from(BoxReader.read(data, 0, data.length));
+    private constructor(source: AssetSource) {
+        super(source);
     }
 
-    public static canRead(buf: Uint8Array) {
+    public static async create(source: AssetSource): Promise<BMFF> {
+        const asset = new BMFF(source);
+        const header = await asset.reader.getDataRange(
+            0,
+            Math.min(BMFF.canReadPeekLength, asset.reader.getDataLength()),
+        );
+        if (!BMFF.hasSupportedBrand(header)) throw new Error('Not a readable BMFF file');
+        await asset.parse();
+        return asset;
+    }
+
+    public static async canRead(source: AssetSource): Promise<boolean> {
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, Math.min(BMFF.canReadPeekLength, reader.getDataLength()));
+        return BMFF.hasSupportedBrand(header);
+    }
+
+    private static hasSupportedBrand(buf: Uint8Array): boolean {
         try {
             // BoxReader.read() is a generator function so this will only read as far into the file as necessary
             for (const box of BoxReader.read(buf, 0, buf.length)) {
@@ -41,6 +58,39 @@ export class BMFF extends BaseAsset implements Asset {
             return false;
         } catch {
             return false;
+        }
+    }
+
+    private async parse(): Promise<void> {
+        const fileLength = this.reader.getDataLength();
+        this.boxes = [];
+        let pos = 0;
+
+        while (pos < fileLength) {
+            // Read enough for extended size header (16 bytes)
+            const headerSize = Math.min(16, fileLength - pos);
+            if (headerSize < 8) throw new Error('Malformed BMFF (buffer underrun)');
+
+            const header = await this.reader.getDataRange(pos, headerSize);
+            const { size, payloadPos, payloadSize, boxType } = BoxReader.readHeader(header, pos, fileLength);
+
+            // For large non-critical boxes, just record position without reading content
+            const isLargeBox = payloadSize > 1024 * 1024;
+            let box: Box<object>;
+
+            if (isLargeBox && boxType !== 'uuid') {
+                box = new Box(pos, size, payloadPos, payloadSize, boxType);
+            } else {
+                // Read full box and parse with BoxReader
+                const boxData = await this.reader.getDataRange(pos, size);
+                box = BoxReader.read(boxData, 0, size).next().value as Box<object>;
+                if (!box) throw new Error('Failed to parse box');
+                // Adjust all box offsets to be file-absolute (BoxReader returns 0-based offsets)
+                box.adjustOffset(pos);
+            }
+
+            this.boxes.push(box);
+            pos += size;
         }
     }
 
@@ -61,13 +111,15 @@ export class BMFF extends BaseAsset implements Asset {
     /**
      * Extracts the manifest store in raw JUMBF format from a UUID box
      */
-    public getManifestJUMBF(): Uint8Array | undefined {
-        return (this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload | undefined)?.manifestContent;
+    public async getManifestJUMBF(): Promise<Uint8Array | undefined> {
+        const box = this.getManifestStoreBox();
+        if (!box?.isManifest()) return undefined;
+        return this.getDataRange(box.payload.manifestOffset, box.payload.manifestContent.length);
     }
 
     private getManifestStoreBox(): C2PABox | undefined {
-        const manifestStores = this.boxes.filter(box => box instanceof C2PABox && box.payload.purpose === 'manifest');
-        return manifestStores.length === 1 ? (manifestStores[0] as C2PABox) : undefined;
+        const manifestStores = this.boxes.filter((box): box is C2PABox => box instanceof C2PABox && box.isManifest());
+        return manifestStores.length === 1 ? manifestStores[0] : undefined;
     }
 
     /**
@@ -114,56 +166,85 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async ensureManifestSpace(length: number): Promise<void> {
         // Nothing to do?
-        if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) === length)
-            return;
+        const manifestStoreBox = this.getManifestStoreBox();
+        if (manifestStoreBox?.isManifest() && manifestStoreBox.payload.manifestContent.length === length) return;
 
-        const parts: {
-            position: number;
-            data: Uint8Array;
-            length?: number;
-        }[] = [];
+        // First pass: calculate the C2PA box size and find existing C2PA box to remove
+        let existingC2PASize = 0;
+        for (const box of this.boxes) {
+            if (box instanceof C2PABox) {
+                existingC2PASize = box.size;
+                break;
+            }
+        }
 
+        // Calculate new C2PA box size (header + inner header + manifest)
+        const newC2PABox = C2PABox.createManifestBox(0, length);
+        const offsetAdjustment = newC2PABox.size - existingC2PASize;
+
+        const parts: AssemblePart[] = [];
         let targetPosition = 0;
-        let shiftAmount = 0;
+        let afterFtyp = false;
 
         // Go through boxes, remove any existing C2PA box, and add a new one right after ftyp,
-        // assembling them into a new file structure as we go. We currently only care about
-        // top-level boxes. (`box.shiftPosition()` does update child boxes recursively.)
+        // assembling them into a new file structure as we go.
         for (let i = 0; i < this.boxes.length; i++) {
             const box = this.boxes[i];
 
             // Remove existing C2PABox
             if (box instanceof C2PABox) {
-                shiftAmount -= box.size;
                 this.boxes.splice(i, 1);
                 i--;
                 continue;
             }
 
-            // Add box (and its child boxes) to new file
-            parts.push({
-                position: targetPosition,
-                data: this.data.subarray(box.offset, box.offset + box.size),
-            });
+            // For boxes after ftyp that contain offset-sensitive data, we need to patch
+            // the binary data to adjust internal offsets. This is critical for iloc boxes
+            // which store file offsets to mdat content.
+            if (afterFtyp && offsetAdjustment !== 0 && this.containsOffsetSensitiveData(box)) {
+                // Read the box data and patch it
+                const boxData = await this.reader.getDataRange(box.offset, box.size);
+                // Pass box.offset as bufferOffset since the buffer starts at that file position
+                box.shiftPosition(offsetAdjustment, boxData, box.offset);
+                // Use the patched data instead of a source reference
+                parts.push({ position: targetPosition, data: boxData, length: box.size });
+            } else {
+                // Add box reference to new file structure
+                parts.push(this.sourceRef(targetPosition, box.offset, box.size));
+            }
+
+            const oldOffset = box.offset;
+            box.offset = targetPosition;
+            box.payloadOffset += targetPosition - oldOffset;
             targetPosition += box.size;
-            box.shiftPosition(shiftAmount, this.data);
 
             // Insert new C2PABox after FileTypeBox
             if (box instanceof FileTypeBox) {
+                afterFtyp = true;
                 const c2paBox = C2PABox.createManifestBox(targetPosition, length);
                 this.boxes.splice(i + 1, 0, c2paBox);
                 i++;
-                parts.push({
-                    position: targetPosition,
-                    data: c2paBox.getHeader(),
-                    length: c2paBox.size,
-                });
+                parts.push({ position: targetPosition, data: c2paBox.getHeader(), length: c2paBox.size });
                 targetPosition += c2paBox.size;
-                shiftAmount += c2paBox.size;
             }
         }
 
-        this.data = this.assembleBuffer(parts);
+        this.assembleAsset(parts);
+    }
+
+    /**
+     * Checks if a box contains offset-sensitive data that needs patching when
+     * the file structure changes (e.g., iloc box which stores file offsets).
+     */
+    private containsOffsetSensitiveData(box: Box<object>): boolean {
+        // Meta box contains iloc which has file offsets
+        if (box instanceof MetaBox) return true;
+        // Check child boxes recursively
+        for (const child of box.childBoxes) {
+            if (child instanceof ItemLocationBox) return true;
+            if (this.containsOffsetSensitiveData(child)) return true;
+        }
+        return false;
     }
 
     public getHashExclusionRange(): { start: number; length: number } {
@@ -175,50 +256,63 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         const box = this.getManifestStoreBox();
-        if (!box || (box.payload as C2PAManifestBoxPayload).manifestContent.length !== jumbf.length)
+        if (!box || !box.isManifest() || box.payload.manifestContent.length !== jumbf.length) {
             throw new Error('Wrong amount of space in asset');
+        }
 
-        box.fillManifestContent(this.data, jumbf);
+        this.replaceRange(box.payloadOffset, box.getPayload(jumbf));
     }
 }
 
 class BoxReader {
     private constructor() {}
 
+    /**
+     * Parses a box header from the given buffer.
+     * @param buf Buffer containing the header (at least 8 bytes, 16 for extended size)
+     * @param pos Current position in the file (for calculating absolute offsets)
+     * @param fileLength Total file length (for size=0 boxes that extend to EOF)
+     */
+    public static readHeader(
+        buf: Uint8Array,
+        pos: number,
+        fileLength: number,
+    ): { size: number; payloadPos: number; payloadSize: number; boxType: string } {
+        if (buf.length < 8) throw new Error('Malformed BMFF (buffer underrun)');
+
+        let size = BinaryHelper.readUInt32(buf, 0);
+        let payloadPos = pos + 8;
+        let payloadSize = size - 8;
+        const boxType = BinaryHelper.readString(buf, 4, 4);
+
+        if (size === 0) {
+            size = fileLength - pos;
+            payloadSize = size - 8;
+        } else if (size === 1) {
+            if (buf.length < 16) throw new Error('Malformed BMFF (buffer underrun for large box)');
+            const largeSize = BinaryHelper.readUInt64(buf, 8);
+            if (largeSize > Number.MAX_SAFE_INTEGER) {
+                throw new Error(`BMFF read error: Box sizes larger than ${Number.MAX_SAFE_INTEGER} are not supported`);
+            }
+            size = Number(largeSize);
+            payloadPos = pos + 16;
+            payloadSize = size - 16;
+        } else if (size < 8) {
+            throw new Error('Malformed BMFF (box size too small)');
+        }
+
+        if (pos + size > fileLength) throw new Error('Malformed BMFF (box length too large)');
+
+        return { size, payloadPos, payloadSize, boxType };
+    }
+
     public static *read(buf: Uint8Array, offset: number, length: number) {
         let pos = offset;
         const end = offset + length;
 
         while (pos < end) {
-            if (end - pos < 8) throw new Error('Malformed BMFF (buffer underrun)');
-
-            let size = BinaryHelper.readUInt32(buf, pos);
-            let payloadSize = size - 8;
-            let payloadPos = pos + 8;
-
-            const boxType = BinaryHelper.readString(buf, pos + 4, 4);
-
-            if (size === 0) {
-                size = end - pos;
-            } else if (size === 1) {
-                if (end - pos < 16) throw new Error('Malformed BMFF (buffer underrun)');
-
-                const largeSize = BinaryHelper.readUInt64(buf, pos + 8);
-                if (largeSize > Number.MAX_SAFE_INTEGER)
-                    throw new Error(
-                        `BMFF read error: Box sizes larger than ${Number.MAX_SAFE_INTEGER} are not supported`,
-                    );
-
-                size = Number(largeSize);
-                payloadSize = size - 16;
-                payloadPos += 8;
-            } else if (size < 8) {
-                throw new Error('Malformed BMFF (box size too small)');
-            }
-
-            if (end < pos + size) {
-                throw new Error('Malformed BMFF (box length too large)');
-            }
+            const headerBuf = buf.subarray(pos, Math.min(pos + 16, end));
+            const { size, payloadPos, payloadSize, boxType } = this.readHeader(headerBuf, pos, end);
 
             // Handle any special box types first
             let box: Box<object>;
@@ -288,17 +382,31 @@ class Box<T extends object> implements BMFFBox<T> {
     }
 
     /**
+     * Recursively adjusts all box offsets by the given amount.
+     * This converts 0-based buffer offsets to file-absolute offsets.
+     */
+    public adjustOffset(amount: number): void {
+        this.offset += amount;
+        this.payloadOffset += amount;
+        for (const child of this.childBoxes) child.adjustOffset(amount);
+    }
+
+    /**
      * Shifts the position of the box by the specified number of bytes. This does not
      * actually move the data around, it only adjusts the box's properties.
      * It does, however, patch any values contained inside the box at the box's original
      * position in `buf`.
+     *
+     * @param amount The number of bytes to shift by (positive = forward, negative = backward)
+     * @param buf The buffer containing the box data to patch
+     * @param bufferOffset The file position where the buffer starts (default 0 = buffer starts at file position 0)
      */
-    public shiftPosition(amount: number, buf: Uint8Array) {
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0) {
         if (amount === 0) return;
 
         this.offset += amount;
         this.payloadOffset += amount;
-        for (const box of this.childBoxes) box.shiftPosition(amount, buf);
+        for (const box of this.childBoxes) box.shiftPosition(amount, buf, bufferOffset);
     }
 }
 
@@ -528,46 +636,66 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
         }
     }
 
-    public shiftPosition(amount: number, buf: Uint8Array): void {
-        const dataView = new DataView(buf.buffer, this.payloadOffset);
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0): void {
+        const relativePayloadOffset = this.payloadOffset - bufferOffset;
+        const dataView = new DataView(buf.buffer, buf.byteOffset + relativePayloadOffset);
         let pos = this.payload.version === 2 ? 6 : 4;
 
         for (const item of this.payload.items) {
-            pos += this.payload.version === 2 ? 4 : 2; // item_ID
-            if (this.payload.version > 0) pos += 2; // reserved, construction_method
-            pos += 2; // data_reference_index
-            if (this.payload.baseOffsetSize === 8) {
-                item.baseOffset = (item.baseOffset as bigint) + BigInt(amount);
-                dataView.setBigUint64(pos, item.baseOffset);
-            } else if (this.payload.baseOffsetSize === 4) {
-                item.baseOffset = (item.baseOffset as number) + amount;
-                dataView.setUint32(pos, item.baseOffset);
-            }
-            pos += this.payload.baseOffsetSize;
+            pos = this.patchItemOffsets(item, amount, dataView, pos);
+        }
 
-            pos += 2; // extent_count
-            for (const extent of item.extents) {
-                if (this.payload.indexSize) pos += this.payload.indexSize;
-                if (
-                    (item.constructionMethod ?? ItemLocationConstructionMethod.file) ===
-                        ItemLocationConstructionMethod.file &&
-                    item.baseOffset === 0 &&
-                    extent.offset !== 0
-                ) {
-                    if (this.payload.offsetSize === 8) {
-                        extent.offset = (extent.offset as bigint) + BigInt(amount);
-                        dataView.setBigUint64(pos, extent.offset);
-                    } else if (this.payload.offsetSize === 4) {
-                        extent.offset = (extent.offset as number) + amount;
-                        dataView.setUint32(pos, extent.offset);
-                    }
-                }
-                pos += this.payload.offsetSize;
-                pos += this.payload.lengthSize;
+        super.shiftPosition(amount, buf, bufferOffset);
+    }
+
+    private patchItemOffsets(item: ItemLocationItem, amount: number, dataView: DataView, pos: number): number {
+        let currentPos = pos + (this.payload.version === 2 ? 4 : 2); // item_ID
+        if (this.payload.version > 0) currentPos += 2; // reserved, construction_method
+        currentPos += 2; // data_reference_index
+
+        // Patch base offset
+        if (this.payload.baseOffsetSize === 8) {
+            item.baseOffset = (item.baseOffset as bigint) + BigInt(amount);
+            dataView.setBigUint64(currentPos, item.baseOffset);
+        } else if (this.payload.baseOffsetSize === 4) {
+            item.baseOffset = (item.baseOffset as number) + amount;
+            dataView.setUint32(currentPos, item.baseOffset);
+        }
+        currentPos += this.payload.baseOffsetSize;
+
+        // Patch extents
+        currentPos += 2; // extent_count field length
+        for (const extent of item.extents) {
+            currentPos = this.patchExtentOffsets(item, extent, amount, dataView, currentPos);
+        }
+
+        return currentPos;
+    }
+
+    private patchExtentOffsets(
+        item: ItemLocationItem,
+        extent: ItemLocationExtent,
+        amount: number,
+        dataView: DataView,
+        pos: number,
+    ): number {
+        let currentPos = pos;
+        if (this.payload.indexSize) currentPos += this.payload.indexSize;
+
+        const isFileMethod =
+            (item.constructionMethod ?? ItemLocationConstructionMethod.file) === ItemLocationConstructionMethod.file;
+
+        if (isFileMethod && item.baseOffset === 0 && extent.offset !== 0) {
+            if (this.payload.offsetSize === 8) {
+                extent.offset = (extent.offset as bigint) + BigInt(amount);
+                dataView.setBigUint64(currentPos, extent.offset);
+            } else if (this.payload.offsetSize === 4) {
+                extent.offset = (extent.offset as number) + amount;
+                dataView.setUint32(currentPos, extent.offset);
             }
         }
 
-        super.shiftPosition(amount, buf);
+        return currentPos + this.payload.offsetSize + this.payload.lengthSize;
     }
 }
 
@@ -578,6 +706,7 @@ interface C2PABoxPayload extends FullBoxPayload {
 interface C2PAManifestBoxPayload extends C2PABoxPayload {
     purpose: 'manifest';
     merkleOffset: bigint;
+    manifestOffset: number;
     manifestContent: Uint8Array;
 }
 
@@ -600,14 +729,13 @@ class C2PABox extends FullBox<C2PABoxPayload> {
         this.payload.purpose = purpose.string;
 
         if (purpose.string === 'manifest') {
+            const manifestOffset = this.payloadOffset + purpose.bytesRead + 8;
             const manifestPayload: C2PAManifestBoxPayload = {
                 ...this.payload,
                 purpose: 'manifest',
                 merkleOffset: BinaryHelper.readUInt64(buf, this.payloadOffset + purpose.bytesRead),
-                manifestContent: buf.subarray(
-                    this.payloadOffset + purpose.bytesRead + 8,
-                    this.payloadOffset + this.payloadSize,
-                ),
+                manifestOffset,
+                manifestContent: buf.subarray(manifestOffset, this.payloadOffset + this.payloadSize),
             };
 
             this.payload = manifestPayload;
@@ -631,16 +759,36 @@ class C2PABox extends FullBox<C2PABoxPayload> {
         );
 
         box.userType = new Uint8Array(BMFF.c2paBoxUserType);
+        const manifestOffset = box.payloadOffset + 'manifest'.length + 1 + 8;
         const payload: C2PAManifestBoxPayload = {
             version: 0,
             flags: 0,
             purpose: 'manifest',
             merkleOffset: 0n,
+            manifestOffset,
             manifestContent: new Uint8Array(manifestLength),
         };
         box.payload = payload;
 
         return box;
+    }
+
+    public isManifest(): this is C2PABox & { payload: C2PAManifestBoxPayload } {
+        return this.payload.purpose === 'manifest';
+    }
+
+    public adjustOffset(amount: number): void {
+        super.adjustOffset(amount);
+        if (this.isManifest()) {
+            this.payload.manifestOffset += amount;
+        }
+    }
+
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0) {
+        super.shiftPosition(amount, buf, bufferOffset);
+        if (this.isManifest()) {
+            this.payload.manifestOffset += amount;
+        }
     }
 
     /**
@@ -662,13 +810,15 @@ class C2PABox extends FullBox<C2PABoxPayload> {
     }
 
     /**
-     * Takes the given manifest content and writes the box payload into buf.
+     * Takes the given manifest content and returns the serialized box payload.
      */
-    public fillManifestContent(buf: Uint8Array, manifest: Uint8Array): void {
+    public getPayload(manifest: Uint8Array): Uint8Array {
         const payload = this.payload as C2PAManifestBoxPayload;
         payload.manifestContent.set(manifest);
 
-        const dataView = new DataView(buf.buffer, this.payloadOffset, this.payloadSize);
+        const buf = new Uint8Array(this.payloadSize);
+        const dataView = new DataView(buf.buffer);
+
         // Write purpose string
         payload.purpose.split('').forEach((c, i) => dataView.setUint8(i, c.charCodeAt(0)));
         // Write null terminator
@@ -676,6 +826,8 @@ class C2PABox extends FullBox<C2PABoxPayload> {
         // Write Merkle offset
         dataView.setBigUint64(payload.purpose.length + 1, payload.merkleOffset);
         // Write content
-        buf.set(manifest, this.payloadOffset + payload.purpose.length + 9);
+        buf.set(manifest, payload.purpose.length + 9);
+
+        return buf;
     }
 }
