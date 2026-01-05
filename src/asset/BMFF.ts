@@ -86,7 +86,7 @@ export class BMFF extends BaseAsset implements Asset {
                 box = BoxReader.read(boxData, 0, size).next().value as Box<object>;
                 if (!box) throw new Error('Failed to parse box');
                 // Adjust all box offsets to be file-absolute (BoxReader returns 0-based offsets)
-                this.adjustBoxOffsets(box, pos);
+                box.adjustOffset(pos);
             }
 
             this.boxes.push(box);
@@ -109,31 +109,17 @@ export class BMFF extends BaseAsset implements Asset {
     }
 
     /**
-     * Recursively adjusts all box offsets by the given amount.
-     * This converts 0-based buffer offsets to file-absolute offsets.
-     */
-    private adjustBoxOffsets(box: Box<object>, adjustment: number): void {
-        box.offset += adjustment;
-        box.payloadOffset += adjustment;
-        for (const child of box.childBoxes) {
-            this.adjustBoxOffsets(child, adjustment);
-        }
-    }
-
-    /**
      * Extracts the manifest store in raw JUMBF format from a UUID box
      */
     public async getManifestJUMBF(): Promise<Uint8Array | undefined> {
         const box = this.getManifestStoreBox();
-        if (!box) return undefined;
-        const payload = box.payload as C2PAManifestBoxPayload;
-        const manifestOffset = box.payloadOffset + payload.purpose.length + 1 + 8;
-        return this.getDataRange(manifestOffset, payload.manifestContent.length);
+        if (!box?.isManifest()) return undefined;
+        return this.getDataRange(box.payload.manifestOffset, box.payload.manifestContent.length);
     }
 
     private getManifestStoreBox(): C2PABox | undefined {
-        const manifestStores = this.boxes.filter(box => box instanceof C2PABox && box.payload.purpose === 'manifest');
-        return manifestStores.length === 1 ? (manifestStores[0] as C2PABox) : undefined;
+        const manifestStores = this.boxes.filter((box): box is C2PABox => box instanceof C2PABox && box.isManifest());
+        return manifestStores.length === 1 ? manifestStores[0] : undefined;
     }
 
     /**
@@ -180,8 +166,8 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async ensureManifestSpace(length: number): Promise<void> {
         // Nothing to do?
-        if (((this.getManifestStoreBox()?.payload as C2PAManifestBoxPayload)?.manifestContent.length ?? 0) === length)
-            return;
+        const manifestStoreBox = this.getManifestStoreBox();
+        if (manifestStoreBox?.isManifest() && manifestStoreBox.payload.manifestContent.length === length) return;
 
         // First pass: calculate the C2PA box size and find existing C2PA box to remove
         let existingC2PASize = 0;
@@ -270,7 +256,7 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         const box = this.getManifestStoreBox();
-        if (!box || (box.payload as C2PAManifestBoxPayload).manifestContent.length !== jumbf.length) {
+        if (!box || !box.isManifest() || box.payload.manifestContent.length !== jumbf.length) {
             throw new Error('Wrong amount of space in asset');
         }
 
@@ -393,6 +379,16 @@ class Box<T extends object> implements BMFFBox<T> {
     protected readChildBoxes(buf: Uint8Array) {
         if (this.payloadSize === 0) return;
         this.childBoxes = Array.from(BoxReader.read(buf, this.payloadOffset, this.payloadSize));
+    }
+
+    /**
+     * Recursively adjusts all box offsets by the given amount.
+     * This converts 0-based buffer offsets to file-absolute offsets.
+     */
+    public adjustOffset(amount: number): void {
+        this.offset += amount;
+        this.payloadOffset += amount;
+        for (const child of this.childBoxes) child.adjustOffset(amount);
     }
 
     /**
@@ -710,6 +706,7 @@ interface C2PABoxPayload extends FullBoxPayload {
 interface C2PAManifestBoxPayload extends C2PABoxPayload {
     purpose: 'manifest';
     merkleOffset: bigint;
+    manifestOffset: number;
     manifestContent: Uint8Array;
 }
 
@@ -732,14 +729,13 @@ class C2PABox extends FullBox<C2PABoxPayload> {
         this.payload.purpose = purpose.string;
 
         if (purpose.string === 'manifest') {
+            const manifestOffset = this.payloadOffset + purpose.bytesRead + 8;
             const manifestPayload: C2PAManifestBoxPayload = {
                 ...this.payload,
                 purpose: 'manifest',
                 merkleOffset: BinaryHelper.readUInt64(buf, this.payloadOffset + purpose.bytesRead),
-                manifestContent: buf.subarray(
-                    this.payloadOffset + purpose.bytesRead + 8,
-                    this.payloadOffset + this.payloadSize,
-                ),
+                manifestOffset,
+                manifestContent: buf.subarray(manifestOffset, this.payloadOffset + this.payloadSize),
             };
 
             this.payload = manifestPayload;
@@ -763,16 +759,36 @@ class C2PABox extends FullBox<C2PABoxPayload> {
         );
 
         box.userType = new Uint8Array(BMFF.c2paBoxUserType);
+        const manifestOffset = box.payloadOffset + 'manifest'.length + 1 + 8;
         const payload: C2PAManifestBoxPayload = {
             version: 0,
             flags: 0,
             purpose: 'manifest',
             merkleOffset: 0n,
+            manifestOffset,
             manifestContent: new Uint8Array(manifestLength),
         };
         box.payload = payload;
 
         return box;
+    }
+
+    public isManifest(): this is C2PABox & { payload: C2PAManifestBoxPayload } {
+        return this.payload.purpose === 'manifest';
+    }
+
+    public adjustOffset(amount: number): void {
+        super.adjustOffset(amount);
+        if (this.isManifest()) {
+            this.payload.manifestOffset += amount;
+        }
+    }
+
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0) {
+        super.shiftPosition(amount, buf, bufferOffset);
+        if (this.isManifest()) {
+            this.payload.manifestOffset += amount;
+        }
     }
 
     /**
