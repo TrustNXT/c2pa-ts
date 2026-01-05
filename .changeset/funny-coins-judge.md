@@ -14,11 +14,28 @@
 
 ## Breaking Changes
 
+### Asset Creation & Interface
+
+The `AssetType` interface has been updated to support async creation and `Blob` sources. Use `create()` instead of `new`.
+
+```typescript
+// Before
+const asset = new JPEG(data);
+const canRead = JPEG.canRead(data);
+
+// After
+const asset = await JPEG.create(data);
+const canRead = await JPEG.canRead(data);
+```
+
+### Async Methods
+
 These methods are now async:
 
 | Method                  | Now returns                        |
 | ----------------------- | ---------------------------------- |
-| `getDataRange()`        | `Promise<Uint8Array>`              |
+| `canRead()`             | `Promise<boolean>`                 |
+| `create()`              | `Promise<Asset>`                   |
 | `getManifestJUMBF()`    | `Promise<Uint8Array \| undefined>` |
 | `ensureManifestSpace()` | `Promise<void>`                    |
 | `writeManifestJUMBF()`  | `Promise<void>`                    |

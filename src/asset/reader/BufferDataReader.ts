@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 export class BufferDataReader implements AssetDataReader {
@@ -23,7 +24,7 @@ export class BufferDataReader implements AssetDataReader {
     }
 
     async writeToFile(path: string): Promise<void> {
-        await Bun.write(path, this.buffer);
+        await writeFile(path, this.buffer);
     }
 
     assemble(parts: AssemblePart[]): AssetDataReader {
