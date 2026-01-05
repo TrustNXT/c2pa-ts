@@ -2,7 +2,7 @@
 
 # c2pa-ts
 
-[![Tests](https://github.com/TrustNXT/c2pa-ts/actions/workflows/test.yaml/badge.svg)](https://github.com/TrustNXT/c2pa-ts/actions/workflows/test.yaml)
+[![Tests](https://github.com/TrustNXT/c2pa-ts/actions/workflows/ci.yaml/badge.svg)](https://github.com/TrustNXT/c2pa-ts/actions/workflows/ci.yaml)
 
 ## About
 
