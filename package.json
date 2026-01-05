@@ -1,6 +1,6 @@
 {
   "name": "@trustnxt/c2pa-ts",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "type": "module",
   "author": "TrustNXT GmbH <mail@trustnxt.com>",
   "license": "Apache-2.0",
@@ -86,6 +86,6 @@
     "test": "bun test",
     "build": "tsup",
     "changeset": "changeset",
-    "version": "changeset version && bun update"
+    "version": "changeset version && bun install"
   }
 }
