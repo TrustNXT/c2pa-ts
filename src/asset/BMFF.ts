@@ -9,29 +9,37 @@ export class BMFF extends BaseAsset implements Asset {
         0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
     ];
 
-    /** Currently supported major brand identifiers */
-    private static readonly canReadBrands = new Set(['heic', 'mif1']);
-
     /** Non-exhaustive list of boxes that may not appear before a FileType box, otherwise it's not a valid file */
     private static readonly mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
 
     private static readonly canReadPeekLength = 4096;
 
-    public readonly mimeType = 'image/heic'; // Could technically also be image/heif if the brand is mif1
+    /** Supported brand to MIME type mapping */
+    private static readonly supportedBrandMimeTypes: Record<string, string> = {
+        heic: 'image/heic',
+        mif1: 'image/heif',
+        avif: 'image/avif',
+        mp41: 'video/mp4',
+        mp42: 'video/mp4',
+        isom: 'video/mp4',
+    };
+
+    public readonly mimeType: string;
 
     private boxes: Box<object>[] = [];
 
-    private constructor(source: AssetSource) {
+    private constructor(source: AssetSource, mimeType: string) {
         super(source);
+        this.mimeType = mimeType;
     }
 
     public static async create(source: AssetSource): Promise<BMFF> {
-        const asset = new BMFF(source);
-        const header = await asset.reader.getDataRange(
-            0,
-            Math.min(BMFF.canReadPeekLength, asset.reader.getDataLength()),
-        );
-        if (!BMFF.hasSupportedBrand(header)) throw new Error('Not a readable BMFF file');
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, Math.min(BMFF.canReadPeekLength, reader.getDataLength()));
+        const mimeType = BMFF.detectMimeType(header);
+        if (!mimeType) throw new Error('Not a readable BMFF file');
+
+        const asset = new BMFF(source, mimeType);
         await asset.parse();
         return asset;
     }
@@ -39,26 +47,32 @@ export class BMFF extends BaseAsset implements Asset {
     public static async canRead(source: AssetSource): Promise<boolean> {
         const reader = createReader(source);
         const header = await reader.getDataRange(0, Math.min(BMFF.canReadPeekLength, reader.getDataLength()));
-        return BMFF.hasSupportedBrand(header);
+        return BMFF.detectMimeType(header) !== undefined;
     }
 
-    private static hasSupportedBrand(buf: Uint8Array): boolean {
+    /**
+     * Detects the MIME type from the ftyp box brands.
+     * Returns undefined if no supported brand is found.
+     */
+    private static detectMimeType(buf: Uint8Array): string | undefined {
         try {
-            // BoxReader.read() is a generator function so this will only read as far into the file as necessary
             for (const box of BoxReader.read(buf, 0, buf.length)) {
-                if (box instanceof FileTypeBox) {
-                    return (
-                        this.canReadBrands.has(box.payload.majorBrand) ||
-                        box.payload.compatibleBrands.some(brand => this.canReadBrands.has(brand))
-                    );
-                }
-                if (this.mustBePrecededByFtyp.has(box.type)) return false;
+                if (box instanceof FileTypeBox) return this.getMimeTypeFromFtyp(box.payload);
+                if (this.mustBePrecededByFtyp.has(box.type)) return undefined;
             }
-
-            return false;
+            return undefined;
         } catch {
-            return false;
+            return undefined;
         }
+    }
+
+    /** Returns the MIME type for the given ftyp payload, checking major brand first, then compatible brands. */
+    private static getMimeTypeFromFtyp(ftyp: FileTypeBoxPayload): string | undefined {
+        if (this.supportedBrandMimeTypes[ftyp.majorBrand]) {
+            return this.supportedBrandMimeTypes[ftyp.majorBrand];
+        }
+        const compatibleBrand = ftyp.compatibleBrands.find(brand => this.supportedBrandMimeTypes[brand]);
+        return compatibleBrand ? this.supportedBrandMimeTypes[compatibleBrand] : undefined;
     }
 
     private async parse(): Promise<void> {
@@ -113,8 +127,15 @@ export class BMFF extends BaseAsset implements Asset {
      */
     public async getManifestJUMBF(): Promise<Uint8Array | undefined> {
         const box = this.getManifestStoreBox();
-        if (!box?.isManifest()) return undefined;
-        return this.getDataRange(box.payload.manifestOffset, box.payload.manifestContent.length);
+        if (!box) return undefined;
+        const payload = box.payload as C2PAManifestBoxPayload;
+
+        // Read the JUMBF box size from its header (first 4 bytes)
+        // The manifest area may include padding bytes, so we need to get the actual size
+        const jumbfHeader = await this.getDataRange(payload.manifestOffset, 4);
+        const jumbfSize = BinaryHelper.readUInt32(jumbfHeader, 0);
+
+        return this.getDataRange(payload.manifestOffset, jumbfSize);
     }
 
     private getManifestStoreBox(): C2PABox | undefined {
@@ -167,7 +188,7 @@ export class BMFF extends BaseAsset implements Asset {
     public async ensureManifestSpace(length: number): Promise<void> {
         // Nothing to do?
         const manifestStoreBox = this.getManifestStoreBox();
-        if (manifestStoreBox?.isManifest() && manifestStoreBox.payload.manifestContent.length === length) return;
+        if (manifestStoreBox?.isManifest() && manifestStoreBox.payload.manifestLength === length) return;
 
         // First pass: calculate the C2PA box size and find existing C2PA box to remove
         let existingC2PASize = 0;
@@ -241,7 +262,9 @@ export class BMFF extends BaseAsset implements Asset {
         if (box instanceof MetaBox) return true;
         // Check child boxes recursively
         for (const child of box.childBoxes) {
-            if (child instanceof ItemLocationBox) return true;
+            if (child instanceof ItemLocationBox) return true; // HEIF
+            if (child instanceof StcoBox) return true; // MP4 32-bit chunk offsets
+            if (child instanceof Co64Box) return true; // MP4 64-bit chunk offsets
             if (this.containsOffsetSensitiveData(child)) return true;
         }
         return false;
@@ -256,7 +279,7 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         const box = this.getManifestStoreBox();
-        if (!box || !box.isManifest() || box.payload.manifestContent.length !== jumbf.length) {
+        if (!box || !box.isManifest() || box.payload.manifestLength !== jumbf.length) {
             throw new Error('Wrong amount of space in asset');
         }
 
@@ -322,6 +345,10 @@ class BoxReader {
                 box = new MetaBox(pos, size, payloadPos, payloadSize, boxType);
             } else if (boxType === 'iloc') {
                 box = new ItemLocationBox(pos, size, payloadPos, payloadSize, boxType);
+            } else if (boxType === 'stco') {
+                box = new StcoBox(pos, size, payloadPos, payloadSize, boxType);
+            } else if (boxType === 'co64') {
+                box = new Co64Box(pos, size, payloadPos, payloadSize, boxType);
             } else if (SimpleContainerBox.boxTypes.has(boxType)) {
                 box = new SimpleContainerBox(pos, size, payloadPos, payloadSize, boxType);
             } else {
@@ -491,9 +518,36 @@ interface MetaBoxPayload extends FullBoxPayload {
     boxes: Box<object>[];
 }
 
+/**
+ * MetaBox can be either:
+ * - ISO BMFF style (FullBox with version/flags header) - used in HEIF/HEIC
+ * - QuickTime style (no version/flags, directly contains child boxes) - used in MP4/MOV
+ *
+ * We detect which style by checking if the first 4 bytes after the header look like
+ * a valid box size (>= 8 and <= remaining payload).
+ */
 class MetaBox extends FullBox<MetaBoxPayload> {
     public readContents(buf: Uint8Array): void {
         super.readContents(buf);
+        if (this.payloadSize >= 8) {
+            const potentialSize = BinaryHelper.readUInt32(buf, this.payloadOffset);
+            if (potentialSize >= 8 && potentialSize <= this.payloadSize) {
+                // QuickTime style - no version/flags, child boxes start immediately
+                this.payload.version = 0;
+                this.payload.flags = 0;
+            } else {
+                // ISO BMFF style - read version/flags
+                if (this.payloadSize < 4) throw new Error('Malformed BMFF (full box too small)');
+                this.payload.version = buf[this.payloadOffset];
+                this.payload.flags =
+                    (buf[this.payloadOffset + 1] << 16) |
+                    (buf[this.payloadOffset + 2] << 8) |
+                    buf[this.payloadOffset + 3];
+                this.payloadOffset += 4;
+                this.payloadSize -= 4;
+            }
+        }
+
         if (this.payload.version !== 0) {
             this.payload.boxes = [];
             return;
@@ -699,6 +753,84 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
     }
 }
 
+/**
+ * Sample Table Chunk Offset box (stco) - contains 32-bit file offsets to chunks of media data.
+ * These offsets point to data in the mdat box and need to be adjusted when content is inserted.
+ */
+interface StcoBoxPayload extends FullBoxPayload {
+    entryCount: number;
+    chunkOffsets: number[];
+}
+
+class StcoBox extends FullBox<StcoBoxPayload> {
+    public readContents(buf: Uint8Array): void {
+        super.readContents(buf);
+        if (this.payloadSize < 4) throw new Error('Malformed BMFF (stco box too small)');
+
+        this.payload.entryCount = BinaryHelper.readUInt32(buf, this.payloadOffset);
+        this.payload.chunkOffsets = [];
+
+        let pos = this.payloadOffset + 4;
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            this.payload.chunkOffsets.push(BinaryHelper.readUInt32(buf, pos));
+            pos += 4;
+        }
+    }
+
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0): void {
+        const relativePayloadOffset = this.payloadOffset - bufferOffset;
+        const dataView = new DataView(buf.buffer, buf.byteOffset + relativePayloadOffset);
+
+        // Patch each chunk offset (starts at offset 4 after entry_count)
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            const pos = 4 + i * 4;
+            this.payload.chunkOffsets[i] += amount;
+            dataView.setUint32(pos, this.payload.chunkOffsets[i]);
+        }
+
+        super.shiftPosition(amount, buf, bufferOffset);
+    }
+}
+
+/**
+ * 64-bit Chunk Offset box (co64) - contains 64-bit file offsets to chunks of media data.
+ * Used instead of stco when file offsets exceed 32-bit range.
+ */
+interface Co64BoxPayload extends FullBoxPayload {
+    entryCount: number;
+    chunkOffsets: bigint[];
+}
+
+class Co64Box extends FullBox<Co64BoxPayload> {
+    public readContents(buf: Uint8Array): void {
+        super.readContents(buf);
+        if (this.payloadSize < 4) throw new Error('Malformed BMFF (co64 box too small)');
+
+        this.payload.entryCount = BinaryHelper.readUInt32(buf, this.payloadOffset);
+        this.payload.chunkOffsets = [];
+
+        let pos = this.payloadOffset + 4;
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            this.payload.chunkOffsets.push(BinaryHelper.readUInt64(buf, pos));
+            pos += 8;
+        }
+    }
+
+    public shiftPosition(amount: number, buf: Uint8Array, bufferOffset = 0): void {
+        const relativePayloadOffset = this.payloadOffset - bufferOffset;
+        const dataView = new DataView(buf.buffer, buf.byteOffset + relativePayloadOffset);
+
+        // Patch each chunk offset (starts at offset 4 after entry_count)
+        for (let i = 0; i < this.payload.entryCount; i++) {
+            const pos = 4 + i * 8;
+            this.payload.chunkOffsets[i] += BigInt(amount);
+            dataView.setBigUint64(pos, this.payload.chunkOffsets[i]);
+        }
+
+        super.shiftPosition(amount, buf, bufferOffset);
+    }
+}
+
 interface C2PABoxPayload extends FullBoxPayload {
     purpose: string;
 }
@@ -707,7 +839,7 @@ interface C2PAManifestBoxPayload extends C2PABoxPayload {
     purpose: 'manifest';
     merkleOffset: bigint;
     manifestOffset: number;
-    manifestContent: Uint8Array;
+    manifestLength: number;
 }
 
 class C2PABox extends FullBox<C2PABoxPayload> {
@@ -735,7 +867,7 @@ class C2PABox extends FullBox<C2PABoxPayload> {
                 purpose: 'manifest',
                 merkleOffset: BinaryHelper.readUInt64(buf, this.payloadOffset + purpose.bytesRead),
                 manifestOffset,
-                manifestContent: buf.subarray(manifestOffset, this.payloadOffset + this.payloadSize),
+                manifestLength: this.payloadOffset + this.payloadSize - manifestOffset,
             };
 
             this.payload = manifestPayload;
@@ -766,7 +898,7 @@ class C2PABox extends FullBox<C2PABoxPayload> {
             purpose: 'manifest',
             merkleOffset: 0n,
             manifestOffset,
-            manifestContent: new Uint8Array(manifestLength),
+            manifestLength,
         };
         box.payload = payload;
 
@@ -814,7 +946,6 @@ class C2PABox extends FullBox<C2PABoxPayload> {
      */
     public getPayload(manifest: Uint8Array): Uint8Array {
         const payload = this.payload as C2PAManifestBoxPayload;
-        payload.manifestContent.set(manifest);
 
         const buf = new Uint8Array(this.payloadSize);
         const dataView = new DataView(buf.buffer);

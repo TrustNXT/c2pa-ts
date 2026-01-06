@@ -36,6 +36,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :white_check_mark: PNG
 - :white_check_mark: HEIC/HEIF
 - :white_check_mark: MP3
+- :white_check_mark: MP4
 - :x: GIF
 - :x: TIFF
 - :x: WebP
