@@ -60,25 +60,22 @@ export class BMFF extends BaseAsset implements Asset {
     private static detectMimeType(buf: Uint8Array): string | undefined {
         try {
             for (const box of BoxReader.read(buf, 0, buf.length)) {
-                if (box instanceof FileTypeBox) {
-                    // Check major brand first
-                    if (this.brandMimeTypes[box.payload.majorBrand]) {
-                        return this.brandMimeTypes[box.payload.majorBrand];
-                    }
-                    // Fall back to compatible brands
-                    for (const brand of box.payload.compatibleBrands) {
-                        if (this.brandMimeTypes[brand]) {
-                            return this.brandMimeTypes[brand];
-                        }
-                    }
-                    return undefined;
-                }
+                if (box instanceof FileTypeBox) return this.getMimeTypeFromFtyp(box.payload);
                 if (this.mustBePrecededByFtyp.has(box.type)) return undefined;
             }
             return undefined;
         } catch {
             return undefined;
         }
+    }
+
+    /** Returns the MIME type for the given ftyp payload, checking major brand first, then compatible brands. */
+    private static getMimeTypeFromFtyp(ftyp: FileTypeBoxPayload): string | undefined {
+        if (this.brandMimeTypes[ftyp.majorBrand]) {
+            return this.brandMimeTypes[ftyp.majorBrand];
+        }
+        const compatibleBrand = ftyp.compatibleBrands.find(brand => this.brandMimeTypes[brand]);
+        return compatibleBrand ? this.brandMimeTypes[compatibleBrand] : undefined;
     }
 
     private async parse(): Promise<void> {
