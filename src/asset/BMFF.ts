@@ -9,16 +9,13 @@ export class BMFF extends BaseAsset implements Asset {
         0xd8, 0xfe, 0xc3, 0xd6, 0x1b, 0x0e, 0x48, 0x3c, 0x92, 0x97, 0x58, 0x28, 0x87, 0x7e, 0xc4, 0x81,
     ];
 
-    /** Currently supported major brand identifiers */
-    private static readonly canReadBrands = new Set(['heic', 'mif1', 'mp41', 'mp42', 'isom']);
-
     /** Non-exhaustive list of boxes that may not appear before a FileType box, otherwise it's not a valid file */
     private static readonly mustBePrecededByFtyp = new Set(['free', 'mdat', 'meta', 'moof', 'moov', 'uuid']);
 
     private static readonly canReadPeekLength = 4096;
 
-    /** Brand to MIME type mapping */
-    private static readonly brandMimeTypes: Record<string, string> = {
+    /** Supported brand to MIME type mapping */
+    private static readonly supportedBrandMimeTypes: Record<string, string> = {
         heic: 'image/heic',
         mif1: 'image/heif',
         avif: 'image/avif',
@@ -71,11 +68,11 @@ export class BMFF extends BaseAsset implements Asset {
 
     /** Returns the MIME type for the given ftyp payload, checking major brand first, then compatible brands. */
     private static getMimeTypeFromFtyp(ftyp: FileTypeBoxPayload): string | undefined {
-        if (this.brandMimeTypes[ftyp.majorBrand]) {
-            return this.brandMimeTypes[ftyp.majorBrand];
+        if (this.supportedBrandMimeTypes[ftyp.majorBrand]) {
+            return this.supportedBrandMimeTypes[ftyp.majorBrand];
         }
-        const compatibleBrand = ftyp.compatibleBrands.find(brand => this.brandMimeTypes[brand]);
-        return compatibleBrand ? this.brandMimeTypes[compatibleBrand] : undefined;
+        const compatibleBrand = ftyp.compatibleBrands.find(brand => this.supportedBrandMimeTypes[brand]);
+        return compatibleBrand ? this.supportedBrandMimeTypes[compatibleBrand] : undefined;
     }
 
     private async parse(): Promise<void> {
