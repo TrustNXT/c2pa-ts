@@ -17,21 +17,32 @@ export class BMFF extends BaseAsset implements Asset {
 
     private static readonly canReadPeekLength = 4096;
 
-    public readonly mimeType = 'image/heic'; // Could technically also be image/heif if the brand is mif1
+    /** Brand to MIME type mapping */
+    private static readonly brandMimeTypes: Record<string, string> = {
+        heic: 'image/heic',
+        mif1: 'image/heif',
+        avif: 'image/avif',
+        mp41: 'video/mp4',
+        mp42: 'video/mp4',
+        isom: 'video/mp4',
+    };
+
+    public readonly mimeType: string;
 
     private boxes: Box<object>[] = [];
 
-    private constructor(source: AssetSource) {
+    private constructor(source: AssetSource, mimeType: string) {
         super(source);
+        this.mimeType = mimeType;
     }
 
     public static async create(source: AssetSource): Promise<BMFF> {
-        const asset = new BMFF(source);
-        const header = await asset.reader.getDataRange(
-            0,
-            Math.min(BMFF.canReadPeekLength, asset.reader.getDataLength()),
-        );
-        if (!BMFF.hasSupportedBrand(header)) throw new Error('Not a readable BMFF file');
+        const reader = createReader(source);
+        const header = await reader.getDataRange(0, Math.min(BMFF.canReadPeekLength, reader.getDataLength()));
+        const mimeType = BMFF.detectMimeType(header);
+        if (!mimeType) throw new Error('Not a readable BMFF file');
+
+        const asset = new BMFF(source, mimeType);
         await asset.parse();
         return asset;
     }
@@ -39,25 +50,34 @@ export class BMFF extends BaseAsset implements Asset {
     public static async canRead(source: AssetSource): Promise<boolean> {
         const reader = createReader(source);
         const header = await reader.getDataRange(0, Math.min(BMFF.canReadPeekLength, reader.getDataLength()));
-        return BMFF.hasSupportedBrand(header);
+        return BMFF.detectMimeType(header) !== undefined;
     }
 
-    private static hasSupportedBrand(buf: Uint8Array): boolean {
+    /**
+     * Detects the MIME type from the ftyp box brands.
+     * Returns undefined if no supported brand is found.
+     */
+    private static detectMimeType(buf: Uint8Array): string | undefined {
         try {
-            // BoxReader.read() is a generator function so this will only read as far into the file as necessary
             for (const box of BoxReader.read(buf, 0, buf.length)) {
                 if (box instanceof FileTypeBox) {
-                    return (
-                        this.canReadBrands.has(box.payload.majorBrand) ||
-                        box.payload.compatibleBrands.some(brand => this.canReadBrands.has(brand))
-                    );
+                    // Check major brand first
+                    if (this.brandMimeTypes[box.payload.majorBrand]) {
+                        return this.brandMimeTypes[box.payload.majorBrand];
+                    }
+                    // Fall back to compatible brands
+                    for (const brand of box.payload.compatibleBrands) {
+                        if (this.brandMimeTypes[brand]) {
+                            return this.brandMimeTypes[brand];
+                        }
+                    }
+                    return undefined;
                 }
-                if (this.mustBePrecededByFtyp.has(box.type)) return false;
+                if (this.mustBePrecededByFtyp.has(box.type)) return undefined;
             }
-
-            return false;
+            return undefined;
         } catch {
-            return false;
+            return undefined;
         }
     }
 
