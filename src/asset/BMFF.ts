@@ -137,7 +137,7 @@ export class BMFF extends BaseAsset implements Asset {
         const payload = box.payload as C2PAManifestBoxPayload;
 
         // Read the JUMBF box size from its header (first 4 bytes)
-        // The manifestContent may include padding bytes, so we need to get the actual size
+        // The manifest area may include padding bytes, so we need to get the actual size
         const jumbfHeader = await this.getDataRange(payload.manifestOffset, 4);
         const jumbfSize = BinaryHelper.readUInt32(jumbfHeader, 0);
 
@@ -194,7 +194,7 @@ export class BMFF extends BaseAsset implements Asset {
     public async ensureManifestSpace(length: number): Promise<void> {
         // Nothing to do?
         const manifestStoreBox = this.getManifestStoreBox();
-        if (manifestStoreBox?.isManifest() && manifestStoreBox.payload.manifestContent.length === length) return;
+        if (manifestStoreBox?.isManifest() && manifestStoreBox.payload.manifestLength === length) return;
 
         // First pass: calculate the C2PA box size and find existing C2PA box to remove
         let existingC2PASize = 0;
@@ -285,7 +285,7 @@ export class BMFF extends BaseAsset implements Asset {
 
     public async writeManifestJUMBF(jumbf: Uint8Array): Promise<void> {
         const box = this.getManifestStoreBox();
-        if (!box || !box.isManifest() || box.payload.manifestContent.length !== jumbf.length) {
+        if (!box || !box.isManifest() || box.payload.manifestLength !== jumbf.length) {
             throw new Error('Wrong amount of space in asset');
         }
 
@@ -845,7 +845,7 @@ interface C2PAManifestBoxPayload extends C2PABoxPayload {
     purpose: 'manifest';
     merkleOffset: bigint;
     manifestOffset: number;
-    manifestContent: Uint8Array;
+    manifestLength: number;
 }
 
 class C2PABox extends FullBox<C2PABoxPayload> {
@@ -873,7 +873,7 @@ class C2PABox extends FullBox<C2PABoxPayload> {
                 purpose: 'manifest',
                 merkleOffset: BinaryHelper.readUInt64(buf, this.payloadOffset + purpose.bytesRead),
                 manifestOffset,
-                manifestContent: buf.subarray(manifestOffset, this.payloadOffset + this.payloadSize),
+                manifestLength: this.payloadOffset + this.payloadSize - manifestOffset,
             };
 
             this.payload = manifestPayload;
@@ -904,7 +904,7 @@ class C2PABox extends FullBox<C2PABoxPayload> {
             purpose: 'manifest',
             merkleOffset: 0n,
             manifestOffset,
-            manifestContent: new Uint8Array(manifestLength),
+            manifestLength,
         };
         box.payload = payload;
 
@@ -952,7 +952,6 @@ class C2PABox extends FullBox<C2PABoxPayload> {
      */
     public getPayload(manifest: Uint8Array): Uint8Array {
         const payload = this.payload as C2PAManifestBoxPayload;
-        payload.manifestContent.set(manifest);
 
         const buf = new Uint8Array(this.payloadSize);
         const dataView = new DataView(buf.buffer);
