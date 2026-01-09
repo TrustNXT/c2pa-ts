@@ -1,4 +1,3 @@
-import { createWriteStream, WriteStream } from 'node:fs';
 import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 /** A segment: either a lazy blob slice or an eager buffer for new/modified data */
@@ -79,13 +78,30 @@ export class BlobDataReader implements AssetDataReader {
      * Streams data in chunks to avoid loading the entire file into memory.
      */
     async writeToFile(path: string): Promise<void> {
+        // Dynamic import to avoid bundling fs in browser environments
+        const { createWriteStream } = await import('node:fs');
+        type WriteStream = ReturnType<typeof createWriteStream>;
+
+        const writeToStream = (stream: WriteStream, data: Uint8Array): Promise<void> => {
+            return new Promise((resolve, reject) => {
+                const canContinue = stream.write(data, err => {
+                    if (err) reject(err);
+                });
+                if (canContinue) {
+                    resolve();
+                } else {
+                    stream.once('drain', resolve);
+                }
+            });
+        };
+
         const CHUNK_SIZE = 64 * 1024 * 1024; // 64MB chunks
         const stream = createWriteStream(path);
 
         try {
             for (const seg of this.segments) {
                 if (seg.type === 'data') {
-                    await this.writeToStream(stream, seg.data);
+                    await writeToStream(stream, seg.data);
                 } else {
                     // Stream blob slice in chunks to avoid memory issues
                     let offset = 0;
@@ -93,7 +109,7 @@ export class BlobDataReader implements AssetDataReader {
                         const chunkSize = Math.min(CHUNK_SIZE, seg.length - offset);
                         const slice = seg.blob.slice(seg.blobStart + offset, seg.blobStart + offset + chunkSize);
                         const chunk = new Uint8Array(await slice.arrayBuffer());
-                        await this.writeToStream(stream, chunk);
+                        await writeToStream(stream, chunk);
                         offset += chunkSize;
                     }
                 }
@@ -103,19 +119,6 @@ export class BlobDataReader implements AssetDataReader {
                 stream.end((err: Error | null) => (err ? reject(err) : resolve()));
             });
         }
-    }
-
-    private writeToStream(stream: WriteStream, data: Uint8Array): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const canContinue = stream.write(data, err => {
-                if (err) reject(err);
-            });
-            if (canContinue) {
-                resolve();
-            } else {
-                stream.once('drain', resolve);
-            }
-        });
     }
 
     /**

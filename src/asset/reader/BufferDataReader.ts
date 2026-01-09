@@ -1,4 +1,3 @@
-import { writeFile } from 'node:fs/promises';
 import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 export class BufferDataReader implements AssetDataReader {
@@ -24,6 +23,8 @@ export class BufferDataReader implements AssetDataReader {
     }
 
     async writeToFile(path: string): Promise<void> {
+        // Dynamic import to avoid bundling fs in browser environments
+        const { writeFile } = await import('node:fs/promises');
         await writeFile(path, this.buffer);
     }
 
