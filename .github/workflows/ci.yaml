@@ -52,6 +52,9 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Check Browser Compatibility
+        run: bun x esbuild dist/index.js --bundle --platform=browser --packages=external --outfile=/dev/null
+
   test:
     name: Run test runner
     needs: build
