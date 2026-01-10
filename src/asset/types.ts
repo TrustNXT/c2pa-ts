@@ -53,16 +53,16 @@ export interface Asset {
     /**
      * Returns the underlying Blob, if available.
      * For streaming readers, this composes all segments into a single Blob using lazy references.
-     * NOTE: For writing large files to disk, prefer writeToFile() for chunked streaming I/O.
+     * NOTE: For writing large files to disk, prefer writeToStream() for chunked streaming I/O.
      */
     getBlob(): Promise<Blob | undefined>;
 
     /**
-     * Writes the asset data to a file using streaming I/O.
+     * Writes the asset data to a WHATWG WritableStream.
      * This is the preferred method for large files as it avoids loading everything into memory.
-     * @param path The file path to write to
+     * @param stream The WritableStream to write to
      */
-    writeToFile(path: string): Promise<void>;
+    writeToStream(stream: WritableStream<Uint8Array>): Promise<void>;
 }
 
 export type AssetSource = Uint8Array | Blob;

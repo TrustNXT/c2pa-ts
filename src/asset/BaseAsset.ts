@@ -23,18 +23,18 @@ export abstract class BaseAsset {
     /**
      * Returns the underlying Blob, if available.
      * For BlobDataReader, this composes all segments into a single Blob using lazy references.
-     * NOTE: For writing large files to disk, prefer writeToFile() for chunked streaming I/O.
+     * NOTE: For writing large files to disk, prefer writeToStream() for chunked streaming I/O.
      */
     public async getBlob(): Promise<Blob | undefined> {
         return this.reader.getBlob();
     }
 
     /**
-     * Writes the asset data to a file using streaming I/O.
+     * Writes the asset data to a WHATWG WritableStream.
      * This is the preferred method for large files as it avoids loading everything into memory.
      */
-    public async writeToFile(path: string): Promise<void> {
-        return this.reader.writeToFile(path);
+    public async writeToStream(stream: WritableStream<Uint8Array>): Promise<void> {
+        return this.reader.writeToStream(stream);
     }
 
     /**
