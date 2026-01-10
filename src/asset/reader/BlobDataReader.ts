@@ -74,34 +74,17 @@ export class BlobDataReader implements AssetDataReader {
     }
 
     /**
-     * Writes segments to a file using streaming I/O.
+     * Writes segments to a WHATWG WritableStream.
      * Streams data in chunks to avoid loading the entire file into memory.
      */
-    async writeToFile(path: string): Promise<void> {
-        // Dynamic import to avoid bundling fs in browser environments
-        const { createWriteStream } = await import('node:fs');
-        type WriteStream = ReturnType<typeof createWriteStream>;
-
-        const writeToStream = (stream: WriteStream, data: Uint8Array): Promise<void> => {
-            return new Promise((resolve, reject) => {
-                const canContinue = stream.write(data, err => {
-                    if (err) reject(err);
-                });
-                if (canContinue) {
-                    resolve();
-                } else {
-                    stream.once('drain', resolve);
-                }
-            });
-        };
-
+    async writeToStream(stream: WritableStream<Uint8Array>): Promise<void> {
         const CHUNK_SIZE = 64 * 1024 * 1024; // 64MB chunks
-        const stream = createWriteStream(path);
+        const writer = stream.getWriter();
 
         try {
             for (const seg of this.segments) {
                 if (seg.type === 'data') {
-                    await writeToStream(stream, seg.data);
+                    await writer.write(seg.data);
                 } else {
                     // Stream blob slice in chunks to avoid memory issues
                     let offset = 0;
@@ -109,15 +92,13 @@ export class BlobDataReader implements AssetDataReader {
                         const chunkSize = Math.min(CHUNK_SIZE, seg.length - offset);
                         const slice = seg.blob.slice(seg.blobStart + offset, seg.blobStart + offset + chunkSize);
                         const chunk = new Uint8Array(await slice.arrayBuffer());
-                        await writeToStream(stream, chunk);
+                        await writer.write(chunk);
                         offset += chunkSize;
                     }
                 }
             }
         } finally {
-            await new Promise<void>((resolve, reject) => {
-                stream.end((err: Error | null) => (err ? reject(err) : resolve()));
-            });
+            await writer.close();
         }
     }
 
