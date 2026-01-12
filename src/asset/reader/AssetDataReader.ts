@@ -15,11 +15,12 @@ export interface AssetDataReader {
     getBlob(): Promise<Blob | undefined>;
 
     /**
-     * Writes the reader's data to a file using streaming I/O.
+     * Writes the reader's data to a WHATWG WritableStream.
      * This is the preferred method for large files as it avoids loading everything into memory.
-     * @param path The file path to write to
+     *
+     * @param stream The WritableStream to write to
      */
-    writeToFile(path: string): Promise<void>;
+    writeToStream(stream: WritableStream<Uint8Array>): Promise<void>;
 
     /**
      * Assembles a new reader based on a list of parts with an optional source buffer.

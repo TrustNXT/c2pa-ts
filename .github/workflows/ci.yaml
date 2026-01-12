@@ -52,8 +52,12 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Check Browser Compatibility
-        run: bun x esbuild dist/index.js --bundle --platform=browser --packages=external --outfile=/dev/null
+      - name: Check Runtime Agnostic
+        run: |
+          if grep -rE "from ['\"]node:" src/ --include="*.ts"; then
+            echo "The library must be runtime-agnostic. Use WHATWG APIs instead."
+            exit 1
+          fi
 
   test:
     name: Run test runner

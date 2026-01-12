@@ -22,10 +22,13 @@ export class BufferDataReader implements AssetDataReader {
         return undefined;
     }
 
-    async writeToFile(path: string): Promise<void> {
-        // Dynamic import to avoid bundling fs in browser environments
-        const { writeFile } = await import('node:fs/promises');
-        await writeFile(path, this.buffer);
+    async writeToStream(stream: WritableStream<Uint8Array>): Promise<void> {
+        const writer = stream.getWriter();
+        try {
+            await writer.write(this.buffer);
+        } finally {
+            await writer.close();
+        }
     }
 
     assemble(parts: AssemblePart[]): AssetDataReader {
