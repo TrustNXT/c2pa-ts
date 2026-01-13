@@ -198,6 +198,11 @@ const testFiles: Record<string, TestExpectations> = {
         jumbf: true,
         valid: true,
     },
+    'trustnxt-icon-signed-timestamp.jpg': {
+        assetType: JPEG,
+        jumbf: true,
+        valid: true,
+    },
 };
 
 describe('Functional Asset Reading Tests', function () {
