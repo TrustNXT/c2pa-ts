@@ -339,7 +339,7 @@ export class Signature {
                 return false;
             }
 
-            payload = signerInfo.signedAttrs.encodedValue;
+            payload = Signature.encodeSignedAttributes(signerInfo.signedAttrs.attributes);
         }
 
         let namedCurveOID: string | undefined = undefined;
@@ -385,6 +385,48 @@ export class Signature {
             }
         }
         return undefined;
+    }
+
+    /**
+     * Encodes a set of CMS signed attributes according to DER encoding rules as specified in RFC 5652 section 5.4.
+     * @param attributes – set of attributes
+     * @returns DER encoded SignedAttributes structure
+     */
+    public static encodeSignedAttributes(attributes: pkijs.Attribute[]): ArrayBuffer {
+        // In DER encoding, attributes need to be ordered by their encoded value
+        const attributesWithEncodedValue = attributes.map(attr => ({
+            attribute: attr,
+            encodedValue: new Uint8Array(attr.toSchema().toBER()),
+        }));
+
+        attributesWithEncodedValue.sort((a, b) => {
+            const aBytes = a.encodedValue;
+            const bBytes = b.encodedValue;
+
+            // 1. Compare bytes up to the shortest length
+            const len = Math.min(aBytes.length, bBytes.length);
+            for (let i = 0; i < len; i++) {
+                if (aBytes[i] !== bBytes[i]) {
+                    return aBytes[i] - bBytes[i];
+                }
+            }
+
+            // 2. If one is a prefix of the other, the shorter one comes first
+            return aBytes.length - bBytes.length;
+        });
+
+        // Create a new temporary SignedAndUnsignedAttributes structure with the sorted attributes
+        const signedAttrs = new pkijs.SignedAndUnsignedAttributes({
+            attributes: attributesWithEncodedValue.map(attr => attr.attribute),
+            type: 0,
+        });
+
+        // Usually, the SignedAttributes schema has a context-specific tag of [0], however for message digest
+        // calculation, this needs to be changed to the default universal SET tag.
+        const asnSequence = signedAttrs.toSchema();
+        asnSequence.idBlock.tagClass = 1;
+        asnSequence.idBlock.tagNumber = 17;
+        return asnSequence.toBER();
     }
 
     /**
