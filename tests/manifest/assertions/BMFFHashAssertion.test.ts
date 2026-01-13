@@ -271,6 +271,19 @@ describe('BMFFHashAssertion v2 Tests', function () {
         assert.ok(hash instanceof Uint8Array);
         assert.ok(hash.length > 0);
     });
+
+    it('should correctly hash MP4 file with v2 assertion', async () => {
+        const filePath = path.join(baseDir, 'test-video.mp4');
+        const mp4Data = new Uint8Array(await fs.readFile(filePath));
+        const asset = await BMFF.create(mp4Data);
+        const v2Assertion = new BMFFHashAssertion(2);
+        v2Assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        v2Assertion.exclusions = [{ xpath: '/uuid' }];
+
+        const hash = await v2Assertion['hashBMFFWithExclusions'](asset);
+        assert.ok(hash instanceof Uint8Array);
+        assert.ok(hash.length > 0);
+    });
 });
 
 describe('BMFFHashAssertion v3 Tests', function () {
@@ -356,5 +369,184 @@ describe('BMFFHashAssertion v3 Tests', function () {
         const box = assertion.generateJUMBFBox(new Claim());
         assert.ok(box.descriptionBox);
         assert.equal(box.descriptionBox.label, AssertionLabels.bmffV3Hash);
+    });
+});
+
+describe('BMFFHashAssertion Merkle Tree Signing', function () {
+    it('should hash asset with updateWithAssetMerkle', async () => {
+        const mockAsset = await BMFF.create(createBMFFMock());
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+
+        await assertion.updateWithAssetMerkle(mockAsset, { chunkSize: 4 });
+
+        assert.ok(assertion.merkle !== undefined);
+        assert.equal(assertion.merkle.length, 1);
+        assert.equal(assertion.merkle[0].count, 2); // 8 bytes / 4 bytes per chunk = 2 chunks
+        assert.equal(assertion.merkle[0].hashes.length, 2);
+        assert.equal(assertion.merkle[0].fixedBlockSize, 4);
+        assert.ok(assertion.hash === undefined); // Linear hash should be cleared
+    });
+
+    it('should verify Merkle-hashed asset', async () => {
+        const mockAsset = await BMFF.create(createBMFFMock());
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+
+        await assertion.updateWithAssetMerkle(mockAsset, { chunkSize: 4 });
+
+        const result = await assertion.validateAgainstAsset(mockAsset);
+        assert.ok(result.isValid);
+    });
+
+    it('should detect tampering with Merkle-hashed asset', async () => {
+        const mockAsset = await BMFF.create(createBMFFMock());
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+
+        await assertion.updateWithAssetMerkle(mockAsset, { chunkSize: 4 });
+
+        // Tamper with stored hashes
+        assertion.merkle![0].hashes[0] = new Uint8Array(32); // All zeros
+
+        const result = await assertion.validateAgainstAsset(mockAsset);
+        assert.ok(!result.isValid);
+        assert.equal(result.statusEntries[0].code, ValidationStatusCode.AssertionBMFFHashMismatch);
+    });
+
+    it('should accept StreamingBMFFSigner result', async () => {
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+
+        // Simulate StreamingBMFFSigner result
+        const mockResult = {
+            uniqueId: 1,
+            localId: 2,
+            count: 3,
+            hashes: [
+                await Crypto.digest(new Uint8Array([1, 2, 3, 4]), 'SHA-256' as HashAlgorithm),
+                await Crypto.digest(new Uint8Array([5, 6, 7, 8]), 'SHA-256' as HashAlgorithm),
+                await Crypto.digest(new Uint8Array([9, 10, 11, 12]), 'SHA-256' as HashAlgorithm),
+            ],
+            fixedBlockSize: 1024 * 1024,
+        };
+
+        assertion.setMerkleFromStreamingSigner(mockResult);
+
+        assert.ok(assertion.merkle !== undefined);
+        assert.equal(assertion.merkle[0].uniqueId, 1);
+        assert.equal(assertion.merkle[0].localId, 2);
+        assert.equal(assertion.merkle[0].count, 3);
+        assert.equal(assertion.merkle[0].hashes.length, 3);
+        assert.equal(assertion.merkle[0].fixedBlockSize, 1024 * 1024);
+    });
+
+    it('should add multiple Merkle maps with addMerkleFromStreamingSigner', async () => {
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+
+        const mockResult1 = {
+            uniqueId: 1,
+            localId: 1,
+            count: 2,
+            hashes: [
+                await Crypto.digest(new Uint8Array([1, 2, 3, 4]), 'SHA-256' as HashAlgorithm),
+                await Crypto.digest(new Uint8Array([5, 6, 7, 8]), 'SHA-256' as HashAlgorithm),
+            ],
+            fixedBlockSize: 1024 * 1024,
+        };
+
+        const mockResult2 = {
+            uniqueId: 2,
+            localId: 2,
+            count: 1,
+            hashes: [await Crypto.digest(new Uint8Array([9, 10, 11, 12]), 'SHA-256' as HashAlgorithm)],
+            fixedBlockSize: 1024 * 1024,
+        };
+
+        assertion.addMerkleFromStreamingSigner(mockResult1);
+        assertion.addMerkleFromStreamingSigner(mockResult2);
+
+        assert.ok(assertion.merkle !== undefined);
+        assert.equal(assertion.merkle.length, 2);
+        assert.equal(assertion.merkle[0].uniqueId, 1);
+        assert.equal(assertion.merkle[1].uniqueId, 2);
+    });
+
+    it('should serialize Merkle data to JUMBF', async () => {
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+
+        assertion.setMerkleFromStreamingSigner({
+            uniqueId: 1,
+            localId: 2,
+            count: 1,
+            hashes: [await Crypto.digest(new Uint8Array([1, 2, 3, 4]), 'SHA-256' as HashAlgorithm)],
+            fixedBlockSize: 1024 * 1024,
+        });
+
+        const box = assertion.generateJUMBFBox(new Claim());
+        assert.ok(box.descriptionBox);
+
+        // Read it back
+        const newAssertion = new BMFFHashAssertion(3);
+        newAssertion.readFromJUMBF(box, new Claim());
+
+        assert.ok(newAssertion.merkle !== undefined);
+        assert.equal(newAssertion.merkle[0].uniqueId, 1);
+        assert.equal(newAssertion.merkle[0].localId, 2);
+    });
+
+    it('should throw when updateWithAssetMerkle on non-BMFF asset', async () => {
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+        const fakeAsset = { getBoxByPath: () => null } as unknown as BMFF;
+
+        await assert.rejects(assertion.updateWithAssetMerkle(fakeAsset), /must be a BMFF asset/);
+    });
+
+    it('should throw when updateWithAssetMerkle without algorithm', async () => {
+        const mockAsset = await BMFF.create(createBMFFMock());
+        const assertion = new BMFFHashAssertion(3);
+        // Don't set algorithm
+
+        await assert.rejects(assertion.updateWithAssetMerkle(mockAsset), /no algorithm/);
+    });
+
+    it('should hash real MP4 file with Merkle tree', async () => {
+        const filePath = path.join(baseDir, 'test-video.mp4');
+        const mp4Data = new Uint8Array(await fs.readFile(filePath));
+        const asset = await BMFF.create(mp4Data);
+
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+        await assertion.updateWithAssetMerkle(asset, { chunkSize: 256 });
+
+        assert.ok(assertion.merkle !== undefined, 'Merkle data should be set');
+        assert.equal(assertion.merkle.length, 1, 'Should have one Merkle map');
+        assert.ok(assertion.merkle[0].count > 0, 'Should have at least one chunk');
+        assert.equal(assertion.merkle[0].fixedBlockSize, 256, 'Block size should match');
+    });
+
+    it('should validate Merkle-hashed real MP4 file', async () => {
+        const filePath = path.join(baseDir, 'test-video.mp4');
+        const mp4Data = new Uint8Array(await fs.readFile(filePath));
+        const asset = await BMFF.create(mp4Data);
+
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+        await assertion.updateWithAssetMerkle(asset, { chunkSize: 256 });
+
+        const result = await assertion.validateAgainstAsset(asset);
+        assert.ok(result.isValid, 'Validation should pass for real MP4');
+    });
+
+    it('should detect tampering in real MP4 Merkle hashes', async () => {
+        const filePath = path.join(baseDir, 'test-video.mp4');
+        const mp4Data = new Uint8Array(await fs.readFile(filePath));
+        const asset = await BMFF.create(mp4Data);
+
+        const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256' as HashAlgorithm);
+        await assertion.updateWithAssetMerkle(asset, { chunkSize: 256 });
+
+        // Tamper with one hash
+        if (assertion.merkle && assertion.merkle[0].hashes.length > 0) {
+            assertion.merkle[0].hashes[0] = new Uint8Array(32).fill(0xff);
+        }
+
+        const result = await assertion.validateAgainstAsset(asset);
+        assert.ok(!result.isValid, 'Tampered hashes should fail validation');
+        assert.equal(result.statusEntries[0].code, ValidationStatusCode.AssertionBMFFHashMismatch);
     });
 });

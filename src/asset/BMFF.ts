@@ -373,6 +373,8 @@ class BoxReader {
 export interface BMFFBox<T extends object> {
     offset: number;
     size: number;
+    payloadOffset: number;
+    payloadSize: number;
     type: string;
     payload: T;
     userType: Uint8Array | undefined;

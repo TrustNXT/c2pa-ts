@@ -1,5 +1,5 @@
 import { Asset, BMFF, BMFFBox } from '../../asset';
-import { Crypto, HashAlgorithm } from '../../crypto';
+import { Crypto, HashAlgorithm, MerkleTree, StreamingSignerResult } from '../../crypto';
 import * as JUMBF from '../../jumbf';
 import { BinaryHelper } from '../../util';
 import { Claim } from '../Claim';
@@ -151,16 +151,24 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
      * @returns {Promise<ValidationResult>} The result of the validation.
      */
     public async validateAgainstAsset(asset: Asset): Promise<ValidationResult> {
+        // For Merkle-based assertions, hash may be absent
+        if (this.merkle?.length) {
+            if (!this.algorithm) {
+                return ValidationResult.error(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
+            }
+            if (!(asset instanceof BMFF)) {
+                return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
+            }
+            return this.validateMerkleTree(asset);
+        }
+
+        // For linear hash assertions
         if (!this.hash || !this.algorithm) {
             return ValidationResult.error(ValidationStatusCode.AssertionCBORInvalid, this.sourceBox);
         }
 
         if (!(asset instanceof BMFF)) {
             return ValidationResult.error(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox);
-        }
-
-        if (this.merkle?.length) {
-            return this.validateMerkleTree(asset);
         }
 
         const hash = await this.hashBMFFWithExclusions(asset);
@@ -356,12 +364,18 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
             throw new ValidationError(ValidationStatusCode.AssertionBMFFHashMismatch, this.sourceBox, 'mdat not found');
         }
 
+        const payloadEndOffset = mdatBox.payloadOffset + mdatBox.payloadSize;
+
         // Per spec 15.12.2: Handle fixed and variable size blocks
         if (tree.fixedBlockSize) {
             let offset = mdatBox.payloadOffset;
             for (let i = 0; i < tree.count; i++) {
-                chunks.push(await asset.getDataRange(offset, tree.fixedBlockSize));
-                offset += tree.fixedBlockSize;
+                // The last chunk may be smaller than the fixed block size
+                const remainingBytes = payloadEndOffset - offset;
+                const chunkSize = Math.min(tree.fixedBlockSize, remainingBytes);
+                if (chunkSize <= 0) break;
+                chunks.push(await asset.getDataRange(offset, chunkSize));
+                offset += chunkSize;
             }
         } else if (tree.variableBlockSizes) {
             let offset = mdatBox.payloadOffset;
@@ -375,7 +389,9 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
     }
 
     /**
-     * Calculates the hash value for the given asset
+     * Calculates the hash value for the given asset using linear hashing.
+     * Clears any previously set Merkle data.
+     *
      * @param asset - The asset to generate the hash from
      * @throws {Error} If the asset is not a BMFF asset or if the algorithm is not set
      */
@@ -389,6 +405,135 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
         }
 
         this.hash = await this.hashBMFFWithExclusions(asset);
+        // Clear Merkle data since we're using linear hashing
+        this.merkle = undefined;
+    }
+
+    /**
+     * Calculates hash values for the given asset using Merkle tree hashing.
+     * This method reads the mdat box in chunks, hashes each chunk, and stores
+     * the leaf hashes for later verification.
+     *
+     * @param asset - The BMFF asset to hash
+     * @param options - Merkle tree options
+     * @throws {Error} If the asset is not a BMFF asset or if the algorithm is not set
+     *
+     * @example
+     * ```typescript
+     * const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
+     * await assertion.updateWithAssetMerkle(asset, { chunkSize: 1024 * 1024 });
+     * ```
+     */
+    public async updateWithAssetMerkle(asset: Asset, options: MerkleHashOptions = {}): Promise<void> {
+        if (!this.algorithm) {
+            throw new Error('Assertion has no algorithm');
+        }
+
+        if (!(asset instanceof BMFF)) {
+            throw new Error('Asset must be a BMFF asset');
+        }
+
+        const { chunkSize = DEFAULT_MERKLE_CHUNK_SIZE, uniqueId = 1, localId = 1 } = options;
+
+        const mdatBox = asset.getBoxByPath('/mdat');
+        if (!mdatBox) {
+            throw new Error('Asset has no mdat box');
+        }
+
+        const payloadSize = mdatBox.payloadSize;
+        const leafHashes: Uint8Array[] = [];
+        const tree = new MerkleTree(this.algorithm);
+
+        // Read mdat in chunks and hash each one
+        let offset = mdatBox.payloadOffset;
+        const endOffset = mdatBox.payloadOffset + payloadSize;
+
+        while (offset < endOffset) {
+            const remainingBytes = endOffset - offset;
+            const currentChunkSize = Math.min(chunkSize, remainingBytes);
+            const chunk = await asset.getDataRange(offset, currentChunkSize);
+
+            await tree.addLeaf(chunk);
+            const leafHash = await Crypto.digest(chunk, this.algorithm);
+            leafHashes.push(leafHash);
+
+            offset += currentChunkSize;
+        }
+
+        // Build the tree (for future Merkle root usage if needed)
+        await tree.build();
+
+        // Store leaf hashes in the merkle field
+        // Per C2PA spec, for BMFF V3, we store the leaf hashes directly
+        this.merkle = [
+            {
+                uniqueId,
+                localId,
+                count: leafHashes.length,
+                hashes: leafHashes,
+                fixedBlockSize: chunkSize,
+            },
+        ];
+
+        // Clear the linear hash since we're using Merkle
+        this.hash = undefined;
+    }
+
+    /**
+     * Sets the Merkle data from a StreamingBMFFSigner result.
+     * Use this when you've captured video using the streaming signer.
+     *
+     * @param result - The result from StreamingBMFFSigner.finalize()
+     *
+     * @example
+     * ```typescript
+     * // During video capture
+     * const signer = new StreamingBMFFSigner({ algorithm: 'SHA-256' });
+     * camera.onChunk(chunk => signer.processChunk(chunk));
+     *
+     * // When recording ends
+     * const merkleData = await signer.finalize();
+     *
+     * // Create assertion
+     * const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
+     * assertion.setMerkleFromStreamingSigner(merkleData);
+     * ```
+     */
+    public setMerkleFromStreamingSigner(result: StreamingSignerResult): void {
+        this.merkle = [
+            {
+                uniqueId: result.uniqueId,
+                localId: result.localId,
+                count: result.count,
+                hashes: result.hashes,
+                alg: result.alg as raw.HashAlgorithm,
+                initHash: result.initHash,
+                fixedBlockSize: result.fixedBlockSize,
+                variableBlockSizes: result.variableBlockSizes,
+            },
+        ];
+
+        // Clear the linear hash since we're using Merkle
+        this.hash = undefined;
+    }
+
+    /**
+     * Adds an additional Merkle map entry (for multi-track scenarios).
+     * @param result - The result from StreamingBMFFSigner.finalize()
+     */
+    public addMerkleFromStreamingSigner(result: StreamingSignerResult): void {
+        this.merkle ??= [];
+
+        this.merkle.push({
+            uniqueId: result.uniqueId,
+            localId: result.localId,
+            count: result.count,
+            hashes: result.hashes,
+            alg: result.alg as raw.HashAlgorithm,
+            initHash: result.initHash,
+            fixedBlockSize: result.fixedBlockSize,
+            variableBlockSizes: result.variableBlockSizes,
+        });
     }
 
     private static create(name: string, algorithm: HashAlgorithm, version: number): BMFFHashAssertion {
@@ -419,7 +564,9 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
     }
 
     /**
-     * Creates a new BMFFHashAssertion version 2
+     * Creates a new BMFFHashAssertion version 2.
+     * Use updateWithAsset() for linear hashing or updateWithAssetMerkle()/setMerkleFromStreamingSigner() for Merkle hashing.
+     *
      * @param name - The name of the assertion
      * @param algorithm - The hash algorithm to use
      * @returns {BMFFHashAssertion} The new BMFFHashAssertion
@@ -429,12 +576,46 @@ export class BMFFHashAssertion extends Assertion implements HashAssertion {
     }
 
     /**
-     * Creates a new BMFFHashAssertion version 3
+     * Creates a new BMFFHashAssertion version 3.
+     * Use updateWithAsset() for linear hashing or updateWithAssetMerkle()/setMerkleFromStreamingSigner() for Merkle hashing.
+     *
      * @param name - The name of the assertion
      * @param algorithm - The hash algorithm to use
      * @returns {BMFFHashAssertion} The new BMFFHashAssertion
+     *
+     * @example
+     * ```typescript
+     * // For linear hashing
+     * const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
+     * await assertion.updateWithAsset(asset);
+     *
+     * // For Merkle tree hashing
+     * const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
+     * await assertion.updateWithAssetMerkle(asset, { chunkSize: 1024 * 1024 });
+     *
+     * // For streaming signing during capture
+     * const assertion = BMFFHashAssertion.createV3('jumbf manifest', 'SHA-256');
+     * assertion.setMerkleFromStreamingSigner(signerResult);
+     * ```
      */
     public static createV3(name: string, algorithm: HashAlgorithm): BMFFHashAssertion {
         return BMFFHashAssertion.create(name, algorithm, 3);
     }
 }
+
+/**
+ * Options for Merkle tree hashing.
+ */
+export interface MerkleHashOptions {
+    /** Chunk size in bytes (default: 1MB) */
+    chunkSize?: number;
+    /** Unique ID for this track/stream */
+    uniqueId?: number;
+    /** Local ID for this track/stream */
+    localId?: number;
+}
+
+/**
+ * Default chunk size for Merkle tree leaves (1MB).
+ */
+export const DEFAULT_MERKLE_CHUNK_SIZE = 1024 * 1024;
