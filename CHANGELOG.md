@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.13.1
+
+### Patch Changes
+
+- c3d5993: Use proper DER encoding for CMS SignedAttributes
+
 ## 0.13.0
 
 ### Minor Changes
