@@ -57,7 +57,7 @@
     "@types/node": "^25.0.2",
     "@types/uuid": "^11.0.0",
     "@typescript-eslint/parser": "^8.8.0",
-    "eslint": "^9.11.1",
+    "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.1",
     "github-actions-ctrf": "^0.0.58",
@@ -68,7 +68,7 @@
     "tsup": "^8.3.6",
     "tsx": "^4.19.1",
     "typescript": "^5.8.2",
-    "typescript-eslint": "^8.26.0"
+    "typescript-eslint": "^8.56.0"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
