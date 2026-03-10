@@ -78,7 +78,7 @@ Example usage in a Node.js environment:
 ```typescript
 import * as fs from 'node:fs/promises';
 import { MalformedContentError } from '@trustnxt/c2pa-ts';
-import { Asset, BMFF, JPEG, PNG } from '@trustnxt/c2pa-ts/asset';
+import { Asset, createAsset } from '@trustnxt/c2pa-ts/asset';
 import { SuperBox } from '@trustnxt/c2pa-ts/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '@trustnxt/c2pa-ts/manifest';
 
@@ -91,13 +91,9 @@ const buf = await fs.readFile(process.argv[2]);
 
 // Read the asset file and dump some information about its structure
 let asset: Asset;
-if (await JPEG.canRead(buf)) {
-    asset = await JPEG.create(buf);
-} else if (await PNG.canRead(buf)) {
-    asset = await PNG.create(buf);
-} else if (await BMFF.canRead(buf)) {
-    asset = await BMFF.create(buf);
-} else {
+try {
+    asset = await createAsset(buf);
+} catch {
     console.error('Unknown file format');
     process.exit(1);
 }
