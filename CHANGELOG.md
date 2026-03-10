@@ -1,5 +1,11 @@
 # c2pa-ts
 
+## 0.13.3
+
+### Patch Changes
+
+- d66aba5: Add createAsset helper method
+
 ## 0.13.2
 
 ### Patch Changes
