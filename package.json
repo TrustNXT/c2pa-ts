@@ -72,7 +72,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
-    "@peculiar/x509": "^1.14.3",
+    "@peculiar/x509": "^2.0.0",
     "cbor-x": "^1.6.0",
     "crc-32": "^1.2.2",
     "pkijs": "^3.2.4",
