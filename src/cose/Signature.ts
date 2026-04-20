@@ -120,11 +120,27 @@ export class Signature {
 
     private static *readTimestamps(container: TstContainer | undefined, version: TimestampVersion) {
         if (!container?.tstTokens?.length) return;
+
         for (const timestampToken of container.tstTokens) {
+            // Try reading the content as a TimeStampResp structure (V1 timestamps)
             try {
-                yield { version, response: pkijs.TimeStampResp.fromBER(timestampToken.val as Uint8Array<ArrayBuffer>) };
+                const timeStampResp = pkijs.TimeStampResp.fromBER(timestampToken.val as Uint8Array<ArrayBuffer>);
+                yield {
+                    version,
+                    status: timeStampResp.status,
+                    response: timeStampResp.timeStampToken!,
+                };
             } catch {
-                throw new MalformedContentError('Malformed timestamp');
+                // If this fails, try reading it as ContentInfo (V2 timestamps)
+                try {
+                    yield {
+                        version,
+                        response: pkijs.ContentInfo.fromBER(timestampToken.val as Uint8Array<ArrayBuffer>),
+                    };
+                } catch {
+                    // If this also fails, the timestamp is malformed
+                    throw new MalformedContentError('Malformed timestamp');
+                }
             }
         }
     }
@@ -154,7 +170,12 @@ export class Signature {
         const timestampTokensV1 = this.timestampTokens.filter(token => token.version === TimestampVersion.V1);
         if (timestampTokensV1.length) {
             unprotectedBucket.sigTst = {
-                tstTokens: timestampTokensV1.map(tst => ({ val: new Uint8Array(tst.response.toSchema().toBER()) })),
+                tstTokens: timestampTokensV1.map(tst => {
+                    const timeStampResp = new pkijs.TimeStampResp();
+                    timeStampResp.status = tst.status!;
+                    timeStampResp.timeStampToken = tst.response;
+                    return { val: new Uint8Array(timeStampResp.toSchema().toBER()) };
+                }),
             };
         }
         const timestampTokensV2 = this.timestampTokens.filter(token => token.version === TimestampVersion.V2);
@@ -201,8 +222,16 @@ export class Signature {
                     timestampVersion === TimestampVersion.V1 ? payload : CBORBox.encoder.encode(this.signature),
                 ).encode(),
             );
-            if (timestampResponse)
-                this.timestampTokens.push({ version: timestampVersion, response: timestampResponse });
+            if (
+                timestampResponse?.timeStampToken &&
+                (timestampResponse?.status?.status === pkijs.PKIStatus.granted ||
+                    timestampResponse?.status?.status === pkijs.PKIStatus.grantedWithMods)
+            )
+                this.timestampTokens.push({
+                    version: timestampVersion,
+                    status: timestampResponse.status,
+                    response: timestampResponse.timeStampToken,
+                });
         }
     }
 
@@ -224,13 +253,14 @@ export class Signature {
 
         for (const timestamp of this.timestampTokens) {
             if (
-                timestamp.response.status.status !== pkijs.PKIStatus.granted &&
-                timestamp.response.status.status !== pkijs.PKIStatus.grantedWithMods
+                timestamp.version === TimestampVersion.V1 &&
+                timestamp.status?.status !== pkijs.PKIStatus.granted &&
+                timestamp.status?.status !== pkijs.PKIStatus.grantedWithMods
             )
                 continue;
 
             try {
-                const signedData = new pkijs.SignedData({ schema: timestamp.response.timeStampToken!.content });
+                const signedData = new pkijs.SignedData({ schema: timestamp.response.content });
                 const rawTstInfo = signedData.encapContentInfo.eContent!.getValue();
                 const tstInfo = pkijs.TSTInfo.fromBER(rawTstInfo);
 
@@ -370,13 +400,14 @@ export class Signature {
     private getTimestampWithoutVerification(): Date | undefined {
         for (const timestamp of this.timestampTokens) {
             if (
-                timestamp.response.status.status !== pkijs.PKIStatus.granted &&
-                timestamp.response.status.status !== pkijs.PKIStatus.grantedWithMods
+                timestamp.version === TimestampVersion.V1 &&
+                timestamp.status?.status !== pkijs.PKIStatus.granted &&
+                timestamp.status?.status !== pkijs.PKIStatus.grantedWithMods
             )
                 continue;
             try {
                 const signedData = new pkijs.SignedData({
-                    schema: timestamp.response.timeStampToken!.content as unknown,
+                    schema: timestamp.response.content as unknown,
                 });
                 const tstInfo = pkijs.TSTInfo.fromBER(signedData.encapContentInfo.eContent!.getValue());
                 return tstInfo.genTime;
