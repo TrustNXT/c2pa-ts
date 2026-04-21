@@ -1,5 +1,15 @@
 # c2pa-ts
 
+## 0.14.0
+
+### Minor Changes
+
+- b84e588: Update @peculiar/x509 to 2.0.0 - ⚠️ This version now requires a Reflect API Polyfill. See README for details.
+
+### Patch Changes
+
+- f9b4f2c: Fix timestamps V2 (sigTst2) interoperability
+
 ## 0.13.3
 
 ### Patch Changes
