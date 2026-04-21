@@ -57,6 +57,7 @@
     "@types/node": "^25.0.2",
     "@types/uuid": "^11.0.0",
     "@typescript-eslint/parser": "^8.8.0",
+    "core-js": "^3.49.0",
     "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.1",
@@ -72,7 +73,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
-    "@peculiar/x509": "^1.14.3",
+    "@peculiar/x509": "^2.0.0",
     "cbor-x": "^1.6.0",
     "crc-32": "^1.2.2",
     "pkijs": "^3.2.4",

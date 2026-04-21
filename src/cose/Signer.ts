@@ -1,5 +1,5 @@
-import { X509Certificate } from '@peculiar/x509';
-import { CoseAlgorithmIdentifier } from './Algorithms';
+import { type X509Certificate } from '@peculiar/x509';
+import { type CoseAlgorithmIdentifier } from './Algorithms';
 
 export interface Signer {
     sign(payload: Uint8Array): Promise<Uint8Array>;

@@ -1,4 +1,4 @@
-import { X509Certificate } from '@peculiar/x509';
+import { type X509Certificate } from '@peculiar/x509';
 import { Crypto } from '../crypto';
 import { Algorithms } from './Algorithms';
 import { Signer } from './Signer';
