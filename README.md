@@ -137,6 +137,14 @@ This still needs proper example code ([issue #58](https://github.com/TrustNXT/c2
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Common issues
+
+### `error: tsyringe requires a reflect polyfill`
+
+This error message comes from a dependency of c2pa-ts, `@peculiar/x509`, requiring a Reflect API Polyfill. The fix is to simply add one of the recommended polyfill packages to your project and add an import to the top of your code. See [the `@peculiar/x509` repository](https://github.com/PeculiarVentures/x509?tab=readme-ov-file#%EF%B8%8F-reflect-polyfill-required) for more information.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Usage in constrained environments
 
 Usage with JavaScript engines that lack WebCrypto and other browser APIs (such as JavaScriptCore on iOS) is entirely possible but will require some additional code. In particular, a custom `CryptoProvider` will need to be created and some polyfills might be required.
