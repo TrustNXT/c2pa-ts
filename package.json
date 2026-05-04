@@ -79,7 +79,7 @@
     "pkijs": "^3.2.4",
     "schema-dts": "^2.0.0",
     "typed-binary": "^4.1.1",
-    "uuid": "^13.0.0"
+    "uuid": "^14.0.0"
   },
   "scripts": {
     "lint": "eslint src tests",
