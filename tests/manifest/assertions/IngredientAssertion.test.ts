@@ -89,7 +89,7 @@ describe('IngredientAssertion Tests', function () {
             uri: 'self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg',
             hash: thumbnailHash,
             algorithm: 'SHA-256',
-        } as HashedURI);
+        });
 
         assertion = ingredientAssertion;
     });
