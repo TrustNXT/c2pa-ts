@@ -2,8 +2,7 @@ import { AssemblePart, AssetDataReader } from './AssetDataReader';
 
 /** A segment: either a lazy blob slice or an eager buffer for new/modified data */
 type Segment = { start: number; length: number } & (
-    | { type: 'slice'; blob: Blob; blobStart: number }
-    | { type: 'data'; data: Uint8Array }
+    { type: 'slice'; blob: Blob; blobStart: number } | { type: 'data'; data: Uint8Array }
 );
 
 /**
