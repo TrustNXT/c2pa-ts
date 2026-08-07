@@ -64,7 +64,7 @@
     "github-actions-ctrf": "^0.0.58",
     "junit-to-ctrf": "^0.0.14",
     "prettier": "3.9.6",
-    "replace-in-file": "^8.2.0",
+    "replace-in-file": "^9.0.0",
     "ts-node": "^10.9.2",
     "tsup": "^8.3.6",
     "tsx": "^4.19.1",
