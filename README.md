@@ -38,7 +38,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :white_check_mark: MP3
 - :white_check_mark: MP4
 - :x: GIF
-- :x: TIFF
+- :construction: TIFF (Basic support exists, but it is mostly unproven)
 - :x: WebP
 - :x: JPEG XL
 
