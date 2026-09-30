@@ -5,7 +5,7 @@ import { Asset, AssetType, BMFF, JPEG, PNG } from '../src/asset';
 import { SuperBox } from '../src/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
 import { BinaryHelper } from '../src/util';
-import { setTrustList } from './utils/set-trust-list';
+import { setTimestampTrustList, setTrustList } from './utils/set-trust-list';
 
 const baseDir = 'tests/fixtures';
 
@@ -208,6 +208,7 @@ const testFiles: Record<string, TestExpectations> = {
 
 beforeAll(async () => {
     await setTrustList();
+    await setTimestampTrustList();
 });
 
 describe('Functional Asset Reading Tests', function () {

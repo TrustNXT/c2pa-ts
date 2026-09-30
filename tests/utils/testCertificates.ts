@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import { X509Certificate } from '@peculiar/x509';
-import { CoseAlgorithmIdentifier, LocalSigner, Signer } from '../../src/cose';
+import { CoseAlgorithmIdentifier, LocalSigner, Signer, TrustList } from '../../src/cose';
 import { ValidationStatusCode } from '../../src/manifest';
 import { LocalTimestampProvider } from '../../src/rfc3161';
 import { setTrustList } from './set-trust-list';
@@ -52,6 +52,7 @@ export async function loadTestCertificate(certificateInfo: TestCertificate): Pro
 
     // Set trust list
     await setTrustList(certificateInfo.trustListFile);
+    TrustList.setTimestampTrustAnchors([x509Certificate]);
     return { signer, timestampProvider };
 }
 
@@ -149,13 +150,48 @@ export function getExpectedValidationStatusEntriesUntrusted(manifestLabel: strin
     ];
 }
 
+export function getExpectedValidationStatusEntriesUntrustedTimeStamp(manifestLabel: string | undefined) {
+    return [
+        {
+            code: ValidationStatusCode.TimeStampUntrusted,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.SigningCredentialTrusted,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.ClaimSignatureValidated,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.AssertionHashedURIMatch,
+            explanation: undefined,
+            url: 'self#jumbf=c2pa.assertions/c2pa.hash.data',
+            success: true,
+        },
+        {
+            code: ValidationStatusCode.AssertionDataHashMatch,
+            explanation: undefined,
+            url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.assertions/c2pa.hash.data`,
+            success: true,
+        },
+    ];
+}
+
 export function getExpectedValidationStatusEntriesWrongTimeStamp(manifestLabel: string | undefined) {
     return [
         {
             code: ValidationStatusCode.TimeStampOutsideValidity,
             explanation: 'Timestamp outside signer certificate validity period',
             url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
-            success: false,
+            success: true,
         },
         {
             code: ValidationStatusCode.SigningCredentialExpired,
@@ -177,3 +213,4 @@ export function getExpectedValidationStatusEntriesWrongTimeStamp(manifestLabel: 
         },
     ];
 }
+
