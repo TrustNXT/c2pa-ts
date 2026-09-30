@@ -6,7 +6,7 @@ import { ValidationOptions } from '../src/cose';
 import { SuperBox } from '../src/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
 import { BinaryHelper } from '../src/util';
-import { getTrustAnchors } from './utils/set-trust-list';
+import { getTimestampTrustAnchors, getTrustAnchors } from './utils/set-trust-list';
 
 const baseDir = 'tests/fixtures';
 
@@ -204,6 +204,7 @@ const validationOptions: ValidationOptions = {};
 
 beforeAll(async () => {
     validationOptions.trustAnchors = await getTrustAnchors('tests/fixtures/trust-list-wrong.pem');
+    validationOptions.timestampTrustAnchors = await getTimestampTrustAnchors('tests/fixtures/timestamp-trust-list.pem');
 });
 
 describe('Trust list tests', function () {

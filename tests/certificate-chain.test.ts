@@ -405,6 +405,8 @@ describe('Certificate Chain Validation', () => {
         timestampProvider = new LocalTimestampProvider(leafCert, await toPkcs8Bytes(leafKeys.privateKey), [
             intermediateCert,
         ]);
+        TrustList.setTimestampTrustAnchors([rootCert, leafCert]);
+        
         // Create a COSE signer backed by the leaf certificate (ES256 / P-256)
         signer = new LocalSigner(await toPkcs8Bytes(leafKeys.privateKey), CoseAlgorithmIdentifier.ES256, leafCert, [
             intermediateCert,

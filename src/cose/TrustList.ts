@@ -9,6 +9,13 @@ export class TrustList {
     static trustAnchors: X509Certificate[] = [];
 
     /**
+     * @deprecated Global mutable timestamp trust anchors cause race conditions and test flakiness.
+     * Use ValidationOptions.tsaTrustAnchors parameter in Signature.validate() instead.
+     * This property is maintained for backwards compatibility only.
+     */
+    static timestampTrustAnchors: X509Certificate[] = [];
+
+    /**
      * @deprecated Global mutable trust anchors cause race conditions and test flakiness.
      * Use ValidationOptions.trustAnchors parameter in Signature.validate() instead.
      * This method is maintained for backwards compatibility only.
@@ -21,12 +28,24 @@ export class TrustList {
     }
 
     /**
+     * @deprecated Global mutable timestamp trust anchors cause race conditions and test flakiness.
+     * Use ValidationOptions.timestampTrustAnchors parameter in Signature.validate() instead.
+     * This method is maintained for backwards compatibility only.
+     *
+     * Configures global timestamp trust anchors used for PKI.js chain validation.
+     * Accepts PEM strings (single or multiple concatenated certs), DER bytes, or `X509Certificate` instances.
+     */
+    public static setTimestampTrustAnchors(anchors: (string | Uint8Array | X509Certificate)[]): void {
+        TrustList.timestampTrustAnchors = TrustList.parseTrustAnchors(anchors);
+    }
+
+    /**
      * Parses trust anchors from various formats into X509Certificate instances.
      * Accepts PEM strings (single or multiple concatenated certs), DER bytes, or `X509Certificate` instances.
      * @param anchors - Array of trust anchors in various formats
      * @returns Array of parsed X509Certificate instances
      */
-    public static parseTrustAnchors(anchors: (string | Uint8Array | X509Certificate)[]): X509Certificate[] {
+    public static parseTrustAnchors(anchors: (string | Uint8Array | X509Certificate)[] = []): X509Certificate[] {
         const out: X509Certificate[] = [];
         for (const a of anchors) {
             if (typeof a === 'string') {
