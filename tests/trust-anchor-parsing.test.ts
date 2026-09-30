@@ -78,4 +78,24 @@ describe('Trust anchor parsing', () => {
             [expectedFromPem[0].subject, expectedFromPem[1].subject],
         );
     });
+
+    it('throws when non-empty input contains no parseable certificate', () => {
+        assert.throws(() => TrustList.parseTrustAnchors([malformedPemBlock]));
+        assert.throws(() => TrustList.parseTrustAnchors([new Uint8Array([1, 2, 3])]));
+        assert.throws(() => TrustList.setTrustAnchors(['not a certificate']));
+    });
+
+    it('accepts empty input without throwing', () => {
+        assert.deepEqual(TrustList.parseTrustAnchors([]), []);
+        assert.deepEqual(TrustList.parseTrustAnchors(['', '  \n']), []);
+        assert.deepEqual(TrustList.parseTrustAnchors([new Uint8Array()]), []);
+    });
+
+    it('returns consistent results for repeated and many distinct PEM inputs', () => {
+        for (let i = 0; i < 20; i++) {
+            const pem = `${certBlocks[0]}\n# variant ${i}`;
+            assert.equal(TrustList.parseTrustAnchors([pem]).length, 1);
+            assert.equal(TrustList.parseTrustAnchors([pem]).length, 1);
+        }
+    });
 });

@@ -1,6 +1,11 @@
 import { X509Certificate } from '@peculiar/x509';
 
 export class TrustList {
+    private static readonly PEM_CACHE_LIMIT = 8;
+
+    // Parsed certificates are immutable, so results can be cached by PEM content (least recently used, bounded).
+    private static readonly pemCache = new Map<string, X509Certificate[]>();
+
     /**
      * @deprecated Global mutable trust anchors cause race conditions and test flakiness.
      * Use ValidationOptions.trustAnchors parameter in Signature.validate() instead.
@@ -10,7 +15,7 @@ export class TrustList {
 
     /**
      * @deprecated Global mutable timestamp trust anchors cause race conditions and test flakiness.
-     * Use ValidationOptions.tsaTrustAnchors parameter in Signature.validate() instead.
+     * Use ValidationOptions.timestampTrustAnchors parameter in Signature.validate() instead.
      * This property is maintained for backwards compatibility only.
      */
     static timestampTrustAnchors: X509Certificate[] = [];
@@ -44,31 +49,57 @@ export class TrustList {
      * Accepts PEM strings (single or multiple concatenated certs), DER bytes, or `X509Certificate` instances.
      * @param anchors - Array of trust anchors in various formats
      * @returns Array of parsed X509Certificate instances
+     * @throws Error if the input contains data but none of it could be parsed as a certificate.
+     * Individual malformed entries are skipped as long as at least one certificate could be parsed.
      */
     public static parseTrustAnchors(anchors: (string | Uint8Array | X509Certificate)[] = []): X509Certificate[] {
         const out: X509Certificate[] = [];
+        let hasContent = false;
         for (const a of anchors) {
             if (typeof a === 'string') {
-                for (const der of this.decodeAllPEMCertificates(a)) {
-                    try {
-                        // Cast to satisfy peculiar/x509 typing expecting ArrayBuffer
-                        out.push(new X509Certificate(der as unknown as Uint8Array<ArrayBuffer>));
-                    } catch {
-                        /* ignore malformed entries */
-                    }
-                }
+                hasContent ||= a.trim().length > 0;
+                out.push(...this.parsePEM(a));
             } else if (a instanceof Uint8Array) {
+                hasContent ||= a.length > 0;
                 try {
                     out.push(new X509Certificate(a as unknown as Uint8Array<ArrayBuffer>));
                 } catch {
                     /* ignore malformed entries */
                 }
             } else if (a instanceof X509Certificate) {
+                hasContent = true;
                 out.push(a);
             }
         }
 
+        if (hasContent && out.length === 0) {
+            throw new Error('None of the provided trust anchors could be parsed as an X.509 certificate');
+        }
+
         return out;
+    }
+
+    private static parsePEM(pem: string): X509Certificate[] {
+        let certificates = TrustList.pemCache.get(pem);
+        if (certificates) {
+            // Refresh recency
+            TrustList.pemCache.delete(pem);
+        } else {
+            certificates = [];
+            for (const der of this.decodeAllPEMCertificates(pem)) {
+                try {
+                    // Cast to satisfy peculiar/x509 typing expecting ArrayBuffer
+                    certificates.push(new X509Certificate(der as unknown as Uint8Array<ArrayBuffer>));
+                } catch {
+                    /* ignore malformed entries */
+                }
+            }
+        }
+        TrustList.pemCache.set(pem, certificates);
+        if (TrustList.pemCache.size > TrustList.PEM_CACHE_LIMIT) {
+            TrustList.pemCache.delete(TrustList.pemCache.keys().next().value!);
+        }
+        return certificates;
     }
 
     /**
