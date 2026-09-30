@@ -26,8 +26,15 @@ export class MP3 extends BaseAsset implements Asset {
     public readonly mimeType = 'audio/mpeg';
 
     private static readonly id3Signature = new Uint8Array([0x49, 0x44, 0x33]); // "ID3"
-    private static readonly frameSyncSignature = new Uint8Array([0xff, 0xfb]);
     private static readonly textEncoder = new TextEncoder();
+
+    /**
+     * Checks if bytes represent an MP3 frame sync header.
+     * MP3 frame sync is 11 bits: first byte is 0xFF, second byte has upper 3 bits set (0xE0 mask).
+     */
+    private static isFrameSync(buf: Uint8Array): boolean {
+        return buf.length >= 2 && buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0;
+    }
 
     private tagHeader?: {
         version: number;
@@ -57,18 +64,13 @@ export class MP3 extends BaseAsset implements Asset {
     }
 
     private static hasSignature(buf: Uint8Array): boolean {
-        if (buf.length < 3) {
-            return false;
-        }
-        // Check for ID3 tag
-        if (BinaryHelper.bufEqual(buf.subarray(0, MP3.id3Signature.length), MP3.id3Signature)) {
+        if (
+            buf.length >= MP3.id3Signature.length &&
+            BinaryHelper.bufEqual(buf.subarray(0, MP3.id3Signature.length), MP3.id3Signature)
+        ) {
             return true;
         }
-        // Check for MP3 frame sync
-        if (
-            buf.length >= MP3.frameSyncSignature.length &&
-            BinaryHelper.bufEqual(buf.subarray(0, MP3.frameSyncSignature.length), MP3.frameSyncSignature)
-        ) {
+        if (MP3.isFrameSync(buf)) {
             return true;
         }
         return false;
@@ -84,6 +86,12 @@ export class MP3 extends BaseAsset implements Asset {
         this.manifestFrameIndex = undefined;
         this.tagHeader = undefined;
         this.hasUnsupportedTag = false;
+
+        // Check for ID3 tag - if not present, this is a raw MP3 without metadata
+        if (data.length < 10 || !BinaryHelper.bufEqual(data.subarray(0, MP3.id3Signature.length), MP3.id3Signature)) {
+            // No ID3 tag, raw MP3 audio data
+            return;
+        }
 
         const versionMajor = data[3];
         if (versionMajor < 2 || versionMajor > 4) {

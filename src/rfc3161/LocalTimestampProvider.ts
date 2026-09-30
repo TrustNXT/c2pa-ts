@@ -1,4 +1,4 @@
-import { X509Certificate } from '@peculiar/x509';
+import { type X509Certificate } from '@peculiar/x509';
 import * as asn1js from 'asn1js';
 import {
     AlgorithmIdentifier,

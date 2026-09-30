@@ -4,3 +4,4 @@ export * from './MP3';
 export * from './PNG';
 export * from './types';
 export * from './BaseAsset';
+export * from './createAsset';

@@ -5,7 +5,6 @@ import path from 'node:path';
 import { beforeEach, describe, it } from 'bun:test';
 import { BMFF, BMFFBox } from '../../../src/asset';
 import { Crypto } from '../../../src/crypto';
-import { HashAlgorithm } from '../../../src/crypto/types';
 import { CBORBox, DescriptionBox, SuperBox } from '../../../src/jumbf';
 import { BMFFHashAssertion, Claim, ValidationStatusCode } from '../../../src/manifest';
 import { AssertionLabels } from '../../../src/manifest/assertions/AssertionLabels';
@@ -77,7 +76,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     });
 
     it('should generate a JUMBF box from the assertion', () => {
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
         assertion.name = 'Test BMFF Hash';
         assertion.exclusions = [
@@ -101,7 +100,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
 
     it('should validate matching hash against asset', async () => {
         const mockAsset = await BMFF.create(createBMFFMock());
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
         assertion.exclusions = [{ xpath: '/uuid' }];
 
@@ -120,7 +119,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
 
     it('should fail validation with mismatched hash', async () => {
         const mockAsset = await BMFF.create(createBMFFMock());
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
         assertion.exclusions = [{ xpath: '/uuid' }];
 
@@ -139,7 +138,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
 
     it('should handle exclusions with subset ranges', async () => {
         const mockAsset = await BMFF.create(createBMFFMock());
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
         assertion.exclusions = [
             {
                 xpath: '/mdat',
@@ -182,7 +181,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
 
     it('should fail validation for non-BMFF asset', async () => {
         const mockAsset = { getTopLevelBoxes: () => [] } as unknown as BMFF;
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
 
         const result = await assertion.validateAgainstAsset(mockAsset);
@@ -192,7 +191,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
 
     it('should fail validation when hash does not match', async () => {
         const mockAsset = await BMFF.create(createBMFFMock());
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
         assertion.hash = new Uint8Array([0, 0, 0, 0]);
 
         const result = await assertion.validateAgainstAsset(mockAsset);
@@ -203,7 +202,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
     it('should correctly handle v3 merkle tree validation', async () => {
         const mockAsset = await BMFF.create(createBMFFMock());
         const v3Assertion = new BMFFHashAssertion(3);
-        v3Assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        v3Assertion.algorithm = 'SHA-256';
 
         // Get the mdat box to find its correct offset
         const mdatBox = mockAsset.getBoxByPath('/mdat');
@@ -218,8 +217,8 @@ describe('BMFFHashAssertion Mock Tests', function () {
                 localId: 1,
                 count: 2,
                 hashes: [
-                    await Crypto.digest(await mockAsset.getDataRange(dataOffset, 4), 'SHA-256' as HashAlgorithm),
-                    await Crypto.digest(await mockAsset.getDataRange(dataOffset + 4, 4), 'SHA-256' as HashAlgorithm),
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset, 4), 'SHA-256'),
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset + 4, 4), 'SHA-256'),
                 ] as Uint8Array[],
                 fixedBlockSize: 4,
             },
@@ -231,7 +230,7 @@ describe('BMFFHashAssertion Mock Tests', function () {
 
     it('should handle variable block sizes in merkle tree', async () => {
         const mockAsset = await BMFF.create(createBMFFMock());
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
 
         // Get the mdat box to find its correct offset
         const mdatBox = mockAsset.getBoxByPath('/mdat');
@@ -247,8 +246,8 @@ describe('BMFFHashAssertion Mock Tests', function () {
                 count: 2,
                 variableBlockSizes: [4, 4],
                 hashes: [
-                    await Crypto.digest(await mockAsset.getDataRange(dataOffset, 4), 'SHA-256' as HashAlgorithm),
-                    await Crypto.digest(await mockAsset.getDataRange(dataOffset + 4, 4), 'SHA-256' as HashAlgorithm),
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset, 4), 'SHA-256'),
+                    await Crypto.digest(await mockAsset.getDataRange(dataOffset + 4, 4), 'SHA-256'),
                 ] as Uint8Array[],
             },
         ];
@@ -264,7 +263,7 @@ describe('BMFFHashAssertion v2 Tests', function () {
         const heicData = new Uint8Array(await fs.readFile(filePath));
         const asset = await BMFF.create(heicData);
         const v2Assertion = new BMFFHashAssertion(2);
-        v2Assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        v2Assertion.algorithm = 'SHA-256';
         v2Assertion.exclusions = [{ xpath: '/uuid' }];
 
         const hash = await v2Assertion['hashBMFFWithExclusions'](asset);
@@ -336,7 +335,7 @@ describe('BMFFHashAssertion v3 Tests', function () {
     });
 
     it('should generate a JUMBF box from the assertion', () => {
-        assertion.algorithm = 'SHA-256' as HashAlgorithm;
+        assertion.algorithm = 'SHA-256';
         assertion.hash = new Uint8Array([1, 2, 3, 4]);
         assertion.name = 'Test BMFF Hash';
         assertion.exclusions = [

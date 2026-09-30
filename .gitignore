@@ -5,3 +5,6 @@ dist
 
 # VS Code IDE files
 /.vscode
+
+# WebStorm IDE files
+/.idea

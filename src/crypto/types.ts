@@ -24,10 +24,7 @@ export interface Ed25519SigningAlgorithm {
 }
 
 export type SigningAlgorithm =
-    | ECDSASigningAlgorithm
-    | RSASigningAlgorithm
-    | PKCSV1_5SigningAlgorithm
-    | Ed25519SigningAlgorithm;
+    ECDSASigningAlgorithm | RSASigningAlgorithm | PKCSV1_5SigningAlgorithm | Ed25519SigningAlgorithm;
 
 export interface StreamingDigest {
     update(data: Uint8Array): void;

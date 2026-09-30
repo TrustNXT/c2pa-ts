@@ -78,7 +78,7 @@ Example usage in a Node.js environment:
 ```typescript
 import * as fs from 'node:fs/promises';
 import { MalformedContentError } from '@trustnxt/c2pa-ts';
-import { Asset, BMFF, JPEG, PNG } from '@trustnxt/c2pa-ts/asset';
+import { Asset, createAsset } from '@trustnxt/c2pa-ts/asset';
 import { SuperBox } from '@trustnxt/c2pa-ts/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '@trustnxt/c2pa-ts/manifest';
 
@@ -91,13 +91,9 @@ const buf = await fs.readFile(process.argv[2]);
 
 // Read the asset file and dump some information about its structure
 let asset: Asset;
-if (await JPEG.canRead(buf)) {
-    asset = await JPEG.create(buf);
-} else if (await PNG.canRead(buf)) {
-    asset = await PNG.create(buf);
-} else if (await BMFF.canRead(buf)) {
-    asset = await BMFF.create(buf);
-} else {
+try {
+    asset = await createAsset(buf);
+} catch {
     console.error('Unknown file format');
     process.exit(1);
 }
@@ -138,6 +134,14 @@ if (jumbf) {
 This still needs proper example code ([issue #58](https://github.com/TrustNXT/c2pa-ts/issues/58)). For now, you can check [`jpeg-signing.test.ts`](https://github.com/TrustNXT/c2pa-ts/blob/b6cfeaa17d24c82c5c0ecc163a43a646806b189e/tests/jpeg-signing.test.ts#L53-L83).
 
 </details>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Common issues
+
+### `error: tsyringe requires a reflect polyfill`
+
+This error message comes from a dependency of c2pa-ts, `@peculiar/x509`, requiring a Reflect API Polyfill. The fix is to simply add one of the recommended polyfill packages to your project and add an import to the top of your code. See [the `@peculiar/x509` repository](https://github.com/PeculiarVentures/x509?tab=readme-ov-file#%EF%B8%8F-reflect-polyfill-required) for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

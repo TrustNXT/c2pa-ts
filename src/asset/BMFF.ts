@@ -652,7 +652,7 @@ class ItemLocationBox extends FullBox<ItemLocationBoxPayload> {
             let constructionMethod: ItemLocationConstructionMethod | undefined;
             if (this.payload.version > 0) {
                 pos++;
-                constructionMethod = (buf[pos++] & 0x0f) as ItemLocationConstructionMethod;
+                constructionMethod = buf[pos++] & 0x0f;
             }
 
             const dataReferenceIndex = BinaryHelper.readUInt16(buf, pos);

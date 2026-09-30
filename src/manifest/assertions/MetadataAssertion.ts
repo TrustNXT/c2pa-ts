@@ -142,7 +142,7 @@ export class MetadataAssertion extends Assertion {
                 }
                 return retObj;
             }
-            return item as MetadataValue;
+            return item;
         };
 
         for (const key in content) {

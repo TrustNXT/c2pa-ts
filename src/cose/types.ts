@@ -42,6 +42,7 @@ export enum TimestampVersion {
 }
 
 export interface TimestampToken {
-    response: pkijs.TimeStampResp;
     version: TimestampVersion;
+    status?: pkijs.PKIStatusInfo;
+    response: pkijs.ContentInfo;
 }

@@ -108,7 +108,7 @@ export class ValidationResult {
      * Returns the validation result as a list of status-map entries
      */
     public toRepresentation(): raw.StatusMap[] {
-        return this.statusEntries as raw.StatusMap[];
+        return this.statusEntries;
     }
 
     /**
