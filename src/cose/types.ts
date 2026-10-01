@@ -1,3 +1,4 @@
+import { X509Certificate } from '@peculiar/x509';
 import * as pkijs from 'pkijs';
 
 export interface TstContainer {
@@ -46,3 +47,5 @@ export interface TimestampToken {
     status?: pkijs.PKIStatusInfo;
     response: pkijs.ContentInfo;
 }
+
+export type TrustListImportType = string | Uint8Array | X509Certificate;

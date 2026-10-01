@@ -189,7 +189,8 @@ export function getExpectedValidationStatusEntriesWrongTimeStamp(manifestLabel: 
     return [
         {
             code: ValidationStatusCode.TimeStampOutsideValidity,
-            explanation: 'The signed time-stamp attribute in the signature was created outside the validity period of the TSA\'s certificate.',
+            explanation:
+                "The signed time-stamp attribute in the signature was created outside the validity period of the TSA's certificate.",
             url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
             success: true,
         },
@@ -224,7 +225,8 @@ export function getExpectedValidationStatusEntriesClaimSignatureOutsideValidity(
         },
         {
             code: ValidationStatusCode.ClaimSignatureOutsideValidity,
-            explanation: 'The claim signature referenced in the claim was created outside the validity period of the signing credential.',
+            explanation:
+                'The claim signature referenced in the claim was created outside the validity period of the signing credential.',
             url: `self#jumbf=/c2pa/${manifestLabel}/c2pa.signature`,
             success: false,
         },
