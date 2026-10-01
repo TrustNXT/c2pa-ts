@@ -23,7 +23,7 @@ Anything that's not listed below is not currently planned to be implemented.
 ### Overall functionality
 
 - :white_check_mark: Reading manifests
-- :construction: Validating manifests (mostly implemented except chain of trust validation)
+- :white_check_mark: Validating manifests
 - :white_check_mark: Creating manifests
 
 :information_source: On C2PA versions: The library is targeted at C2PA specification 2.1, however data structures from older versions of the specification are also supported for backwards compatibility.
@@ -53,7 +53,7 @@ Anything that's not listed below is not currently planned to be implemented.
 - :white_check_mark: Metadata (specialized, common, generic, and CAWG variants)
 - :white_check_mark: Creative Work
 - :white_check_mark: Training and Data Mining (C2PA and CAWG variants)
-- :x: CAWG Identity
+- :construction: CAWG Identity
 
 ### JUMBF boxes
 
@@ -124,6 +124,25 @@ if (jumbf) {
     console.log('Validation result', validationResult);
 }
 ```
+
+</details>
+
+<details>
+
+<summary>Configuring trust anchors</summary>
+
+Signing certificates and timestamp authority (TSA) certificates are validated against a chain of trust. Without trust anchors, all signing credentials are reported as untrusted (`signingCredential.untrusted`) and timestamps as `timeStamp.untrusted`. Pass the trust anchors (PEM strings, DER bytes or `X509Certificate` instances) as validation options:
+
+```typescript
+import * as fs from 'node:fs/promises';
+
+const validationResult = await manifests.validate(asset, {
+    trustAnchors: [await fs.readFile('trust-list.pem', 'utf8')],
+    timestampTrustAnchors: [await fs.readFile('tsa-trust-list.pem', 'utf8')],
+});
+```
+
+`TrustList.setTrustAnchors()` and `TrustList.setTimestampTrustAnchors()` configure global defaults, but are deprecated.
 
 </details>
 

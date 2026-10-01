@@ -1,4 +1,5 @@
 import * as COSE from '../cose';
+import { ValidationOptions } from '../cose';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
 import { MalformedContentError } from '../util';
@@ -78,9 +79,9 @@ export class Signature implements ManifestComponent {
         return this.sourceBox;
     }
 
-    public async validate(payload: Uint8Array): Promise<ValidationResult> {
+    public async validate(payload: Uint8Array, validationOptions?: ValidationOptions): Promise<ValidationResult> {
         try {
-            return await this.signatureData.validate(payload, this.sourceBox);
+            return await this.signatureData.validate(payload, this.sourceBox, validationOptions);
         } catch (e) {
             if (e instanceof MalformedContentError) {
                 return ValidationResult.error(ValidationStatusCode.SigningCredentialInvalid, this.sourceBox);

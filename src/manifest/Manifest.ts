@@ -1,5 +1,5 @@
 import { Asset } from '../asset';
-import { Signer } from '../cose';
+import { Signer, ValidationOptions } from '../cose';
 import { HashAlgorithm } from '../crypto';
 import { Crypto } from '../crypto/Crypto';
 import * as JUMBF from '../jumbf';
@@ -247,9 +247,10 @@ export class Manifest implements ManifestComponent {
     /**
      * Verifies the manifest's claim's validity
      * @param asset - Asset for validation of bindings
+     * @param validationOptions - Validation options
      * @returns Promise resolving to ValidationResult
      */
-    public async validate(asset: Asset): Promise<ValidationResult> {
+    public async validate(asset: Asset, validationOptions?: ValidationOptions): Promise<ValidationResult> {
         const result = new ValidationResult();
 
         if (!this.claim?.sourceBox) {
@@ -260,7 +261,7 @@ export class Manifest implements ManifestComponent {
         // Validate the signature
         const referencedSignature = this.getComponentByURL(this.claim?.signatureRef, true);
         if (this.signature && referencedSignature === this.signature) {
-            result.merge(await this.signature.validate(this.claim.getBytes(this.claim)!));
+            result.merge(await this.signature.validate(this.claim.getBytes(this.claim)!, validationOptions));
         } else {
             result.addError(ValidationStatusCode.ClaimSignatureMissing, this.claim.signatureRef);
         }
@@ -409,7 +410,6 @@ export class Manifest implements ManifestComponent {
         const result = new ValidationResult();
 
         // TODO If the assertion’s label is c2pa.cloud-data...
-
         if (assertion.label === AssertionLabels.actions || assertion.label === AssertionLabels.actionsV2) {
             result.merge(await this.validateActionAssertion(assertionReference, assertion as ActionAssertion));
         }
@@ -600,8 +600,8 @@ export class Manifest implements ManifestComponent {
         assertion: ActionAssertion,
     ): ValidationResult {
         const result = new ValidationResult();
-        const hasRequiredAction = assertion.actions.some(
-            a => a.action === ActionType.C2paCreated || a.action === ActionType.C2paOpened,
+        const hasRequiredAction = assertion.actions.some(a =>
+            [ActionType.C2paCreated, ActionType.C2paOpened, ActionType.C2paWatermarked].includes(a.action),
         );
 
         if (!hasRequiredAction) {

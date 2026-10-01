@@ -52,6 +52,9 @@ export class AssertionLabels {
     /** CAWG Training and Data Mining assertion */
     public static readonly cawgTrainingAndDataMining = 'cawg.training-mining';
 
+    /** CAWG Identity assertion */
+    public static readonly identity = 'cawg.identity';
+
     public static readonly thumbnailPrefix = 'c2pa.thumbnail.claim.';
     public static readonly ingredientThumbnailPrefix = 'c2pa.thumbnail.ingredient';
 }

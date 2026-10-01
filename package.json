@@ -21,6 +21,10 @@
       "types": "./dist/asset/index.d.ts",
       "import": "./dist/asset/index.js"
     },
+    "./cawg": {
+      "types": "./dist/cawg/index.d.ts",
+      "import": "./dist/cawg/index.js"
+    },
     "./cose": {
       "types": "./dist/cose/index.d.ts",
       "import": "./dist/cose/index.js"

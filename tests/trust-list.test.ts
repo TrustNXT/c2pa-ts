@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import { beforeAll, describe, it } from 'bun:test';
 import { Asset, AssetType, BMFF, JPEG, PNG } from '../src/asset';
+import { ValidationOptions } from '../src/cose';
 import { SuperBox } from '../src/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
 import { BinaryHelper } from '../src/util';
-import { setTimestampTrustList, setTrustList } from './utils/set-trust-list';
+import { getTimestampTrustAnchors, getTrustAnchors } from './utils/set-trust-list';
 
 const baseDir = 'tests/fixtures';
 
@@ -160,44 +161,37 @@ const testFiles: Record<string, TestExpectations> = {
     'public-testfiles/legacy/1.4/image/jpeg/truepic-20230212-camera.jpg': {
         assetType: JPEG,
         jumbf: true,
-        valid: true,
+        valid: false,
+        statusCodes: [ValidationStatusCode.SigningCredentialUntrusted],
     },
     'public-testfiles/legacy/1.4/image/jpeg/truepic-20230212-landscape.jpg': {
         assetType: JPEG,
         jumbf: true,
-        valid: true,
+        valid: false,
+        statusCodes: [ValidationStatusCode.SigningCredentialUntrusted],
     },
     'public-testfiles/legacy/1.4/image/jpeg/truepic-20230212-library.jpg': {
         assetType: JPEG,
         jumbf: true,
-        valid: true,
+        valid: false,
+        statusCodes: [ValidationStatusCode.SigningCredentialUntrusted],
     },
     'public-testfiles/legacy/1.4/video/mp4/truepic-20230212-zoetrope.mp4': {
         assetType: BMFF,
         jumbf: true,
-        valid: true,
+        valid: false,
+        statusCodes: [ValidationStatusCode.SigningCredentialUntrusted],
     },
     'amazon-titan-g1.png': {
         assetType: PNG,
         jumbf: true,
         valid: true,
     },
-    'trustnxt-icon.jpg': {
-        assetType: JPEG,
-        jumbf: false,
-    },
-    'trustnxt-icon.png': {
-        assetType: PNG,
-        jumbf: false,
-    },
-    'trustnxt-icon.heic': {
-        assetType: BMFF,
-        jumbf: false,
-    },
     'trustnxt-icon-signed-v2-bmff.heic': {
         assetType: BMFF,
         jumbf: true,
-        valid: true,
+        valid: false,
+        statusCodes: [ValidationStatusCode.SigningCredentialUntrusted],
     },
     'trustnxt-icon-signed-timestamp.jpg': {
         assetType: JPEG,
@@ -206,12 +200,14 @@ const testFiles: Record<string, TestExpectations> = {
     },
 };
 
+const validationOptions: ValidationOptions = {};
+
 beforeAll(async () => {
-    await setTrustList();
-    await setTimestampTrustList();
+    validationOptions.trustAnchors = await getTrustAnchors('tests/fixtures/trust-list-wrong.pem');
+    validationOptions.timestampTrustAnchors = await getTimestampTrustAnchors('tests/fixtures/timestamp-trust-list.pem');
 });
 
-describe('Functional Asset Reading Tests', function () {
+describe('Trust list tests', function () {
     for (const [filename, data] of Object.entries(testFiles)) {
         describe(`test file ${filename}`, () => {
             let buf: Buffer | undefined = undefined;
@@ -266,7 +262,7 @@ describe('Functional Asset Reading Tests', function () {
                     const manifests = ManifestStore.read(superBox);
 
                     // Validate the asset with the manifest
-                    validationResult = await manifests.validate(asset);
+                    validationResult = await manifests.validate(asset, validationOptions);
 
                     const message =
                         data.valid ?
