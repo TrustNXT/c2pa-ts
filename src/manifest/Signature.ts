@@ -1,5 +1,5 @@
-import type { ValidationOptions } from '../cose';
 import * as COSE from '../cose';
+import { ValidationOptions } from '../cose';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
 import { MalformedContentError } from '../util';

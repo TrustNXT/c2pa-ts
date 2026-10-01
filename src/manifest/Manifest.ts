@@ -247,7 +247,7 @@ export class Manifest implements ManifestComponent {
     /**
      * Verifies the manifest's claim's validity
      * @param asset - Asset for validation of bindings
-     * @param validationOptions - Optional validation options including trust anchors
+     * @param validationOptions - Validation options
      * @returns Promise resolving to ValidationResult
      */
     public async validate(asset: Asset, validationOptions?: ValidationOptions): Promise<ValidationResult> {
@@ -410,7 +410,6 @@ export class Manifest implements ManifestComponent {
         const result = new ValidationResult();
 
         // TODO If the assertion’s label is c2pa.cloud-data...
-
         if (assertion.label === AssertionLabels.actions || assertion.label === AssertionLabels.actionsV2) {
             result.merge(await this.validateActionAssertion(assertionReference, assertion as ActionAssertion));
         }
@@ -601,8 +600,8 @@ export class Manifest implements ManifestComponent {
         assertion: ActionAssertion,
     ): ValidationResult {
         const result = new ValidationResult();
-        const hasRequiredAction = assertion.actions.some(
-            a => a.action === ActionType.C2paCreated || a.action === ActionType.C2paOpened,
+        const hasRequiredAction = assertion.actions.some(a =>
+            [ActionType.C2paCreated, ActionType.C2paOpened, ActionType.C2paWatermarked].includes(a.action),
         );
 
         if (!hasRequiredAction) {

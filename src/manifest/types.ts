@@ -59,6 +59,11 @@ export enum ValidationStatusCode {
     IngredientManifestValidated = 'ingredient.manifest.validated',
     IngredientClaimSignatureValidated = 'ingredient.claimSignature.validated',
 
+    /** The identity assertion is validated and trusted */
+    Trusted = 'cawg.identity.trusted',
+    /** The identity assertion is well-formed but not trusted */
+    WellFormed = 'cawg.identity.well-formed',
+
     // Informational codes
     SigningCredentialOCSPSkipped = 'signingCredential.ocsp.skipped',
     SigningCredentialOCSPInaccessible = 'signingCredential.ocsp.inaccessible',
@@ -129,6 +134,86 @@ export enum ValidationStatusCode {
     HashedURIMissing = 'hashedURI.missing',
     HashedURIMismatch = 'hashedURI.mismatch',
     GeneralError = 'general.error',
+
+    /**
+     * General failure codes for identity assertions
+     */
+    /** The CBOR of the identity assertion is not valid */
+    IdentityCborInvalid = 'cawg.identity.cbor.invalid',
+    /** Referenced assertion could not be found in the C2PA claim */
+    IdentityAssertionMismatch = 'cawg.identity.assertion.mismatch',
+    /** Identity assertion contains duplicate assertion references */
+    IdentityAssertionDuplicate = 'cawg.identity.assertion.duplicate',
+    /** Identity assertion was signed using a revoked credential */
+    IdentityCredentialRevoked = 'cawg.identity.credential_revoked',
+    /** Identity assertion does not reference a hard binding assertion */
+    IdentityHardBindingMissing = 'cawg.identity.hard_binding_missing',
+    /** Identity assertion does not reference the correct hard binding assertion */
+    IdentityHardBindingIncorrect = 'cawg.identity.hard_binding_incorrect',
+    /** The sig_type is not recognized */
+    IdentitySigTypeUnknown = 'cawg.identity.sig_type.unknown',
+    /** Pad field contains non-zero bytes */
+    IdentityPadInvalid = 'cawg.identity.pad.invalid',
+    /** The expected_partial_claim field did not match */
+    IdentityExpectedPartialClaimMismatch = 'cawg.identity.expected_partial_claim.mismatch',
+    /** The expected_claim_generator field did not match */
+    IdentityExpectedClaimGeneratorMismatch = 'cawg.identity.expected_claim_generator.mismatch',
+    /** Unexpected identity assertion exists in the manifest */
+    IdentityUnexpectedCountersigner = 'cawg.identity.unexpected_countersigner',
+    /** Identity assertion has different signing credentials than expected */
+    IdentityExpectedCountersignerMismatch = 'cawg.identity.expected_countersigner.mismatch',
+    /** Expected identity assertion is missing from the manifest */
+    IdentityExpectedCountersignerMissing = 'cawg.identity.expected_countersigner.missing',
+
+    /**
+     * Identity Claims Aggregation (ICA) specific status codes
+     */
+    /** The ICA credential has passed all validation requirements */
+    IcaCredentialValid = 'cawg.ica.credential_valid',
+    /** The signature could not be parsed as valid COSE_Sign1 */
+    IcaInvalidCoseSign1 = 'cawg.ica.invalid_cose_sign1',
+    /** The alg header is missing or unsupported */
+    IcaInvalidAlg = 'cawg.ica.invalid_alg',
+    /** The content type header is missing or incorrect */
+    IcaInvalidContentType = 'cawg.ica.invalid_content_type',
+    /** The payload is not a valid Verifiable Credential */
+    IcaInvalidVerifiableCredential = 'cawg.ica.invalid_verifiable_credential',
+    /** The issuer field is not a DID */
+    IcaInvalidIssuer = 'cawg.ica.invalid_issuer',
+    /** The issuer DID uses an unsupported method */
+    IcaDidUnsupportedMethod = 'cawg.ica.did_unsupported_method',
+    /** Unable to resolve the DID document */
+    IcaDidUnavailable = 'cawg.ica.did_unavailable',
+    /** DID document could not be parsed */
+    IcaInvalidDidDocument = 'cawg.ica.invalid_did_document',
+    /** DID is from an untrusted source */
+    IcaUntrustedIssuer = 'cawg.ica.untrusted_issuer',
+    /** Signature is not valid */
+    IcaSignatureMismatch = 'cawg.ica.signature_mismatch',
+    /** Valid RFC 3161 timestamp found */
+    IcaTimeStampValidated = 'cawg.ica.time_stamp.validated',
+    /** Invalid RFC 3161 timestamp found */
+    IcaTimeStampInvalid = 'cawg.ica.time_stamp.invalid',
+    /** Missing issuanceDate or validFrom field */
+    IcaValidFromMissing = 'cawg.ica.valid_from.missing',
+    /** Invalid issuanceDate or validFrom value */
+    IcaValidFromInvalid = 'cawg.ica.valid_from.invalid',
+    /** Invalid expirationDate or validUntil value */
+    IcaValidUntilInvalid = 'cawg.ica.valid_until.invalid',
+    /** Unsupported revocation method */
+    IcaRevocationUnsupported = 'cawg.ica.revocation.unsupported',
+    /** Revocation status unavailable */
+    IcaRevocationUnavailable = 'cawg.ica.revocation.unavailable',
+    /** Credential verified as not revoked */
+    IcaCredentialNotRevoked = 'cawg.ica.credential.not_revoked',
+    /** Credential was found to be revoked */
+    IcaCredentialRevoked = 'cawg.ica.credential.revoked',
+    /** c2paAsset field does not match signer_payload */
+    IcaSignerPayloadMismatch = 'cawg.ica.signer_payload.mismatch',
+    /** verifiedIdentities field is missing */
+    IcaVerifiedIdentitiesMissing = 'cawg.ica.verified_identities.missing',
+    /** One or more verifiedIdentities entries is invalid */
+    IcaVerifiedIdentitiesInvalid = 'cawg.ica.verified_identities.invalid',
 }
 
 export interface ValidationStatusEntry {

@@ -337,7 +337,7 @@ export class Signature {
                     result.addInformational(
                         trust,
                         sourceBox,
-                        'The signed time-stamp attribute in the signature was created outside the validity period of the TSA\'s certificate.',
+                        "The signed time-stamp attribute in the signature was created outside the validity period of the TSA's certificate.",
                     );
                     continue;
                 }
@@ -449,7 +449,11 @@ export class Signature {
         signedData: pkijs.SignedData,
         timestamp: Date,
         timestampTrustAnchors: X509Certificate[],
-    ): Promise<ValidationStatusCode.TimeStampOutsideValidity | ValidationStatusCode.TimeStampUntrusted | ValidationStatusCode.TimeStampTrusted> {
+    ): Promise<
+        | ValidationStatusCode.TimeStampOutsideValidity
+        | ValidationStatusCode.TimeStampUntrusted
+        | ValidationStatusCode.TimeStampTrusted
+    > {
         const signerCertificate = Signature.getSignedDataSignerCertificate(signedData);
         if (!signerCertificate) {
             return ValidationStatusCode.TimeStampUntrusted;
@@ -479,7 +483,9 @@ export class Signature {
             timestampTrustAnchors,
         );
 
-        return chainValidation === ValidationStatusCode.SigningCredentialTrusted ? ValidationStatusCode.TimeStampTrusted : ValidationStatusCode.TimeStampUntrusted;
+        return chainValidation === ValidationStatusCode.SigningCredentialTrusted ?
+                ValidationStatusCode.TimeStampTrusted
+            :   ValidationStatusCode.TimeStampUntrusted;
     }
 
     private getTimestampWithoutVerification(): Date | undefined {

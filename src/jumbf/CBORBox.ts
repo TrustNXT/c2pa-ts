@@ -64,6 +64,7 @@ export class CBORBox extends Box {
         // those to the corresponding integers.
         keyMap: {
             '1': 1,
+            '3': 3,
             '33': 33,
         },
     };

@@ -5,6 +5,7 @@ import {
     BMFFHashAssertion,
     CreativeWorkAssertion,
     DataHashAssertion,
+    IdentityAssertion,
     IngredientAssertion,
     MetadataAssertion,
     TrainingAndDataMiningAssertion,
@@ -76,6 +77,8 @@ export class AssertionStore implements ManifestComponent {
             assertion = new CreativeWorkAssertion();
         } else if (label.label === AssertionLabels.dataHash) {
             assertion = new DataHashAssertion();
+        } else if (label.label === AssertionLabels.identity) {
+            assertion = new IdentityAssertion();
         } else if (
             label.label === AssertionLabels.ingredient ||
             label.label === AssertionLabels.ingredientV2 ||
@@ -177,5 +180,13 @@ export class AssertionStore implements ManifestComponent {
         return this.assertions.filter(
             (a): a is IngredientAssertion => a instanceof IngredientAssertion && a.relationship === relationship,
         );
+    }
+
+    /**
+     * Gets all identity assertions from the store
+     * @returns Array of IdentityAssertion objects
+     */
+    public getIdentityAssertions(): IdentityAssertion[] {
+        return this.assertions.filter(assertion => assertion instanceof IdentityAssertion);
     }
 }

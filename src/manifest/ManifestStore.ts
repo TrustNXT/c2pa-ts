@@ -130,7 +130,8 @@ export class ManifestStore {
     /**
      * Validates the active manifest
      * @param asset Asset for validation of bindings
-     * @param validationOptions Optional validation options including trust anchors
+     * // TODO: Consider moving the options to a service instead of passing through the manifest store and manifest layers
+     * @param validationOptions Validation options for C2PA
      */
     public async validate(asset: Asset, validationOptions?: ValidationOptions): Promise<ValidationResult> {
         const activeManifest = this.getActiveManifest();

@@ -1,4 +1,5 @@
 import { X509Certificate } from '@peculiar/x509';
+import { BinaryHelper } from '../util';
 
 export class TrustList {
     private static readonly PEM_CACHE_LIMIT = 8;
@@ -112,43 +113,11 @@ export class TrustList {
         while ((match = pattern.exec(pem)) !== null) {
             const base64 = match[1].replace(/\r?\n|\s/g, '');
             try {
-                out.push(this.base64ToBytes(base64));
+                out.push(BinaryHelper.base64ToBytes(base64));
             } catch {
                 /* ignore invalid blocks */
             }
         }
         return out;
-    }
-
-    private static base64ToBytes(base64: string): Uint8Array {
-        const fromBase64 = (
-            Uint8Array as unknown as {
-                fromBase64?: (input: string) => Uint8Array;
-            }
-        ).fromBase64;
-        if (typeof fromBase64 === 'function') {
-            return fromBase64(base64);
-        }
-
-        interface GlobalWithBuffer {
-            Buffer?: {
-                from: (input: string, encoding: 'base64') => Uint8Array;
-            };
-        }
-        const bufferCtor = (globalThis as GlobalWithBuffer).Buffer;
-        if (bufferCtor?.from) {
-            return new Uint8Array(bufferCtor.from(base64, 'base64'));
-        }
-
-        if (typeof globalThis.atob === 'function') {
-            const binary = globalThis.atob(base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                bytes[i] = binary.charCodeAt(i);
-            }
-            return bytes;
-        }
-
-        throw new Error('No base64 decoder available in this runtime');
     }
 }
