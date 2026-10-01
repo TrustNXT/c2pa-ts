@@ -1,5 +1,6 @@
 import { X509Certificate } from '@peculiar/x509';
 import { BinaryHelper } from '../util';
+import { TrustListImportType } from './types';
 
 export class TrustList {
     private static readonly PEM_CACHE_LIMIT = 8;
@@ -29,7 +30,7 @@ export class TrustList {
      * Configures global trust anchors used for PKI.js chain validation.
      * Accepts PEM strings (single or multiple concatenated certs), DER bytes, or `X509Certificate` instances.
      */
-    public static setTrustAnchors(anchors: (string | Uint8Array | X509Certificate)[]): void {
+    public static setTrustAnchors(anchors: TrustListImportType[]): void {
         TrustList.trustAnchors = TrustList.parseTrustAnchors(anchors);
     }
 
@@ -41,7 +42,7 @@ export class TrustList {
      * Configures global timestamp trust anchors used for PKI.js chain validation.
      * Accepts PEM strings (single or multiple concatenated certs), DER bytes, or `X509Certificate` instances.
      */
-    public static setTimestampTrustAnchors(anchors: (string | Uint8Array | X509Certificate)[]): void {
+    public static setTimestampTrustAnchors(anchors: TrustListImportType[]): void {
         TrustList.timestampTrustAnchors = TrustList.parseTrustAnchors(anchors);
     }
 
@@ -53,7 +54,7 @@ export class TrustList {
      * @throws Error if the input contains data but none of it could be parsed as a certificate.
      * Individual malformed entries are skipped as long as at least one certificate could be parsed.
      */
-    public static parseTrustAnchors(anchors: (string | Uint8Array | X509Certificate)[] = []): X509Certificate[] {
+    public static parseTrustAnchors(anchors: TrustListImportType[] = []): X509Certificate[] {
         const out: X509Certificate[] = [];
         let hasContent = false;
         for (const a of anchors) {
