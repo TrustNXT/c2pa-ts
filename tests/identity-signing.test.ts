@@ -568,6 +568,26 @@ describe('Identity Assertion expected_claim_generator Validation', function () {
         await asset.writeManifestJUMBF(manifestStore.getBytes());
         await fs.writeFile(targetFileWrong, await asset.getDataRange());
     });
+
+    it('reports IdentityExpectedClaimGeneratorMismatch for wrong hash', async function () {
+        const buf = await fs.readFile(targetFileWrong).catch(() => undefined);
+        if (!buf) assert.fail('Failed to read target file for wrong hash');
+
+        const asset = await JPEG.create(buf);
+        const jumbf = await asset.getManifestJUMBF();
+        assert.ok(jumbf, 'no JUMBF found');
+
+        const superBox = SuperBox.fromBuffer(jumbf);
+        const manifestStore = ManifestStore.read(superBox);
+
+        const validationResult = await manifestStore.validate(asset);
+
+        const ecgMismatch = validationResult.statusEntries.find(
+            e => e.code === ValidationStatusCode.IdentityExpectedClaimGeneratorMismatch,
+        );
+        assert.ok(ecgMismatch, 'IdentityExpectedClaimGeneratorMismatch should be reported for wrong hash');
+        assert.ok(!ecgMismatch.success, 'mismatch entry should not be a success');
+    });
 });
 
 describe('Identity Assertion Reference Verification', function () {

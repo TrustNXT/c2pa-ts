@@ -405,4 +405,5 @@ export enum CAWGTrainingAndDataMiningKey {
 }
 
 export const C2PA_URN_PREFIX_V2 = 'urn:c2pa:';
+
 export const C2PA_URN_PREFIX_V1 = 'urn:uuid:';

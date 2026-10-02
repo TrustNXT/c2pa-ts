@@ -80,10 +80,13 @@
     "@peculiar/x509": "^2.0.0",
     "cbor-x": "^1.6.0",
     "crc-32": "^1.2.2",
+    "did-resolver": "^4.1.0",
+    "key-did-resolver": "^4.0.0",
     "pkijs": "^3.2.4",
     "schema-dts": "^2.0.0",
     "typed-binary": "^4.1.1",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "web-did-resolver": "^2.0.32"
   },
   "scripts": {
     "lint": "eslint src tests",

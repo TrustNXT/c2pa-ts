@@ -9,15 +9,15 @@ import { SigStructure } from '../cose/SigStructure';
 import { CBORBox } from '../jumbf';
 import { IdentitySigner } from './identity-signer';
 import {
+    CredentialStatus,
     SCHEMA_URL,
+    SignerPayloadMap,
     VC_CONTEXT,
     VC_TYPE,
+    VerifiableCredential,
     VerifiedIdentity,
-    type CredentialStatus,
-    type SignerPayloadMap,
-    type VerifiableCredential,
-} from './types.js';
-import { signerPayloadToC2paAssetBinding } from './utils.js';
+} from './types';
+import { signerPayloadToC2paAssetBinding } from './utils';
 
 export class IdentityClaimsAggregation {
     signer: IdentitySigner | Signer;

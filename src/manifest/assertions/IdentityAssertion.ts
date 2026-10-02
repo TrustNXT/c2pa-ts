@@ -1,6 +1,13 @@
 import 'core-js/full/reflect';
 import { Asset } from '../../asset';
-import { IdentityClaimsAggregation, IdentitySigner, isEmptyOrMissing, NamedActorRole, SignatureType } from '../../cawg';
+import {
+    CawgValidator,
+    IdentityClaimsAggregation,
+    IdentitySigner,
+    isEmptyOrMissing,
+    NamedActorRole,
+    SignatureType,
+} from '../../cawg';
 import { Signer } from '../../cose';
 import * as JUMBF from '../../jumbf';
 import { TimestampProvider } from '../../rfc3161';
@@ -10,6 +17,8 @@ import { Manifest } from '../Manifest';
 import * as raw from '../rawTypes';
 import { ValidationStatusCode } from '../types';
 import { ValidationError } from '../ValidationError';
+import { CawgTrustConfiguration } from '../ValidationOptions';
+import { ValidationResult } from '../ValidationResult';
 import { Assertion } from './Assertion';
 import { AssertionLabels } from './AssertionLabels';
 import { DataHashAssertion } from './DataHashAssertion';
@@ -153,6 +162,25 @@ export class IdentityAssertion extends Assertion {
 
         box.content = rawContent;
         return box;
+    }
+
+    public override async validate(
+        manifest: Manifest,
+        cawgTrustConfiguration?: CawgTrustConfiguration,
+    ): Promise<ValidationResult> {
+        const result = await super.validate(manifest);
+
+        if (!this.sourceBox) {
+            throw new ValidationError(
+                ValidationStatusCode.AssertionCBORInvalid,
+                undefined,
+                'Identity assertion is missing source box reference',
+            );
+        }
+        const cawgValidator = new CawgValidator(manifest, this, this.label, this.sourceBox, cawgTrustConfiguration);
+        result.merge(await cawgValidator.validate());
+
+        return result;
     }
 
     /**

@@ -15,7 +15,7 @@ import * as pkijs from 'pkijs';
 import { Crypto } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { CBORBox } from '../jumbf';
-import { ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
+import { CawgValidationOptions, ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
 import { Timestamp, TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
 import { Algorithms, CoseAlgorithm } from './Algorithms';
@@ -31,25 +31,6 @@ import {
     TstContainer,
     UnprotectedBucket,
 } from './types';
-
-/**
- * Options for signature validation.
- *
- * Trust anchors are resolved independently per option: an option that is not provided falls back to the global
- * (deprecated) `TrustList`. Providing only `trustAnchors` therefore still uses `TrustList.timestampTrustAnchors`
- * for timestamp validation, and vice versa. Pass an empty array to explicitly trust nothing.
- */
-export interface ValidationOptions {
-    /**
-     * Trust anchors (root certificates) to use for chain validation.
-     * Accepts PEM strings, DER bytes, or X509Certificate instances.
-     * If not provided, defaults to TrustList.trustAnchors for backwards compatibility.
-     */
-    trustAnchors?: (string | Uint8Array | X509Certificate)[];
-
-    /** Dedicated trust anchors for timestamp authority chains */
-    timestampTrustAnchors?: (string | Uint8Array | X509Certificate)[];
-}
 
 export class Signature {
     public algorithm?: CoseAlgorithm;
@@ -262,7 +243,7 @@ export class Signature {
         v1Payload: Uint8Array,
         v2Payload: Uint8Array,
         sourceBox?: JUMBF.IBox,
-        validationOptions?: ValidationOptions,
+        validationOptions?: CawgValidationOptions,
     ): Promise<ValidationResult> {
         this.validatedTimestamp = undefined;
 
@@ -370,7 +351,8 @@ export class Signature {
         return result;
     }
 
-    private static async verifySignedDataSignature(signedData: pkijs.SignedData): Promise<boolean> {
+    /** @internal */
+    public static async verifySignedDataSignature(signedData: pkijs.SignedData): Promise<boolean> {
         const certificate = Signature.getSignedDataSignerCertificate(signedData);
         if (!(certificate instanceof pkijs.Certificate)) return false;
 
@@ -465,7 +447,7 @@ export class Signature {
             return ValidationStatusCode.TimeStampOutsideValidity;
         }
 
-        const signerCertificateValidation = this.validateCertificate(signerX509Certificate, timestamp, false);
+        const signerCertificateValidation = Signature.validateCertificate(signerX509Certificate, timestamp, false);
         if (signerCertificateValidation !== ValidationStatusCode.SigningCredentialTrusted) {
             return ValidationStatusCode.TimeStampUntrusted;
         }
@@ -561,7 +543,7 @@ export class Signature {
     public async validate(
         payload: Uint8Array,
         sourceBox?: JUMBF.IBox,
-        validationOptions?: ValidationOptions,
+        validationOptions?: CawgValidationOptions,
     ): Promise<ValidationResult> {
         if (!this.certificate || !this.rawProtectedBucket || !this.signature || !this.algorithm) {
             return ValidationResult.error(ValidationStatusCode.SigningCredentialInvalid, sourceBox);
@@ -583,7 +565,7 @@ export class Signature {
                 TrustList.parseTrustAnchors(validationOptions.trustAnchors)
             :   TrustList.trustAnchors;
 
-        let code = this.validateCertificate(this.certificate, timestamp, true);
+        let code = Signature.validateCertificate(this.certificate, timestamp, true);
         if (code === ValidationStatusCode.SigningCredentialTrusted) {
             code = await this.validateChain(this.certificate, timestamp, this.chainCertificates, trustAnchors);
         }
@@ -612,7 +594,8 @@ export class Signature {
         return result;
     }
 
-    private validateCertificate(
+    /** @internal */
+    public static validateCertificate(
         certificate: X509Certificate,
         validityTimestamp: Date,
         isUsedForManifestSigning: boolean,
@@ -877,7 +860,7 @@ export class Signature {
         }
 
         // Validate certificate and timestamp for the issuer
-        const validateCertificate = this.validateCertificate(issuer, timestamp, false);
+        const validateCertificate = Signature.validateCertificate(issuer, timestamp, false);
         if (validateCertificate !== ValidationStatusCode.SigningCredentialTrusted) {
             return false;
         }

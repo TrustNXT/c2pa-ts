@@ -1,0 +1,277 @@
+{
+    "active_manifest": "urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe",
+    "manifests": {
+        "urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe": {
+            "claim_generator_info": [
+                {
+                    "name": "Adobe Content Authenticity",
+                    "com.adobe.aca-version": "8791f66",
+                    "org.contentauth.c2pa_rs": "0.67.1"
+                }
+            ],
+            "title": "bert-1000x1000.png",
+            "instance_id": "xmp:iid:4a8da738-24df-4f29-9c16-34f047630c32",
+            "thumbnail": {
+                "format": "image/png",
+                "identifier": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.thumbnail.claim"
+            },
+            "ingredients": [
+                {
+                    "title": "bert-1000x1000.png",
+                    "format": "image/png",
+                    "instance_id": "xmp.iid:fc99e75a-7857-4b2e-b285-0b04c623727f",
+                    "relationship": "parentOf",
+                    "label": "c2pa.ingredient.v3"
+                }
+            ],
+            "assertions": [
+                {
+                    "label": "c2pa.actions.v2",
+                    "data": {
+                        "actions": [
+                            {
+                                "action": "c2pa.opened",
+                                "parameters": {
+                                    "ingredients": [
+                                        {
+                                            "url": "self#jumbf=c2pa.assertions/c2pa.ingredient.v3",
+                                            "hash": "y7s8aF5crub7sEn8mpsiFhxGxDwpthGJWG1/2puUoxU="
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "action": "c2pa.watermarked"
+                            }
+                        ]
+                    },
+                    "created": true
+                },
+                {
+                    "label": "cawg.training-mining",
+                    "data": {
+                        "entries": {
+                            "cawg.ai_inference": {
+                                "use": "notAllowed"
+                            },
+                            "cawg.ai_generative_training": {
+                                "use": "notAllowed"
+                            }
+                        }
+                    }
+                },
+                {
+                    "label": "c2pa.training-mining",
+                    "data": {
+                        "entries": {
+                            "c2pa.ai_inference": {
+                                "use": "notAllowed"
+                            },
+                            "c2pa.ai_generative_training": {
+                                "use": "notAllowed"
+                            }
+                        }
+                    }
+                },
+                {
+                    "label": "c2pa.soft-binding",
+                    "data": {
+                        "alg": "com.adobe.trustmark.P",
+                        "blocks": [
+                            {
+                                "scope": {},
+                                "value": "2*10000111100010111110101101101001010000100011000000100101100110001100"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "label": "c2pa.soft-binding__1",
+                    "data": {
+                        "alg": "com.adobe.icn.dense",
+                        "blocks": [
+                            {
+                                "scope": {},
+                                "value": "00035c1f2cb6654dc61c01dc191e01b02bca48e804645d629334d8433db034a7466a"
+                            }
+                        ]
+                    },
+                    "instance": 1
+                },
+                {
+                    "label": "cawg.identity",
+                    "data": {
+                        "@context": [
+                            "https://www.w3.org/ns/credentials/v2",
+                            "https://cawg.io/identity/1.1/ica/context/"
+                        ],
+                        "type": ["VerifiableCredential", "IdentityClaimsAggregationCredential"],
+                        "issuer": "did:web:connected-identities.identity.adobe.com",
+                        "validFrom": "2026-02-23T09:30:06Z",
+                        "verifiedIdentities": [
+                            {
+                                "type": "cawg.social_media",
+                                "username": "Bert Lobbezoo",
+                                "uri": "https://www.linkedin.com/profile-thirdparty-redirect/AgE98ZUVbkAsxwAAAZyJygI0XQCgNk3k6dBvmRI8Qckp37bhh27TqJLw4it3IHzNDMCfqyb-V7i8vIXK176Z12xMEsAbr-g_Q5iq71GChX6kMcDtzPJ8zu153PBVgMo",
+                                "verifiedAt": "2026-02-23T09:17:23Z",
+                                "provider": {
+                                    "id": "https://linkedin.com",
+                                    "name": "linkedin"
+                                }
+                            },
+                            {
+                                "type": "cawg.social_media",
+                                "username": "bertlobbezoo",
+                                "uri": "https://www.behance.net/bertlobbezoo",
+                                "verifiedAt": "2026-02-23T09:29:25Z",
+                                "provider": {
+                                    "id": "https://behance.net",
+                                    "name": "behance"
+                                }
+                            }
+                        ],
+                        "credentialSchema": [
+                            {
+                                "id": "https://cawg.io/identity/1.1/ica/schema/",
+                                "type": "JSONSchema"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "signature_info": {
+                "alg": "Ps256",
+                "issuer": "Adobe Inc.",
+                "common_name": "Adobe Content Authenticity",
+                "cert_serial_number": "21260213937340663934497405005441263256",
+                "time": "2026-02-23T09:30:07+00:00"
+            },
+            "label": "urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe",
+            "claim_version": 2
+        }
+    },
+    "validation_status": [
+        {
+            "code": "signingCredential.untrusted",
+            "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.signature",
+            "explanation": "signing certificate untrusted"
+        }
+    ],
+    "validation_results": {
+        "activeManifest": {
+            "success": [
+                {
+                    "code": "signingCredential.ocsp.notRevoked",
+                    "url": "OCSP_RESPONSE",
+                    "explanation": "certificate not revoked"
+                },
+                {
+                    "code": "timeStamp.validated",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.signature",
+                    "explanation": "timestamp message digest matched: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+                },
+                {
+                    "code": "claimSignature.insideValidity",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.signature",
+                    "explanation": "claim signature valid"
+                },
+                {
+                    "code": "claimSignature.validated",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.signature",
+                    "explanation": "claim signature valid"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.thumbnail.claim",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.thumbnail.claim"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.ingredient.v3",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.ingredient.v3"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.actions.v2",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.actions.v2"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.hash.data",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.hash.data"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/cawg.training-mining",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/cawg.training-mining"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.training-mining",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.training-mining"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.soft-binding",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.soft-binding"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.soft-binding__1",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.soft-binding__1"
+                },
+                {
+                    "code": "assertion.hashedURI.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/cawg.identity",
+                    "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/cawg.identity"
+                },
+                {
+                    "code": "assertion.dataHash.match",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.hash.data",
+                    "explanation": "data hash valid"
+                },
+                {
+                    "code": "cawg.ica.credential_valid",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/cawg.identity",
+                    "explanation": "ICA credential is valid"
+                },
+                {
+                    "code": "cawg.ica.credential_valid",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/cawg.identity",
+                    "explanation": "CAWG identity_claims_aggregation signature valid"
+                }
+            ],
+            "informational": [
+                {
+                    "code": "timeStamp.untrusted",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.signature",
+                    "explanation": "timestamp cert untrusted: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+                }
+            ],
+            "failure": [
+                {
+                    "code": "signingCredential.untrusted",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.signature",
+                    "explanation": "signing certificate untrusted"
+                }
+            ]
+        },
+        "ingredientDeltas": [
+            {
+                "ingredientAssertionURI": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.ingredient.v3",
+                "validationDeltas": {
+                    "success": [],
+                    "informational": [
+                        {
+                            "code": "ingredient.unknownProvenance",
+                            "url": "self#jumbf=/c2pa/urn:c2pa:de43afe8-bfd3-40e4-98da-e0645494b155:adobe/c2pa.assertions/c2pa.ingredient.v3",
+                            "explanation": "bert-1000x1000.png: ingredient does not have provenance"
+                        }
+                    ],
+                    "failure": []
+                }
+            }
+        ]
+    },
+    "validation_state": "Valid"
+}

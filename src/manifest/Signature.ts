@@ -1,5 +1,4 @@
 import * as COSE from '../cose';
-import { ValidationOptions } from '../cose';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
 import { MalformedContentError } from '../util';
@@ -7,6 +6,7 @@ import { Claim } from './Claim';
 import * as raw from './rawTypes';
 import { ManifestComponent, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
+import { CawgValidationOptions } from './ValidationOptions';
 import { ValidationResult } from './ValidationResult';
 
 export class Signature implements ManifestComponent {
@@ -79,7 +79,7 @@ export class Signature implements ManifestComponent {
         return this.sourceBox;
     }
 
-    public async validate(payload: Uint8Array, validationOptions?: ValidationOptions): Promise<ValidationResult> {
+    public async validate(payload: Uint8Array, validationOptions?: CawgValidationOptions): Promise<ValidationResult> {
         try {
             return await this.signatureData.validate(payload, this.sourceBox, validationOptions);
         } catch (e) {

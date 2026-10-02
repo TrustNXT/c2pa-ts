@@ -1,11 +1,11 @@
 import { Asset } from '../asset';
-import { Signer, ValidationOptions } from '../cose';
+import { Signer } from '../cose';
 import { HashAlgorithm } from '../crypto';
 import { Crypto } from '../crypto/Crypto';
 import * as JUMBF from '../jumbf';
 import { TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
-import { ActionAssertion, Assertion, AssertionLabels, IngredientAssertion } from './assertions';
+import { ActionAssertion, Assertion, AssertionLabels, IdentityAssertion, IngredientAssertion } from './assertions';
 import { AssertionStore } from './AssertionStore';
 import { Claim } from './Claim';
 import { ManifestStore } from './ManifestStore';
@@ -23,6 +23,7 @@ import {
     ValidationStatusCode,
 } from './types';
 import { ValidationError } from './ValidationError';
+import { CawgValidationOptions } from './ValidationOptions';
 import { ValidationResult } from './ValidationResult';
 
 export class Manifest implements ManifestComponent {
@@ -250,7 +251,7 @@ export class Manifest implements ManifestComponent {
      * @param validationOptions - Validation options
      * @returns Promise resolving to ValidationResult
      */
-    public async validate(asset: Asset, validationOptions?: ValidationOptions): Promise<ValidationResult> {
+    public async validate(asset: Asset, validationOptions?: CawgValidationOptions): Promise<ValidationResult> {
         const result = new ValidationResult();
 
         if (!this.claim?.sourceBox) {
@@ -307,6 +308,9 @@ export class Manifest implements ManifestComponent {
                 result.addError(ValidationStatusCode.AssertionHashedURIMismatch, assertion.uri);
             }
         }
+
+        // Validate identity assertions
+        result.merge(await this.validateIdentityAssertions(validationOptions));
 
         // Only process asset data if everything has been validated so far
         if (!result.isValid) return result;
@@ -610,6 +614,22 @@ export class Manifest implements ManifestComponent {
                 assertionReference.uri,
                 'Standard manifest must contain either c2pa.created or c2pa.opened action',
             );
+        }
+        return result;
+    }
+
+    /**
+     * Validates identity assertions on a manifest
+     * @param validationOptions - Validation options
+     * @returns ValidationResult containing any validation errors or successes
+     */
+    private async validateIdentityAssertions(validationOptions?: CawgValidationOptions): Promise<ValidationResult> {
+        const result = new ValidationResult();
+
+        // Check for identity  assertions
+        const identityAssertions: IdentityAssertion[] = this.assertions?.getIdentityAssertions() ?? [];
+        for (const assertion of identityAssertions) {
+            result.merge(await assertion.validate(this, validationOptions?.cawg));
         }
         return result;
     }

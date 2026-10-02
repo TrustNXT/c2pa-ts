@@ -102,6 +102,22 @@ export enum VerifiedIdentityType {
 }
 
 /**
+ * Identity verification methods
+ */
+export enum VerificationMethod {
+    /** DNS record verification */
+    DnsRecord = 'cawg.dns_record',
+    /** URI file content verification */
+    UriFileVerification = 'cawg.uri_file_verification',
+    /** Email verification */
+    Email = 'cawg.email',
+    /** URI meta tag verification */
+    UriMetaTagVerification = 'cawg.uri_meta_tag_verification',
+    /** Federated login (e.g., OAuth2) */
+    FederatedLogin = 'cawg.federated_login',
+}
+
+/**
  * Identity provider details
  */
 export interface IdentityProvider {
@@ -214,14 +230,83 @@ export interface VerifiableCredential {
 export type IdentityClaimsAggregationCredential = VerifiableCredential;
 
 /**
+ * Placeholder assertion for reserving space during C2PA manifest creation
+ */
+export interface PlaceholderAssertion {
+    /** Size in bytes that the placeholder must occupy */
+    size: number;
+    /** Label for the assertion */
+    label: string;
+}
+
+/**
+ * Natural language string - can be a simple string or language map
+ */
+export type NaturalLanguageString = string | Record<string, string>;
+
+/**
+ * Trust decision outcomes
+ */
+export enum TrustDecision {
+    /** Trust relationship verified through established roots of trust */
+    Trusted = 'trusted',
+    /** No trust relationship verified, but well-formed */
+    WellFormed = 'well-formed',
+    /** Credential was revoked at the time of signing */
+    Revoked = 'revoked',
+}
+/**
  * Base type for credentialStatus (VC Data Model v2.0)
  */
 export interface CredentialStatus {
     /** URI identifying the status entry */
     id: string;
-    /** Type of status method */
+    /** Type of status method (e.g., "StatusList2021Entry") */
     type: string;
 }
+
+/**
+ * Example: StatusList2021Entry (commonly used)
+ */
+export interface StatusList2021Entry extends CredentialStatus {
+    /** Type of status list entry */
+    type: 'StatusList2021Entry';
+    /** Purpose of the status list entry */
+    statusPurpose: 'revocation' | 'suspension';
+    /** Index of the status list entry */
+    statusListIndex: string;
+    /** URL to the status list credential */
+    statusListCredential: string;
+}
+
+/**
+ * COSE header labels according RFC 8152
+ * 1  = alg
+ * 3  = content type
+ * 33 = x5chain
+ */
+export interface ProtectedHeaderMap {
+    '1': number; // alg
+    '3'?: string | number; // contentType
+    '33': Uint8Array | Uint8Array[]; // x5chain (single cert of chain)
+    [key: string]: unknown;
+}
+
+export type DecodedCoseSign1Typing = [Uint8Array, Record<number | string, unknown>, Uint8Array | null, Uint8Array];
+export interface DecodedCoseSign1 {
+    protectedHeader: {
+        alg: number;
+        contentType?: string | number;
+        x5chain: Uint8Array | Uint8Array[];
+        [key: string]: unknown;
+    };
+    unprotectedHeader: Record<number | string, unknown>;
+    protectedHeaderBytes: Uint8Array;
+    payload: Uint8Array | null;
+    signature: Uint8Array;
+}
+
+export type DIDPublicKey = JsonWebKey | string;
 
 /**
  * W3C Verifiable Credentials contexts
@@ -249,4 +334,27 @@ export const VC_TYPE = {
 export const SCHEMA_URL = {
     VC1_1: 'https://cawg.io/identity/1.1/ica/schema/vc1.1/',
     VC2_0: 'https://cawg.io/identity/1.1/ica/schema/vc2.0/',
+} as const;
+
+/**
+ * Supported DID methods
+ */
+export const SUPPORTED_DID_METHODS = ['did:web', 'did:key', 'did:jwk'] as const;
+
+/**
+ * Supported DID verification methods
+ */
+export const SUPPORTED_VERIFICATION_METHODS = ['JsonWebKey', 'JsonWebKey2020', 'Ed25519VerificationKey2018'] as const;
+
+/**
+ * Supported COSE algorithms for ICA
+ */
+export const SUPPORTED_COSE_ALGORITHMS = {
+    ES256: -7, // ECDSA with SHA-256
+    ES384: -35, // ECDSA with SHA-384
+    ES512: -36, // ECDSA with SHA-512
+    PS256: -37, // RSASSA-PSS with SHA-256
+    PS384: -38, // RSASSA-PSS with SHA-384
+    PS512: -39, // RSASSA-PSS with SHA-512
+    EdDSA: -8, // EdDSA (Ed25519 only)
 } as const;

@@ -1,9 +1,9 @@
-import { NamedActorRole, SignatureType, VerifiedIdentity } from '../cawg';
-import { privateJwkToPublicJwk } from '../cawg/utils';
-import { CoseAlgorithmIdentifier } from '../cose/Algorithms';
+import { CoseAlgorithmIdentifier } from '../cose';
 import { Crypto, ECDSASigningAlgorithm, Ed25519SigningAlgorithm, RSASigningAlgorithm } from '../crypto';
-import { BinaryHelper } from '../util/BinaryHelper';
+import { BinaryHelper } from '../util';
 import { IdentitySigner } from './identity-signer';
+import { NamedActorRole, SignatureType, VerifiedIdentity } from './types';
+import { privateJwkToPublicJwk } from './utils';
 
 export interface LocalIdentitySignerOptions {
     readonly verifiedIdentity: VerifiedIdentity | VerifiedIdentity[];
