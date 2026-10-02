@@ -128,4 +128,66 @@ export class BinaryHelper {
         view.setUint8(offset + 2, (value >> 7) & 0x7f);
         view.setUint8(offset + 3, value & 0x7f);
     }
+
+    /**
+     * Convert CBOR byte strings to base64 for JSON representation
+     * @param bytes The byte array to convert
+     * @returns The base64 encoded string
+     */
+    public static bytesToBase64(bytes: Uint8Array): string {
+        const bufferCtor = (globalThis as { Buffer?: typeof Buffer }).Buffer;
+        if (bufferCtor?.from) {
+            return bufferCtor.from(bytes).toString('base64');
+        }
+        if (typeof globalThis.btoa === 'function') {
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return globalThis.btoa(binary);
+        }
+        throw new Error('No base64 encoder available in this runtime');
+    }
+
+    /**
+     * Convert base64 string to byte array
+     * @param base64 The base64 encoded string or byte array
+     * @returns The decoded byte array
+     */
+    public static base64ToBytes(base64: string | Uint8Array | number[]): Uint8Array {
+        // If input is already a number array, convert directly to Uint8Array
+        let base64String: string;
+        if (Array.isArray(base64)) {
+            base64String = new TextDecoder().decode(new Uint8Array(base64));
+        } else if (base64 instanceof Uint8Array) {
+            base64String = new TextDecoder().decode(base64);
+        } else {
+            base64String = base64;
+        }
+
+        const bufferCtor = (globalThis as { Buffer?: typeof Buffer }).Buffer;
+        if (bufferCtor?.from) {
+            return new Uint8Array(bufferCtor.from(base64String, 'base64'));
+        }
+
+        if (typeof globalThis.atob === 'function') {
+            const binary = globalThis.atob(base64String);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        throw new Error('No base64 decoder available in this runtime');
+    }
+
+    /**
+     * Convert byte array to base64url string
+     * @param bytes The byte array to convert
+     * @returns The base64url encoded string
+     */
+    public static bytesToBase64Url(bytes: Uint8Array): string {
+        return BinaryHelper.bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
 }

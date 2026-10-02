@@ -6,5 +6,6 @@ export * from './Signature';
 export * from './ValidationError';
 export * from './ValidationResult';
 export * from './types';
+export * from './ValidationOptions';
 
 export * from './assertions';

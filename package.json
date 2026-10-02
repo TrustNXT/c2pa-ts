@@ -21,6 +21,10 @@
       "types": "./dist/asset/index.d.ts",
       "import": "./dist/asset/index.js"
     },
+    "./cawg": {
+      "types": "./dist/cawg/index.d.ts",
+      "import": "./dist/cawg/index.js"
+    },
     "./cose": {
       "types": "./dist/cose/index.d.ts",
       "import": "./dist/cose/index.js"
@@ -76,10 +80,13 @@
     "@peculiar/x509": "^2.0.0",
     "cbor-x": "^1.6.0",
     "crc-32": "^1.2.2",
+    "did-resolver": "^4.1.0",
+    "key-did-resolver": "^4.0.0",
     "pkijs": "^3.2.4",
     "schema-dts": "^2.0.0",
     "typed-binary": "^4.1.1",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "web-did-resolver": "^2.0.32"
   },
   "scripts": {
     "lint": "eslint src tests",

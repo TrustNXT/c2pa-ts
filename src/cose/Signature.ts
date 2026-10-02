@@ -15,12 +15,13 @@ import * as pkijs from 'pkijs';
 import { Crypto } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { CBORBox } from '../jumbf';
-import { ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
+import { CawgValidationOptions, ValidationError, ValidationResult, ValidationStatusCode } from '../manifest';
 import { Timestamp, TimestampProvider } from '../rfc3161';
 import { BinaryHelper, MalformedContentError } from '../util';
 import { Algorithms, CoseAlgorithm } from './Algorithms';
 import { Signer } from './Signer';
 import { SigStructure } from './SigStructure';
+import { TrustList } from './TrustList';
 import {
     AdditionalEKU,
     CoseSignature,
@@ -41,6 +42,7 @@ export class Signature {
     public paddingLength = 0;
 
     private validatedTimestamp: Date | undefined;
+
     /**
      * Gets the validated timestamp or falls back to unverified timestamp
      * @returns Date object representing the timestamp, or undefined if no timestamp exists
@@ -101,6 +103,8 @@ export class Signature {
                 signature.chainCertificates = x5chain
                     .slice(1)
                     .map(c => new X509Certificate(c as Uint8Array<ArrayBuffer>));
+            } else {
+                signature.chainCertificates = [];
             }
         } catch {
             throw new MalformedContentError('Malformed credentials');
@@ -239,6 +243,7 @@ export class Signature {
         v1Payload: Uint8Array,
         v2Payload: Uint8Array,
         sourceBox?: JUMBF.IBox,
+        validationOptions?: CawgValidationOptions,
     ): Promise<ValidationResult> {
         this.validatedTimestamp = undefined;
 
@@ -247,9 +252,18 @@ export class Signature {
 
         // Validate single timestamp requirement per spec v2.1
         if (this.timestampTokens.length > 1) {
-            result.addError(ValidationStatusCode.TimeStampMalformed, sourceBox, 'Multiple timestamps are not allowed');
+            result.addInformational(
+                ValidationStatusCode.TimeStampMalformed,
+                sourceBox,
+                'Multiple timestamps are not allowed',
+            );
             return result;
         }
+
+        const timestampTrustAnchors =
+            validationOptions?.timestampTrustAnchors ?
+                TrustList.parseTrustAnchors(validationOptions.timestampTrustAnchors)
+            :   TrustList.timestampTrustAnchors;
 
         for (const timestamp of this.timestampTokens) {
             if (
@@ -266,24 +280,12 @@ export class Signature {
 
                 const hashAlgorithm = Crypto.getHashAlgorithmByOID(tstInfo.messageImprint.hashAlgorithm.algorithmId);
                 if (!hashAlgorithm) {
-                    result.addError(
+                    result.addInformational(
                         ValidationStatusCode.AlgorithmUnsupported,
                         sourceBox,
                         'Unsupported timestamp hash algorithm',
                     );
                     continue;
-                }
-
-                // Validate timestamp falls within signer validity
-                if (this.certificate) {
-                    if (tstInfo.genTime < this.certificate.notBefore || tstInfo.genTime > this.certificate.notAfter) {
-                        result.addError(
-                            ValidationStatusCode.TimeStampOutsideValidity,
-                            sourceBox,
-                            'Timestamp outside signer certificate validity period',
-                        );
-                        continue;
-                    }
                 }
 
                 const toBeSigned = new SigStructure(
@@ -298,31 +300,50 @@ export class Signature {
                         new Uint8Array(tstInfo.messageImprint.hashedMessage.getValue()),
                     )
                 ) {
-                    result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
+                    result.addInformational(ValidationStatusCode.TimeStampMismatch, sourceBox);
                     continue;
                 }
 
-                if (!(await this.verifySignedDataSignature(signedData))) {
-                    result.addError(ValidationStatusCode.TimeStampMismatch, sourceBox);
+                if (!(await Signature.verifySignedDataSignature(signedData))) {
+                    result.addInformational(ValidationStatusCode.TimeStampMismatch, sourceBox);
                     continue;
                 }
 
-                // Validate TSA certificates
-                for (const cert of signedData.certificates ?? []) {
-                    if (!(cert instanceof pkijs.Certificate)) continue;
-                    const x509Cert = new X509Certificate(cert.toSchema().toBER());
-                    const certValidation = Signature.validateCertificate(x509Cert, tstInfo.genTime, false);
-                    if (certValidation !== ValidationStatusCode.SigningCredentialTrusted) {
-                        result.addError(ValidationStatusCode.TimeStampUntrusted, sourceBox);
-                        continue;
-                    }
+                const trust = await this.validateTimestampSignerTrust(
+                    signedData,
+                    tstInfo.genTime,
+                    timestampTrustAnchors,
+                );
+                if (trust === ValidationStatusCode.TimeStampOutsideValidity) {
+                    result.addInformational(
+                        trust,
+                        sourceBox,
+                        "The signed time-stamp attribute in the signature was created outside the validity period of the TSA's certificate.",
+                    );
+                    continue;
+                }
+                if (trust === ValidationStatusCode.TimeStampUntrusted) {
+                    result.addInformational(trust, sourceBox);
+                    continue;
                 }
 
                 this.validatedTimestamp = tstInfo.genTime;
-                result.addInformational(ValidationStatusCode.TimeStampTrusted, sourceBox);
+                result.addInformational(trust, sourceBox);
+
+                // The trusted time must fall within the signing credential's validity period (spec 15.8)
+                if (
+                    this.certificate &&
+                    (tstInfo.genTime <= this.certificate.notBefore || tstInfo.genTime >= this.certificate.notAfter)
+                ) {
+                    result.addError(
+                        ValidationStatusCode.ClaimSignatureOutsideValidity,
+                        sourceBox,
+                        'The claim signature referenced in the claim was created outside the validity period of the signing credential.',
+                    );
+                }
                 break;
             } catch {
-                result.addError(ValidationStatusCode.TimeStampMalformed, sourceBox);
+                result.addInformational(ValidationStatusCode.TimeStampMalformed, sourceBox);
                 continue;
             }
         }
@@ -330,22 +351,12 @@ export class Signature {
         return result;
     }
 
-    private async verifySignedDataSignature(signedData: pkijs.SignedData): Promise<boolean> {
-        if (!signedData.signerInfos.length) return false;
-        const signerInfo = signedData.signerInfos[0];
-
-        // Find the certificate referenced by sid
-        let certificate = signedData.certificates?.[0];
-        if (signerInfo.sid instanceof pkijs.IssuerAndSerialNumber) {
-            const sid = signerInfo.sid;
-            certificate = signedData.certificates?.find(
-                cert =>
-                    cert instanceof pkijs.Certificate &&
-                    cert.issuer.isEqual(sid.issuer) &&
-                    cert.serialNumber.isEqual(sid.serialNumber),
-            );
-        }
+    /** @internal */
+    public static async verifySignedDataSignature(signedData: pkijs.SignedData): Promise<boolean> {
+        const certificate = Signature.getSignedDataSignerCertificate(signedData);
         if (!(certificate instanceof pkijs.Certificate)) return false;
+
+        const signerInfo = signedData.signerInfos[0];
 
         const signerHashAlgorithm = Crypto.getHashAlgorithmByOID(signerInfo.digestAlgorithm.algorithmId);
         if (!signerHashAlgorithm) return false;
@@ -395,6 +406,68 @@ export class Signature {
             new Uint8Array(certificate.subjectPublicKeyInfo.toSchema().toBER()),
             signingAlgorithm,
         );
+    }
+
+    private static getSignedDataSignerCertificate(signedData: pkijs.SignedData): pkijs.Certificate | undefined {
+        if (!signedData.signerInfos.length) return undefined;
+
+        const signerInfo = signedData.signerInfos[0];
+        const certificates = (signedData.certificates ?? []).filter(
+            (cert): cert is pkijs.Certificate => cert instanceof pkijs.Certificate,
+        );
+        let certificate: pkijs.Certificate | undefined = certificates[0];
+
+        if (signerInfo.sid instanceof pkijs.IssuerAndSerialNumber) {
+            const sid = signerInfo.sid;
+            certificate = certificates.find(
+                cert => cert.issuer.isEqual(sid.issuer) && cert.serialNumber.isEqual(sid.serialNumber),
+            );
+        }
+
+        return certificate instanceof pkijs.Certificate ? certificate : undefined;
+    }
+
+    private async validateTimestampSignerTrust(
+        signedData: pkijs.SignedData,
+        timestamp: Date,
+        timestampTrustAnchors: X509Certificate[],
+    ): Promise<
+        | ValidationStatusCode.TimeStampOutsideValidity
+        | ValidationStatusCode.TimeStampUntrusted
+        | ValidationStatusCode.TimeStampTrusted
+    > {
+        const signerCertificate = Signature.getSignedDataSignerCertificate(signedData);
+        if (!signerCertificate) {
+            return ValidationStatusCode.TimeStampUntrusted;
+        }
+
+        const signerX509Certificate = new X509Certificate(signerCertificate.toSchema().toBER());
+
+        if (timestamp <= signerX509Certificate.notBefore || timestamp >= signerX509Certificate.notAfter) {
+            return ValidationStatusCode.TimeStampOutsideValidity;
+        }
+
+        const signerCertificateValidation = Signature.validateCertificate(signerX509Certificate, timestamp, false);
+        if (signerCertificateValidation !== ValidationStatusCode.SigningCredentialTrusted) {
+            return ValidationStatusCode.TimeStampUntrusted;
+        }
+
+        const intermediateCertificates = (signedData.certificates ?? [])
+            .filter(
+                (cert): cert is pkijs.Certificate => cert instanceof pkijs.Certificate && cert !== signerCertificate,
+            )
+            .map(cert => new X509Certificate(cert.toSchema().toBER()));
+
+        const chainValidation = await this.validateChain(
+            signerX509Certificate,
+            timestamp,
+            intermediateCertificates,
+            timestampTrustAnchors,
+        );
+
+        return chainValidation === ValidationStatusCode.SigningCredentialTrusted ?
+                ValidationStatusCode.TimeStampTrusted
+            :   ValidationStatusCode.TimeStampUntrusted;
     }
 
     private getTimestampWithoutVerification(): Date | undefined {
@@ -464,24 +537,37 @@ export class Signature {
      * Validates the signature against a payload
      * @param payload - The payload to validate against
      * @param sourceBox - Optional JUMBF box for error context
+     * @param validationOptions - Optional validation options including trust anchors
      * @returns Promise resolving to ValidationResult
      */
-    public async validate(payload: Uint8Array, sourceBox?: JUMBF.IBox): Promise<ValidationResult> {
+    public async validate(
+        payload: Uint8Array,
+        sourceBox?: JUMBF.IBox,
+        validationOptions?: CawgValidationOptions,
+    ): Promise<ValidationResult> {
         if (!this.certificate || !this.rawProtectedBucket || !this.signature || !this.algorithm) {
             return ValidationResult.error(ValidationStatusCode.SigningCredentialInvalid, sourceBox);
         }
 
         const result = new ValidationResult();
 
-        result.merge(await this.validateTimestamp(payload, CBORBox.encoder.encode(this.signature), sourceBox));
+        result.merge(
+            await this.validateTimestamp(payload, CBORBox.encoder.encode(this.signature), sourceBox, validationOptions),
+        );
+        if (result.statusEntries.some(e => e.code === ValidationStatusCode.ClaimSignatureOutsideValidity)) {
+            return result;
+        }
         const timestamp = this.validatedTimestamp ?? new Date();
+
+        // Parse trust anchors from options or fall back to global TrustList for backwards compatibility
+        const trustAnchors =
+            validationOptions?.trustAnchors ?
+                TrustList.parseTrustAnchors(validationOptions.trustAnchors)
+            :   TrustList.trustAnchors;
 
         let code = Signature.validateCertificate(this.certificate, timestamp, true);
         if (code === ValidationStatusCode.SigningCredentialTrusted) {
-            for (const chainCertificate of this.chainCertificates) {
-                code = Signature.validateCertificate(chainCertificate, timestamp, false);
-                if (code !== ValidationStatusCode.SigningCredentialTrusted) break;
-            }
+            code = await this.validateChain(this.certificate, timestamp, this.chainCertificates, trustAnchors);
         }
         if (code === ValidationStatusCode.SigningCredentialTrusted) result.addInformational(code, sourceBox);
         else result.addError(code, sourceBox);
@@ -508,13 +594,12 @@ export class Signature {
         return result;
     }
 
-    private static validateCertificate(
+    /** @internal */
+    public static validateCertificate(
         certificate: X509Certificate,
         validityTimestamp: Date,
         isUsedForManifestSigning: boolean,
     ): ValidationStatusCode {
-        // TODO Actually verify the certificate chain
-
         const rawCertificate = AsnConvert.parse(certificate.rawData, ASN1Certificate).tbsCertificate;
 
         // TODO verify OCSP
@@ -534,12 +619,12 @@ export class Signature {
         }
 
         // Check key usage extensions
-        const keyUsageError = this.validateCertificateKeyUsage(certificate, isUsedForManifestSigning);
+        const keyUsageError = Signature.validateCertificateKeyUsage(certificate, isUsedForManifestSigning);
         if (keyUsageError) return keyUsageError;
 
         if (isUsedForManifestSigning) {
             // Check for allowed signature algorithm
-            const algorithmError = this.validateCertificateAlgorithm(certificate);
+            const algorithmError = Signature.validateCertificateAlgorithm(certificate);
             if (algorithmError) return algorithmError;
         }
 
@@ -648,5 +733,138 @@ export class Signature {
         // creation/validation as there aren't any matching allowed COSE algorithms
 
         return undefined;
+    }
+
+    private static keyIdsMatch(cert: X509Certificate, issuer: X509Certificate): boolean {
+        const aki = cert.getExtension(AuthorityKeyIdentifierExtension)?.keyId;
+        const ski = issuer.getExtension(SubjectKeyIdentifierExtension)?.keyId;
+        if (!aki || !ski) return false;
+
+        const normalizeHex = (value: string): string => value.replace(/^0x/i, '').toLowerCase();
+
+        return normalizeHex(aki) === normalizeHex(ski);
+    }
+
+    private static canIssueCertificates(issuer: X509Certificate, intermediatesBelow: number): boolean {
+        const basicConstraints = issuer.getExtension(BasicConstraintsExtension);
+        const keyUsages = issuer.getExtension(KeyUsagesExtension);
+
+        if (!basicConstraints?.ca) return false;
+        if (!keyUsages || !(keyUsages.usages & KeyUsageFlags.keyCertSign)) return false;
+
+        return basicConstraints.pathLength === undefined || intermediatesBelow <= basicConstraints.pathLength;
+    }
+
+    private static async verifySignature(cert: X509Certificate, issuer: X509Certificate): Promise<boolean> {
+        try {
+            return await cert.verify({
+                publicKey: issuer.publicKey,
+                signatureOnly: true,
+            });
+        } catch {
+            // Handle RangeError or other errors during signature verification
+            // This can occur with malformed ECDSA signatures
+            return false;
+        }
+    }
+
+    /**
+     * Validates a certificate chain from a leaf certificate to a trusted root.
+     * Traverses the certificate chain by finding issuers in the intermediates list,
+     * validating each certificate's signature and timestamp. Returns a status indicating
+     * whether the chain terminates in a trusted root certificate.
+     * @param leaf - The leaf certificate to validate
+     * @param timestamp - The timestamp to validate certificates against
+     * @param intermediates - Array of intermediate certificates to use for chain building
+     * @param trustedRoots - Array of trusted root certificates
+     * @returns Promise resolving to a ValidationStatusCode indicating if the chain is trusted
+     * @throws Does not throw; errors are returned as validation status codes
+     */
+    private async validateChain(
+        leaf: X509Certificate,
+        timestamp: Date,
+        intermediates: X509Certificate[],
+        trustedRoots: X509Certificate[],
+    ): Promise<ValidationStatusCode> {
+        let current = leaf;
+        const seen = new Set<X509Certificate>();
+
+        while (true) {
+            // Check if current certificate is directly trusted
+            const currentRawData = new Uint8Array(current.rawData);
+            const found = trustedRoots.some(root =>
+                BinaryHelper.bufEqual(new Uint8Array(root.rawData), currentRawData),
+            );
+            if (found) {
+                return ValidationStatusCode.SigningCredentialTrusted;
+            }
+
+            // Only verify signatures against roots whose key identifier matches; without an AKI key id, try all roots
+            const hasAuthorityKeyId = !!current.getExtension(AuthorityKeyIdentifierExtension)?.keyId;
+            const candidateRoots =
+                hasAuthorityKeyId ? trustedRoots.filter(root => Signature.keyIdsMatch(current, root)) : trustedRoots;
+            for (const trustedRoot of candidateRoots) {
+                if (await this.validateChainCertificate(current, trustedRoot, timestamp, seen.size)) {
+                    return ValidationStatusCode.SigningCredentialTrusted;
+                }
+            }
+
+            // Search issuer in intermediates
+            const issuer = (intermediates || []).find(intermediate => {
+                return Signature.keyIdsMatch(current, intermediate);
+            });
+
+            if (!issuer) {
+                return ValidationStatusCode.SigningCredentialUntrusted;
+            }
+
+            // Signature check and validate certificate and timestamp for the issuer
+            if (!(await this.validateChainCertificate(current, issuer, timestamp, seen.size))) {
+                return ValidationStatusCode.SigningCredentialUntrusted;
+            }
+
+            // Loop detection
+            if (seen.has(issuer)) {
+                return ValidationStatusCode.SigningCredentialUntrusted;
+            }
+            seen.add(issuer);
+            current = issuer;
+        }
+    }
+
+    /**
+     * Validates a single link in a certificate chain.
+     * @param current - The current certificate in the chain to be validated
+     * @param issuer - The issuer certificate used to verify the current certificate's signature
+     * @param timestamp - The timestamp at which the certificate should be valid
+     * @param intermediatesBelow - Number of intermediate CA certificates between `current` and the leaf
+     * @returns A promise that resolves to `true` if all of the following hold, `false` otherwise:
+     * 1. The issuer is a CA (basicConstraints cA, keyCertSign) and `intermediatesBelow` respects its pathLenConstraint
+     * 2. The current certificate is properly signed by the issuer certificate
+     * 3. The issuer certificate is valid at the given timestamp
+     */
+    private async validateChainCertificate(
+        current: X509Certificate,
+        issuer: X509Certificate,
+        timestamp: Date,
+        intermediatesBelow: number,
+    ): Promise<boolean> {
+        if (!Signature.canIssueCertificates(issuer, intermediatesBelow)) {
+            return false;
+        }
+
+        // Signature check
+        const verifySignature = await Signature.verifySignature(current, issuer);
+        if (!verifySignature) {
+            return false;
+        }
+
+        // Validate certificate and timestamp for the issuer
+        const validateCertificate = Signature.validateCertificate(issuer, timestamp, false);
+        if (validateCertificate !== ValidationStatusCode.SigningCredentialTrusted) {
+            return false;
+        }
+
+        return true;
     }
 }

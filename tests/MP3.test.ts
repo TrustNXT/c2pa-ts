@@ -156,7 +156,7 @@ describe('MP3 Signing Tests', function () {
             });
 
             it('read and verify the MP3 with manifest', async function () {
-                if (!manifest) return;
+                if (!manifest) assert.fail('Manifest is not available');
 
                 // load the file into a buffer
                 const buf = await fsPromises.readFile(targetFile).catch(() => undefined);

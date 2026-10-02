@@ -7,6 +7,7 @@ import { Manifest } from './Manifest';
 import * as raw from './rawTypes';
 import { ClaimVersion, ValidationStatusCode } from './types';
 import { ValidationError } from './ValidationError';
+import { CawgValidationOptions } from './ValidationOptions';
 import { ValidationResult } from './ValidationResult';
 
 export class ManifestStore {
@@ -130,11 +131,13 @@ export class ManifestStore {
     /**
      * Validates the active manifest
      * @param asset Asset for validation of bindings
+     * // TODO: Consider moving the options to a service instead of passing through the manifest store and manifest layers
+     * @param validationOptions Validation options for C2PA and CAWG
      */
-    public async validate(asset: Asset): Promise<ValidationResult> {
+    public async validate(asset: Asset, validationOptions?: CawgValidationOptions): Promise<ValidationResult> {
         const activeManifest = this.getActiveManifest();
         if (activeManifest) {
-            return activeManifest.validate(asset);
+            return activeManifest.validate(asset, validationOptions);
         } else {
             return ValidationResult.error(ValidationStatusCode.ClaimCBORInvalid, this.sourceBox);
         }
