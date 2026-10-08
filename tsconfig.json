@@ -113,8 +113,5 @@
   "exclude": [
     "dist",
     "node_modules"
-  ],
-  "ts-node": {
-    "esm": true
-  }
+  ]
 }

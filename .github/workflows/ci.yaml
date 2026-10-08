@@ -84,10 +84,9 @@ jobs:
       - name: Run Tests
         run: bun test --reporter=junit --reporter-outfile=junit-report.xml
 
-      - name: Generate CTRF Report
-        run: bun x junit-to-ctrf junit-report.xml -o ctrf-report.json
+      - name: Publish Test Report
+        uses: ctrf-io/github-test-reporter@v1
         if: always()
-
-      - name: Generate CTRF annotations
-        run: bun x github-actions-ctrf ctrf-report.json
-        if: always()
+        with:
+          report-path: junit-report.xml
+          integrations-config: '{"junit-to-ctrf":{"enabled":true,"action":"convert"}}'
