@@ -1,5 +1,5 @@
 import { Asset } from '../asset';
-import { Signer } from '../cose';
+import { Signer, ValidationOptions } from '../cose';
 import { HashAlgorithm } from '../crypto';
 import * as JUMBF from '../jumbf';
 import { BinaryHelper } from '../util';
@@ -130,11 +130,12 @@ export class ManifestStore {
     /**
      * Validates the active manifest
      * @param asset Asset for validation of bindings
+     * @param validationOptions Optional validation options including trust anchors
      */
-    public async validate(asset: Asset): Promise<ValidationResult> {
+    public async validate(asset: Asset, validationOptions?: ValidationOptions): Promise<ValidationResult> {
         const activeManifest = this.getActiveManifest();
         if (activeManifest) {
-            return activeManifest.validate(asset);
+            return activeManifest.validate(asset, validationOptions);
         } else {
             return ValidationResult.error(ValidationStatusCode.ClaimCBORInvalid, this.sourceBox);
         }
