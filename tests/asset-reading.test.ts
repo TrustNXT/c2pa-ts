@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
-import { describe, it } from 'bun:test';
+import { beforeAll, describe, it } from 'bun:test';
 import { Asset, AssetType, BMFF, JPEG, PNG } from '../src/asset';
 import { SuperBox } from '../src/jumbf';
 import { ManifestStore, ValidationResult, ValidationStatusCode } from '../src/manifest';
 import { BinaryHelper } from '../src/util';
+import { setTimestampTrustList, setTrustList } from './utils/set-trust-list';
 
 const baseDir = 'tests/fixtures';
 
@@ -204,6 +205,11 @@ const testFiles: Record<string, TestExpectations> = {
         valid: true,
     },
 };
+
+beforeAll(async () => {
+    await setTrustList();
+    await setTimestampTrustList();
+});
 
 describe('Functional Asset Reading Tests', function () {
     for (const [filename, data] of Object.entries(testFiles)) {
